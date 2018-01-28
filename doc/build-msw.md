@@ -70,5 +70,5 @@ Build Dimecoin
 DOS prompt:
 
 	cd dimecoin
-  qmake
+	qmake
 	mingw32-make -f makefile.release
