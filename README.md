@@ -9,11 +9,11 @@ So please join us as we grow, develop, and integrate Dimecoin.
 
 Our official social media pages are as follows.
 
-<a href="https://www.twitter.com/dimecoin_">Twitter</a>
-<a href="https://www.facebook.com/dimecoincommunity">Facebook</a>
-<a href="https://www.instagram.com/dimecoin_">Instagram</a>
-<a href="https://www.linkedin.com/company/dimecoin1/">Linkedin</a>
-<a href="https://www.youtube.com/channel/UCxLM0J9cRw_124wtXIeMzNw">Linkedin</a>
+<a href="https://www.twitter.com/dimecoin_">Twitter</a> •
+<a href="https://www.facebook.com/dimecoincommunity">Facebook</a> •
+<a href="https://www.instagram.com/dimecoin_">Instagram</a> •
+<a href="https://www.linkedin.com/company/dimecoin1/">Linkedin</a> •
+<a href="https://www.youtube.com/channel/UCxLM0J9cRw_124wtXIeMzNw">YouTube</a> •
 
 ## Getting started
 The following instructions will get you a copy of the dimecoin source code up and running on your local machine for development and testing purposes. If you are only interested in getting a release of the dimecoin wallet for your system see the Releases section below
