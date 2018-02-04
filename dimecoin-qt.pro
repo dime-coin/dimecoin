@@ -30,6 +30,13 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 #    BOOST_INCLUDE_PATH, BOOST_LIB_PATH, BDB_INCLUDE_PATH,
 #    BDB_LIB_PATH, OPENSSL_INCLUDE_PATH and OPENSSL_LIB_PATH respectively
 
+###############################################
+# Uncomment to build on Ubuntu
+# ############################################
+# BOOST_LIB_PATH=/usr/local/BerkeleyDB.5.0/lib
+# BDB_INCLUDE_PATH=/usr/local/BerkeleyDB.5.0/include
+
+
 ##############################################
 # Uncomment to build on Windows
 # after adding dependent libraries in C:/deps/
