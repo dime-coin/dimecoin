@@ -49,7 +49,7 @@ nano dimecoin-qt.pro
 ```
 cd ~/dimecoin/
 qmake
-make -f Makefile.Release
+make
 ```
 
 ## Build the headless wallet (dimecoind)
