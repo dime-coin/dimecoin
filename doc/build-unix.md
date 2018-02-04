@@ -23,7 +23,7 @@ chmod 775
 you may also be required to build leveldb prior to start the wallet build
 ```
 make clean
-make leveldb.a libmemenv.a
+make libleveldb.a libmemenv.a
 ```
 
 Install required libraries
