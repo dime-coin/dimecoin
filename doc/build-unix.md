@@ -32,7 +32,7 @@ make libleveldb.a libmemenv.a
 
 Install required libraries
 ```
-sudo apt-get install libssl-dev libboost-dev libminiupnpc-dev libqt4-dev
+sudo apt-get install libssl-dev libminiupnpc-dev libqt4-dev libboost-all-dev
 ```
 Download and build BerkeleyDB 5.0.32.NC
 ```
