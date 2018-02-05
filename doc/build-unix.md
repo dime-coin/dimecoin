@@ -62,6 +62,12 @@ make
 ```
 
 ## Build the headless wallet (dimecoind)
+To export BDB anvironment variables to customize the location of BDB. If you used the same BDB version mentioned above, the type the following:
+```
+export BDB_INCLUDE_PATH=/usr/local/BerkeleyDB.5.0/include
+export BDB_LIB_PATH=/usr/local/BerkeleyDB.5.0/lib
+```
+then start the build process:
 ```
 cd ~/dimecoin/src
 make -f dimecoin.unix
