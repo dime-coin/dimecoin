@@ -43,6 +43,7 @@ cd db-5.0.32.NC/build_unix/
 ../dist/configure --enable-cxx --disable-shared 
 sudo make install
 ```
+## Build the qt wallet application (dimecoin-qt)
 Update dimecoin-qt.pro with the correct include and lib paths for BDB
 ```
 cd ~/dimecoin/
@@ -53,8 +54,7 @@ if you built the same version of BDB as above, just uncomment the following line
 BOOST_LIB_PATH=/usr/local/BerkeleyDB.5.0/lib
 BDB_INCLUDE_PATH=/usr/local/BerkeleyDB.5.0/include
 ```
-
-## Build the qt wallet application (dimecoin-qt)
+Then start the build process:
 ```
 cd ~/dimecoin/
 qmake
