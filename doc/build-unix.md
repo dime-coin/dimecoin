@@ -57,7 +57,7 @@ BDB_INCLUDE_PATH=/usr/local/BerkeleyDB.5.0/include
 Then start the build process:
 ```
 cd ~/dimecoin/
-qmake
+qmake [qmake-qt4 if you got multiple versions of QT installed]
 make
 ```
 
