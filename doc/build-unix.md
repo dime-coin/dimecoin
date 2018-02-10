@@ -1,10 +1,11 @@
 # Building on Ubuntu
 The following instructions have been tested on the following distributions:
 
-1. Ubuntu 16.04 
+1. Ubuntu 16.04 (*)
 2. Ubuntu 17.04
 3. Mint 18.3
-**Please notice**: we experienced a issue on Ubuntu 16.04, where the wallet menu bar and tray icon was not shown due to an incompatibility with Unity window manager. This is not happening on Ubuntu 17.04 where Unity was replaced by Gnome.  
+
+**(*) Please notice**: we experienced a issue on Ubuntu 16.04, where the wallet menu bar and tray icon was not shown due to an incompatibility with Unity window manager. This is not happening on Ubuntu 17.04 where Unity was replaced by Gnome.  
 
 ## Get the building environment ready
 
