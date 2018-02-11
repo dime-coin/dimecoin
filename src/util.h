@@ -36,7 +36,7 @@ typedef unsigned long long  uint64;
 static const int64 COIN = 100000;
 static const int64 CENT = COIN / 100;
 
-#define loop                for (;;)
+#define LOOP                for (;;)
 #define BEGIN(a)            ((char*)&(a))
 #define END(a)              ((char*)&((&(a))[1]))
 #define UBEGIN(a)           ((unsigned char*)&(a))

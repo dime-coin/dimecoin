@@ -33,8 +33,8 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 ###############################################
 # Uncomment to build on Ubuntu
 # ############################################
-# BOOST_LIB_PATH=/usr/local/BerkeleyDB.5.0/lib
-# BDB_INCLUDE_PATH=/usr/local/BerkeleyDB.5.0/include
+ BOOST_LIB_PATH=/usr/local/BerkeleyDB.5.0/lib
+ BDB_INCLUDE_PATH=/usr/local/BerkeleyDB.5.0/include
 
 
 ##############################################

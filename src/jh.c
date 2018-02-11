@@ -735,7 +735,7 @@ static const sph_u32 IV512[] = {
 
 /*
  * The "small footprint" 64-bit version just uses a partially unrolled
- * loop.
+ * LOOP.
  */
 
 #define E8   do { \
@@ -867,7 +867,7 @@ static const sph_u32 IV512[] = {
 
 /*
  * We are not aiming at a small footprint, but we are still using a
- * 32-bit implementation. Full loop unrolling would smash the L1
+ * 32-bit implementation. Full LOOP unrolling would smash the L1
  * cache on some "big" architectures (32 kB L1 cache).
  */
 

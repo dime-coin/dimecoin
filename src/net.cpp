@@ -136,7 +136,7 @@ CAddress GetLocalAddress(const CNetAddr *paddrPeer)
 bool RecvLine(SOCKET hSocket, string& strLine)
 {
     strLine = "";
-    loop
+    LOOP
     {
         char c;
         int nBytes = recv(hSocket, &c, 1, 0);
@@ -308,7 +308,7 @@ bool GetMyExternalIP2(const CService& addrConnect, const char* pszGet, const cha
     {
         if (strLine.empty()) // HTTP response is separated from headers by blank line
         {
-            loop
+            LOOP
             {
                 if (!RecvLine(hSocket, strLine))
                 {
@@ -751,7 +751,7 @@ static list<CNode*> vNodesDisconnected;
 void ThreadSocketHandler()
 {
     unsigned int nPrevNodeCount = 0;
-    loop
+    LOOP
     {
         //
         // Disconnect nodes
@@ -1115,7 +1115,7 @@ void ThreadMapPort()
         string strDesc = "Bitcoin " + FormatFullVersion();
 
         try {
-            loop {
+            LOOP {
 #ifndef UPNPDISCOVER_SUCCESS
                 /* miniupnpc 1.5 */
                 r = UPNP_AddPortMapping(urls.controlURL, data.first.servicetype,
@@ -1306,7 +1306,7 @@ void ThreadOpenConnections()
 
     // Initiate network connections
     int64 nStart = GetTime();
-    loop
+    LOOP
     {
         ProcessOneShot();
 
@@ -1357,7 +1357,7 @@ void ThreadOpenConnections()
         int64 nANow = GetAdjustedTime();
 
         int nTries = 0;
-        loop
+        LOOP
         {
             // use an nUnkBias between 10 (no outgoing connections) and 90 (8 outgoing connections)
             CAddress addr = addrman.Select(10 + min(nOutbound,8)*10);
@@ -1367,7 +1367,7 @@ void ThreadOpenConnections()
                 break;
 
             // If we didn't find an appropriate destination after trying 100 addresses fetched from addrman,
-            // stop this loop, and let the outer loop run again (which sleeps, adds seed nodes, recalculates
+            // stop this LOOP, and let the outer LOOP run again (which sleeps, adds seed nodes, recalculates
             // already-connected network ranges, ...) before trying new addrman addresses.
             nTries++;
             if (nTries > 100)

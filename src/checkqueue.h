@@ -67,7 +67,7 @@ private:
         do {
             {
                 boost::unique_lock<boost::mutex> lock(mutex);
-                // first do the clean-up of the previous loop run (allowing us to do it in the same critsect)
+                // first do the clean-up of the previous LOOP run (allowing us to do it in the same critsect)
                 if (nNow) {
                     fAllOk &= fOk;
                     nTodo -= nNow;
@@ -78,7 +78,7 @@ private:
                     // first iteration
                     nTotal++;
                 }
-                // logically, the do loop starts here
+                // logically, the do LOOP starts here
                 while (queue.empty()) {
                     if ((fMaster || fQuit) && nTodo == 0) {
                         nTotal--;
