@@ -42,7 +42,7 @@ sudo apt-get install libssl-dev libminiupnpc-dev libqt4-dev libboost-all-dev
 ```
 Download and build BerkeleyDB 5.0.32.NC
 ```
-cd ~/dimecoin/
+cd ~/
 wget 'http://download.oracle.com/berkeley-db/db-5.0.32.NC.tar.gz'
 tar -xzvf db-5.0.32.NC.tar.gz
 cd db-5.0.32.NC/build_unix/
