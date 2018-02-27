@@ -2,6 +2,7 @@
 
 #include <QMenu>
 #include <QWidget>
+#include <QtMac>
 
 extern void qt_mac_set_dock_menu(QMenu*);
 
@@ -80,7 +81,7 @@ void MacDockIconHandler::setIcon(const QIcon &icon)
     else {
         QSize size = icon.actualSize(QSize(128, 128));
         QPixmap pixmap = icon.pixmap(size);
-        CGImageRef cgImage = pixmap.toMacCGImageRef();
+        CGImageRef cgImage = QtMac::toCGImageRef(pixmap);
         image = [[NSImage alloc] initWithCGImage:cgImage size:NSZeroSize];
         CFRelease(cgImage);
     }

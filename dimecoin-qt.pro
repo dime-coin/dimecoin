@@ -3,7 +3,7 @@ TARGET = Dimecoin-qt
 macx:TARGET = "Dimecoin-Qt"
 VERSION = 1.0.0
 INCLUDEPATH += src src/json src/qt
-QT += core gui network 
+QT += core gui network macextras
 DEFINES += QT_GUI BOOST_THREAD_USE_LIB BOOST_SPIRIT_THREADSAFE
 DEFINES += QT_STATIC
 CONFIG += no_include_pwd
@@ -33,10 +33,21 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 ###############################################
 # Uncomment to build on Ubuntu
 # ############################################
- BOOST_LIB_PATH=/usr/local/BerkeleyDB.5.0/lib
- BDB_INCLUDE_PATH=/usr/local/BerkeleyDB.5.0/include
+# BOOST_LIB_PATH=/usr/local/BerkeleyDB.5.0/lib
+# BDB_INCLUDE_PATH=/usr/local/BerkeleyDB.5.0/include
 
-
+###############################################
+# Uncomment to build on MacOSx
+# ############################################
+# BOOST_INCLUDE_PATH=/usr/local/Cellar/boost/1.60.0/include/
+# BOOST_LIB_PATH=/usr/local/Cellar/boost/1.60.0/lib/
+# BDB_INCLUDE_PATH=/usr/local/Cellar/berkeley-db\@4/4.8.30/include/
+# BDB_LIB_PATH=/usr/local/Cellar/berkeley-db\@4/4.8.30/lib/
+# OPENSSL_INCLUDE_PATH=/usr/local/Cellar/openssl/1.0.2n/include/
+# OPENSSL_LIB_PATH=/usr/local/Cellar/openssl/1.0.2n/lib/
+# MINIUPNPC_INCLUDE_PATH=/usr/local/Cellar/miniupnpc/2.0.20171212/include/
+# MINIUPNPC_LIB_PATH=/usr/local/Cellar/miniupnpc/2.0.20171212/lib/
+# BOOST_LIB_SUFFIX=""
 ##############################################
 # Uncomment to build on Windows
 # after adding dependent libraries in C:/deps/
@@ -71,6 +82,10 @@ contains(RELEASE, 1) {
     }
 }
 
+mac: {
+QMAKE_LFLAGS_SONAME = -Wl,-install_name
+}
+
 !win32 {
     # for extra security against potential buffer overflows: enable GCCs Stack Smashing Protection
     QMAKE_CXXFLAGS *= -fstack-protector-all
@@ -92,6 +107,7 @@ contains(USE_QRCODE, 1) {
     DEFINES += USE_QRCODE
     LIBS += -lqrencode
 }
+
 
 # use: qmake "USE_UPNP=1" ( enabled by default; default)
 #  or: qmake "USE_UPNP=0" (disabled by default)
@@ -446,6 +462,8 @@ win32:!contains(MINGW_THREAD_BUGFIX, 0) {
 
 macx:HEADERS += src/qt/macdockiconhandler.h
 macx:OBJECTIVE_SOURCES += src/qt/macdockiconhandler.mm
+#macx:HEADERS += src/qt/macnotificationhandler.h
+#macx:OBJECTIVE_SOURCES += src/qt/macnotificationhandler.mm
 macx:LIBS += -framework Foundation -framework ApplicationServices -framework AppKit
 macx:DEFINES += MAC_OSX MSG_NOSIGNAL=0
 macx:ICON = src/qt/res/icons/bitcoin.icns
