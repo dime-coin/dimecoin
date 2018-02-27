@@ -42,7 +42,7 @@ sudo apt-get install libssl-dev libminiupnpc-dev libqt4-dev libboost-all-dev
 ```
 Download and build BerkeleyDB 5.0.32.NC
 ```
-cd ~/dimecoin/
+cd ~/
 wget 'http://download.oracle.com/berkeley-db/db-5.0.32.NC.tar.gz'
 tar -xzvf db-5.0.32.NC.tar.gz
 cd db-5.0.32.NC/build_unix/
@@ -68,7 +68,7 @@ make
 ```
 
 ## Build the headless wallet (dimecoind)
-To export BDB anvironment variables to customize the location of BDB. If you used the same BDB version mentioned above, the type the following:
+To export BDB environment variables to customize the location of BDB. If you used the same BDB version mentioned above, then type the following:
 ```
 export BDB_INCLUDE_PATH=/usr/local/BerkeleyDB.5.0/include
 export BDB_LIB_PATH=/usr/local/BerkeleyDB.5.0/lib

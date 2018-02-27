@@ -21,7 +21,7 @@ The following instructions will get you a copy of the dimecoin source code up an
 ## Releases
 
 * **Windows**: <a href="https://github.com/dime-coin/builds/blob/master/1.7.0.2/Windows/Dimecoin-Qt-1.7.0.2.rar">Release 1.7.0.2</a><br/>
-* **Linux**: Release 1.7.0.2 (coming soon)<br/>
+* **Linux**: <a href="https://github.com/dime-coin/dimecoin/releases/tag/1.7.1">Release 1.7.1</a><br/>
 * **MacOSX**: Release 1.7.0.2 (coming soon)<br/>
 
 Find all the documentation in the <a href="https://github.com/dime-coin/dimecoin/wiki">Wiki</a>
