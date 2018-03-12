@@ -13,8 +13,9 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#else
 typedef int pid_t; /* define for Windows compatibility */
+#else
+
 #endif
 #include <map>
 #include <list>
