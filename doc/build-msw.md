@@ -11,7 +11,7 @@ Choose the dual 32bit/64bit msys64_32-*.exe file to download
 Prepare environment
 -------------------
 Extract msys64_32-*.exe on c:\
-then in install directory c:\msys64, execute mingw32.exe for msys shell with path to 32bit mingw compiler or mingw64.exe for msys shel with path to 64bit compiler. We will use 32bit compiler in this guide.
+then in install directory c:\msys64, execute mingw32.exe for msys shell with path to 32bit mingw compiler or mingw64.exe for msys shell with path to 64bit compiler. We will use 32bit compiler in this guide.
 
 In MSYS launched from Mingw32.exe for the first time, we need to download up to date packages :
 
@@ -138,7 +138,14 @@ Then build leveldb, in MSYS shell executed from Mingw32.exe:
 
 then from Mingw32 Msys shell :
 
+	export PATH=/mingw32/qt5-static/bin/:$PATH
+
 	cd /c/dimecoin
 	make clean
 	qmake
 	make -f Makefile.Release
+
+NOTE : instructions for compiling 64bit windows wallet are the same except that :
+- Mingw64.exe will be launched.
+- packages name that were beginning with "mingw-w64-i686-" for 32bit env, must be replaced by "mingw-w64-x86_64-" when using pacman
+- c:\msys64\win32\config64.bat must be executed before using c:\msys64\win32env.bat DOS prompt.
