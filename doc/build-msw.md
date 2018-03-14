@@ -3,16 +3,47 @@ WINDOWS dimecoin wallet build instructions
 
 Compilers Supported
 -------------------
-Use g++ 4.6 or g++ 4.9
+g++ 4.6 or g++ 4.9 were for older versions of QT.
+Since we need to compile with QT5 statically, we will use recent mingw-w64 compiler.
+Download Msys2 here : http://mamedev.org/tools/
+Choose the dual 32bit/64bit msys64_32-*.exe file to download
 
-Install QT 4.8
+Prepare environment
+-------------------
+Extract msys64_32-*.exe on c:\
+then in install directory c:\msys64, execute mingw32.exe for msys shell with path to 32bit mingw compiler or mingw64.exe for msys shel with path to 64bit compiler. We will use 32bit compiler in this guide.
+
+In MSYS launched from Mingw32.exe for the first time, we need to download up to date packages :
+
+	pacman -Sy
+	pacman --needed -S bash pacman pacman-mirrors msys2-runtime
+
+You must exit out from MSYS2-shell, restart MSYS2-shell, then run below command, to complete rest of other components update:
+
+	pacman -Su
+
+Download development packages :
+
+	pacman -S base-devel git mercurial cvs wget p7zip
+	pacman -S perl ruby python2 mingw-w64-i686-toolchain
+
+Install QT 5
 ---------------
-Install qt-win-opensource-4.8.5-mingw.exe from here http://download.qt-project.org/archive/qt/4.8/4.8.5/
+Obtain Pre-Built Qt files and Use instantly without Building/Compiling
 
+	pacman -S mingw-w64-i686-qt5-static mingw-w64-i686-jasper 
+	
+One of dimecoin’s dependencies that will not need to be compiled cause static lib package available (currently 1.0.2n) :
+
+	pacman -S mingw-w64-i686-openssl
+
+Its license:
+
+	OpenSSL        Old BSD license with the problematic advertising requirement
 
 Dependencies
 ------------
-Required libraries have been provided here: https://github.com/halfirish83/builds/tree/master/1.7.0.2/Windows/deps just download and unpack into 
+Other dependencies will directly be compiled from source and placed here :
 
 	C:\deps
 
@@ -20,65 +51,94 @@ They are already built on windows, but sourcecode is included so that you can re
 
 Their licenses:
 
-	OpenSSL        Old BSD license with the problematic advertising requirement
 	Berkeley DB    New BSD license with additional requirement that linked software must be free open source
 	Boost          MIT-like license
 	miniupnpc      New (3-clause) BSD license
 
 Versions used in this release:
 
-	OpenSSL      1.0.1j
 	Berkeley DB  5.0.32.NC
-	Boost        1.55.0
+	Boost        1.58.0
 	miniupnpc    1.9
-
-
-build OpenSSL
--------
-MSYS shell:
-
-un-tar sources with MSYS 'tar xfz' to avoid issue with symlinks (OpenSSL ticket 2377)
-change 'MAKE' env. variable from 'C:\MinGW32\bin\mingw32-make.exe' to '/c/MinGW32/bin/mingw32-make.exe'
-
-	cd c:\deps\openssl-1.0.1j
-	Configure no-shared no-dso mingw
-	make
 
 Build Berkeley DB
 -----------
-MSYS shell:
+Download Berkley DB 5.0.32 from here 
+http://download.oracle.com/berkeley-db/db-5.0.32.NC.tar.gz
+Put the archive in c:\deps.
 
-	cd c:\deps\db-5.0.32.NC\build_unix
+MSYS shell launched from Mingw32.exe:
+
+	cd /c/deps/
+	tar xvfz db-5.0.32.NC.tar.gz
+
+	cd /c/db-5.0.32.NC/build_unix
 	sh ../dist/configure --enable-mingw --enable-cxx --disable-replication
 	make
 
 Build Boost
 -----
-DOS prompt:
+Download Boost 1.58 here : https://sourceforge.net/projects/boost/files/boost/1.58.0/boost_1_58_0.tar.gz/download
+Put the archive in c:\deps
 
-	cd c:\deps\boost_1_55_0
+In Mingw32 Msys shell :
+
+	cd /c/deps
+	tar xvfz boost_1_58_0.tar.gz
+
+From DOS prompt configured for MingW (launch c:\msys64\win32env.bat) :
+
+	cd c:\deps\boost_1_58_0
 	bootstrap.bat mingw
 	b2 --build-type=complete --with-chrono --with-filesystem --with-program_options --with-system --with-thread toolset=gcc variant=release link=static threading=multi runtime-link=static stage
 
 Build MiniUPnPc
 ---------
 UPnP support is optional, make with `USE_UPNP=` to disable it.
+Download it from here http://miniupnp.free.fr/files/download.php?file=miniupnpc-1.9.tar.gz
+and place it in your deps folder, next from the msys shell unpack it like this.
 
-MSYS shell:
+	cd /c/deps/
+	tar xvfz miniupnpc-1.9.tar.gz
 
-	cd C:\deps\miniupnpc
-	mingw32-make -f Makefile.mingw init upnpc-static
+From DOS prompt configured for MingW (launch c:\msys64\win32env.bat) :
+
+	cd c:\deps\miniupnpc-1.9
+	make -f Makefile.mingw init upnpc-static
+	
+Important : then rename "miniupnpc-1.9" directory to "miniupnpc".
 
 Build Dimecoin
 -------
-First build leveldb, in MSYS shell:
+First we need to adapt c:\dimecoin\dimecoin-qt.pro file to fit dependencies compiled above.
+Comment all lines used for ubuntu compile.
+Set DEPS_PATH to fit deps directory :
 
-	cd /C/dimecoin/src/leveldb
+	DEPS_PATH = /c/deps
+	
+Adapt path of compiled dependencies under windows section :
+
+	##############################################
+	# Uncomment to build on Windows
+	# after adding dependent libraries in C:/deps/
+	##############################################
+	BOOST_LIB_SUFFIX=-mgw73-mt-s-1_58
+	BOOST_INCLUDE_PATH=$$DEPS_PATH/boost_1_58_0
+	BOOST_LIB_PATH=$$DEPS_PATH/boost_1_58_0/stage/lib
+	BDB_INCLUDE_PATH=$$DEPS_PATH/db-5.0.32.NC/build_unix
+	BDB_LIB_PATH=$$DEPS_PATH/db-5.0.32.NC/build_unix
+	MINIUPNPC_INCLUDE_PATH=$$DEPS_PATH
+	MINIUPNPC_LIB_PATH=$$DEPS_PATH/miniupnpc
+
+Then build leveldb, in MSYS shell executed from Mingw32.exe:
+
+	cd /c/dimecoin/src/leveldb
+	make clean
 	TARGET_OS=NATIVE_WINDOWS make libleveldb.a libmemenv.a
 
-then from DOS prompt:
+then from Mingw32 Msys shell :
 
-	cd dimecoin
+	cd /c/dimecoin
 	make clean
 	qmake
-	mingw32-make -f makefile.release
+	make -f Makefile.Release
