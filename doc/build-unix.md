@@ -61,7 +61,7 @@ Update dimecoin-qt.pro with the correct include and lib paths for BDB
 cd ~/dimecoin/
 nano dimecoin-qt.pro
 ```
-if you built the same version of BDB as above, just add or modify the following lines under ubuntu build section>
+if you built the same version of BDB as above, just add or modify the following lines under ubuntu build section
 ```
 ##############################################
 # Uncomment to build on Ubuntu
@@ -121,7 +121,7 @@ make
 ### Compiling Boost 1.58
 
 Download Boost 1.58 here : 
-https://sourceforge.net/projects/boost/files/boost/1.58.0/boost_1_58_0.tar.gz/download
+https://sourceforge.net/projects/boost/files/boost/1.58.0/boost_1_58_0.tar.gz/download<br>
 Put the archive in ~/deps
 
 ```
@@ -136,7 +136,7 @@ cd ~/deps/boost_1_58_0
 
 ### Compiling miniupnpc
 
-Install Miniupnpc. Download it from here http://miniupnp.free.fr/files/download.php?file=miniupnpc-1.9.tar.gz
+Install Miniupnpc. Download it from here http://miniupnp.free.fr/files/download.php?file=miniupnpc-1.9.tar.gz<br>
 and place it in your deps folder, then :
 ```
 cd ~/deps
@@ -148,7 +148,7 @@ make init upnpc-static
 
 ### Compiling OpenSSL
 
-download 1.0.2g version here : https://www.openssl.org/source/old/1.0.2/openssl-1.0.2g.tar.gz
+download 1.0.2g version here : https://www.openssl.org/source/old/1.0.2/openssl-1.0.2g.tar.gz<br>
 place archive in deps folders then :
 ```
 tar xvfz openssl-1.0.2g.tar.gz
@@ -160,7 +160,7 @@ make
 
 ### Compiling QT 5.4.2 statically
 Download QT 5.4.2 sources
-https://download.qt.io/archive/qt/5.4/5.4.2/single/qt-everywhere-opensource-src-5.4.2.tar.gz
+https://download.qt.io/archive/qt/5.4/5.4.2/single/qt-everywhere-opensource-src-5.4.2.tar.gz<br>
 Extract in deps folder
 ```
 tar xvfz qt-everywhere-opensource-src-5.4.2.tar.gz
