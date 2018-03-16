@@ -1,4 +1,4 @@
-# Building on Ubuntu
+# Building on Ubuntu with QT5
 The following instructions have been tested on the following distributions:
 
 1. Ubuntu 16.04 (*)
@@ -38,8 +38,14 @@ make libleveldb.a libmemenv.a
 
 Install required libraries
 ```
-sudo apt-get install libssl-dev libminiupnpc-dev libqt4-dev libboost-all-dev
+sudo apt-get install libssl-dev libminiupnpc-dev libboost-all-dev
 ```
+
+To build with QT5, you will need these
+```
+sudo apt-get install libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools libprotobuf-dev protobuf-compiler
+```
+
 Download and build BerkeleyDB 5.0.32.NC
 ```
 cd ~/
@@ -55,15 +61,18 @@ Update dimecoin-qt.pro with the correct include and lib paths for BDB
 cd ~/dimecoin/
 nano dimecoin-qt.pro
 ```
-if you built the same version of BDB as above, just uncomment the following lines>
+if you built the same version of BDB as above, just add or modify the following lines under ubuntu build section>
 ```
+##############################################
+# Uncomment to build on Ubuntu
+##############################################
 BOOST_LIB_PATH=/usr/local/BerkeleyDB.5.0/lib
 BDB_INCLUDE_PATH=/usr/local/BerkeleyDB.5.0/include
 ```
 Then start the build process:
 ```
 cd ~/dimecoin/
-qmake  #or use [qmake-qt4] if you got multiple versions of QT installed
+qmake
 make
 ```
 
