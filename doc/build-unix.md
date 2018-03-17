@@ -221,6 +221,7 @@ OPENSSL_INCLUDE_PATH = $$DEPS_PATH/openssl-1.0.2g/include
 ```
 After saving the .pro file :
 ```
+export PATH=$HOME/deps/Qt/5.4.2_static/bin:$PATH
 qmake
 make
 ```
