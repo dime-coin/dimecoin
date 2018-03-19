@@ -145,6 +145,7 @@ tar xvfz miniupnpc-1.9.tar.gz
 cd miniupnpc-1.9
 make init upnpc-static
 ```
+==> Important : don't forget to rename "miniupnpc-1.9" directory to "miniupnpc"
 
 ### Compiling OpenSSL
 
@@ -221,6 +222,7 @@ OPENSSL_INCLUDE_PATH = $$DEPS_PATH/openssl-1.0.2g/include
 ```
 After saving the .pro file :
 ```
+export PATH=$HOME/deps/Qt/5.4.2_static/bin:$PATH
 qmake
 make
 ```
