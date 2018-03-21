@@ -20,7 +20,11 @@ void AboutDialog::setModel(ClientModel *model)
 {
     if(model)
     {
+#if defined(__x86_64__) || defined(_M_X64)
+        ui->versionLabel->setText(model->formatFullVersion() + QString(" (64bit)"));
+#else
         ui->versionLabel->setText(model->formatFullVersion());
+#endif
     }
 }
 

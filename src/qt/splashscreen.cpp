@@ -31,7 +31,11 @@ SplashScreen::SplashScreen(const QPixmap &pixmap, Qt::WindowFlags f) :
         newPixmap     = QPixmap(":/images/splash_testnet");
     }
     else {
+#if defined(__x86_64__) || defined(_M_X64)
+        newPixmap     = QPixmap(":/images/splash64");
+#else
         newPixmap     = QPixmap(":/images/splash");
+#endif
     }
 
     QPainter pixPaint(&newPixmap);
