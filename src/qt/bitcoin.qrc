@@ -45,6 +45,7 @@
         <file alias="bkg">res/images/bkg.png</file>
         <file alias="about">res/images/about.png</file>
         <file alias="splash">res/images/splash.png</file>
+        <file alias="splash64">res/images/splash64.png</file>
         <file alias="splash_testnet">res/images/splash_testnet.png</file>
         <file alias="wallet_bgcoin">res/images/wallet_bgcoin.png</file>
     </qresource>

@@ -4,8 +4,6 @@ macx:TARGET = "Dimecoin-Qt"
 VERSION = 1.0.0
 INCLUDEPATH += src src/json src/qt
 QT += core gui network
-macx:QT += macextras
-
 DEFINES += QT_GUI BOOST_THREAD_USE_LIB BOOST_SPIRIT_THREADSAFE
 DEFINES += QT_STATIC
 CONFIG += no_include_pwd
@@ -35,34 +33,36 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 ##############################################
 # Wherever you compile the dependencies, 
 # specify the path here (linux, windows)
+# /c/deps for windows or $(HOME)/deps on linux for example
+# (not c:\deps cause msys shell is used on windows)
 # ############################################
-DEPS_PATH = /home/alex/deps
+DEPS_PATH = $(HOME)/deps
 
 ##############################################
 # Uncomment to build on Ubuntu
 # ############################################
-#MINIUPNPC_LIB_PATH = $$DEPS_PATH/miniupnpc
-#MINIUPNPC_INCLUDE_PATH = $$DEPS_PATH
-#BOOST_LIB_PATH = $$DEPS_PATH/boost_1_58_0/stage/lib
-#BOOST_INCLUDE_PATH = $$DEPS_PATH/boost_1_58_0
-#BDB_LIB_PATH = $$DEPS_PATH/db-5.0.32.NC/build_unix
-#BDB_INCLUDE_PATH = $$DEPS_PATH/db-5.0.32.NC/build_unix
-#OPENSSL_LIB_PATH = $$DEPS_PATH/openssl-1.0.2g
-#OPENSSL_INCLUDE_PATH = $$DEPS_PATH/openssl-1.0.2g/include
+MINIUPNPC_LIB_PATH = $$DEPS_PATH/miniupnpc
+MINIUPNPC_INCLUDE_PATH = $$DEPS_PATH
+BOOST_LIB_PATH = $$DEPS_PATH/boost_1_58_0/stage/lib
+BOOST_INCLUDE_PATH = $$DEPS_PATH/boost_1_58_0
+BDB_LIB_PATH = $$DEPS_PATH/db-5.0.32.NC/build_unix
+BDB_INCLUDE_PATH = $$DEPS_PATH/db-5.0.32.NC/build_unix
+OPENSSL_LIB_PATH = $$DEPS_PATH/openssl-1.0.2g
+OPENSSL_INCLUDE_PATH = $$DEPS_PATH/openssl-1.0.2g/include
 # BOOST_LIB_SUFFIX=""
 ##############################################
 # Uncomment to build on Windows
 # after adding dependent libraries in C:/deps/
 # ############################################
-BOOST_LIB_SUFFIX=-mt
-BOOST_INCLUDE_PATH=/c/deps/boost_1_58_0
-BOOST_LIB_PATH=/c/deps/boost_1_58_0/stage/lib
-BDB_INCLUDE_PATH=/c/deps/db-5.0.32.NC/build_unix
-BDB_LIB_PATH=/c/deps/db-5.0.32.NC/build_unix
+# BOOST_LIB_SUFFIX=-mgw46-mt-s-1_55
+# BOOST_INCLUDE_PATH=C:/deps/boost_1_55_0
+# BOOST_LIB_PATH=C:/deps/boost_1_55_0/stage/lib
+# BDB_INCLUDE_PATH=C:/deps/db-5.0.32.NC/build_unix
+# BDB_LIB_PATH=C:/deps/db-5.0.32.NC/build_unix
 # OPENSSL_INCLUDE_PATH=C:/deps/openssl-1.0.1j/include
 # OPENSSL_LIB_PATH=C:/deps/openssl-1.0.1j
-MINIUPNPC_INCLUDE_PATH=/c/deps
-MINIUPNPC_LIB_PATH=/c/deps/miniupnpc
+# MINIUPNPC_INCLUDE_PATH=C:/deps/
+# MINIUPNPC_LIB_PATH=C:/deps/miniupnpc
 # QRENCODE_INCLUDE_PATH=C:/deps/qrencode-3.4.4
 # QRENCODE_LIB_PATH=C:/deps/qrencode-3.4.4/.libs
 ##############################################
@@ -100,7 +100,7 @@ QMAKE_CXXFLAGS *= -D_FORTIFY_SOURCE=2
 # for extra security on Windows: enable ASLR and DEP via GCC linker flags
 #win32:QMAKE_LFLAGS *= -Wl,--dynamicbase -Wl,--nxcompat
 # on Windows: enable GCC large address aware linker flag
-#win32:QMAKE_LFLAGS *= -Wl,--large-address-aware
+win32:QMAKE_LFLAGS *= -Wl,--large-address-aware
 
 # use: qmake "USE_QRCODE=1"
 # libqrencode (http://fukuchi.org/works/qrencode/index.en.html) must be installed for support
