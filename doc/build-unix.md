@@ -85,7 +85,7 @@ export BDB_LIB_PATH=/usr/local/BerkeleyDB.5.0/lib
 then start the build process:
 ```
 cd ~/dimecoin/src
-make -f dimecoin.unix
+make -f makefile.unix
 ```
 
 # 2) Building a static QT5 binary wallet on ubuntu
