@@ -31,4 +31,7 @@ static const int MAX_URI_LENGTH = 255;
 /* QRCodeDialog -- size of exported QR Code image */
 #define EXPORT_IMAGE_SIZE 256
 
+/* DonetaDialog -- Dimecoin's address */
+#define DIMECOIN_ADDRESS "74qwyi23gq15iJvGQShbSEQ5nvvRF3mWxp"
+
 #endif // GUICONSTANTS_H
