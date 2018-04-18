@@ -91,6 +91,8 @@ public slots:
     void changePassphrase();
     /** Ask for passphrase to unlock wallet temporarily */
     void unlockWallet();
+    /** Dimecoin: Ask for and import a private key */
+    void importPrivateKey();
 
     /** Set the encryption status as shown in the UI.
      @param[in] status            current encryption status

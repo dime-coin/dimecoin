@@ -125,6 +125,11 @@ void WalletFrame::unlockWallet()
     walletStack->unlockWallet();
 }
 
+void WalletFrame::importPrivateKey()
+{
+    walletStack->importPrivateKey();
+}
+
 void WalletFrame::setEncryptionStatus()
 {
     walletStack->setEncryptionStatus();

@@ -17,6 +17,7 @@
 #include "overviewpage.h"
 #include "askpassphrasedialog.h"
 #include "ui_interface.h"
+#include "init.h" // for pwalletMain and cs_main
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -24,6 +25,8 @@
 #include <QDesktopServices>
 #include <QFileDialog>
 #include <QPushButton>
+#include <QInputDialog>
+#include <QMessageBox>
 
 WalletView::WalletView(QWidget *parent, BitcoinGUI *_gui):
     QStackedWidget(parent),
@@ -262,5 +265,85 @@ void WalletView::unlockWallet()
         AskPassphraseDialog dlg(AskPassphraseDialog::Unlock, this);
         dlg.setModel(walletModel);
         dlg.exec();
+    }
+}
+
+// Dimecoin: Helper to import a private key instead of making the user go to the debug console
+void WalletView::doRescan(CWallet *pwallet)
+{
+    pwallet->ScanForWalletTransactions(pindexGenesisBlock, true);
+    pwallet->ReacceptWalletTransactions();      
+	QMessageBox::information(0, tr("Import private key"), tr("Rescan complete."));
+}
+
+
+void WalletView::importPrivateKey()
+{
+    bool ok;
+    QString privKey = QInputDialog::getText(0, tr("Import private key"), tr("Enter a Dimecoin private key to import into your wallet."), QLineEdit::Normal, "", &ok);
+    if (ok && !privKey.isEmpty()) {
+
+        if(!walletModel) {
+            QMessageBox::critical(0, tr("Import Failed"), tr("Couldn't select valid wallet."));
+            return;
+        }
+
+        CWallet* pwallet = walletModel->GetWalletForQTKeyImport();
+
+        if(!pwallet) {
+            //gui->message(tr("Import Failed"), tr("Couldn't select valid wallet."), CClientUIInterface::MSG_ERROR);
+            QMessageBox::critical(0, tr("Import Failed"), tr("Couldn't select valid wallet."));
+            return;
+        }
+
+        LOCK2(cs_main, pwallet->cs_wallet);
+
+        WalletModel::UnlockContext ctx(walletModel->requestUnlock());
+        if(!ctx.isValid()) return; // Unlock wallet was cancelled
+            
+        CBitcoinSecret vchSecret;
+        if (!vchSecret.SetString(privKey.toStdString())) {
+            //gui->message(tr("Import Failed"), tr("This doesn't appear to be a Dimecoin private key."), CClientUIInterface::MSG_ERROR);
+            QMessageBox::critical(0, tr("Import Failed"), tr("This doesn't appear to be a Dimecoin private key."));
+            return;
+        }
+
+        CKey key;
+        bool fCompressed;
+        CSecret secret = vchSecret.GetSecret(fCompressed);
+        key.SetSecret(secret, fCompressed);
+        if (!key.IsValid()) {
+            //gui->message(tr("Import Failed"), tr("Private key outside allowed range."), CClientUIInterface::MSG_ERROR);
+            QMessageBox::critical(0, tr("Import Failed"), tr("Private key outside allowed range."));
+            return;
+        }
+
+        CKeyID vchAddress = key.GetPubKey().GetID();
+        {
+            pwallet->MarkDirty();
+            pwallet->SetAddressBookName(vchAddress, "");
+
+
+            if (!pwallet->AddKey(key)) {
+                QMessageBox::critical(0, tr("Import Failed"), tr("Error adding key to wallet."));
+                return;
+            }
+
+	
+            QMessageBox msgBox;
+            msgBox.setText(tr("Key successfully added to wallet."));
+            msgBox.setInformativeText(tr("Rescan now? (Select No if you have more keys to import)"));
+            msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+            msgBox.setDefaultButton(QMessageBox::No);
+            
+            if (msgBox.exec() == QMessageBox::Yes) {
+                //pwallet->ScanForWalletTransactions(pindexGenesisBlock, true);
+                //pwallet->ReacceptWalletTransactions();    
+                boost::thread thread_doRescan(WalletView::doRescan, pwallet);
+            }
+            
+        }
+  
+        return;
     }
 }

@@ -141,6 +141,13 @@ void WalletStack::unlockWallet()
     if (walletView) walletView->unlockWallet();
 }
 
+/* New : add possibility to import dimecoin private key more easily than in debug console */
+void WalletStack::importPrivateKey()
+{
+    WalletView *walletView = (WalletView*)currentWidget();
+    if(walletView) walletView->importPrivateKey();
+}
+
 void WalletStack::setEncryptionStatus()
 {
     WalletView *walletView = (WalletView*)currentWidget();
