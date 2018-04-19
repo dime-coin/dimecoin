@@ -379,3 +379,9 @@ void WalletModel::UnlockContext::CopyFrom(const UnlockContext& rhs)
     *this = rhs;
     rhs.relock = false;
 }
+
+//dimecoin : used for importing private key in the wallet from File menu
+CWallet *WalletModel::GetWalletForQTKeyImport()
+{
+    return wallet;
+}

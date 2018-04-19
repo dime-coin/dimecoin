@@ -55,6 +55,8 @@ public:
     AddressTableModel *getAddressTableModel();
     TransactionTableModel *getTransactionTableModel();
 
+    CWallet *WalletModel::GetWalletForQTKeyImport(); //Dimecoin : new, get proper wallet object to allow import privkey directly from File menu.
+
     qint64 getBalance() const;
     qint64 getUnconfirmedBalance() const;
     qint64 getImmatureBalance() const;

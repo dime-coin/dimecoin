@@ -12,6 +12,7 @@
 #include "transactiontablemodel.h"
 #include "optionsdialog.h"
 #include "aboutdialog.h"
+#include "donatedialog.h"
 #include "clientmodel.h"
 #include "walletmodel.h"
 #include "walletframe.h"
@@ -63,10 +64,12 @@ BitcoinGUI::BitcoinGUI(QWidget *parent) :
     aboutQtAction(0),
     trayIcon(0),
     notificator(0),
+    importPrivateKeyAction(0), //Import priv key menu
+    donateAction(0), // Dimecoin donation QR address box
     rpcConsole(0),
     prevBlocks(0)
 {
-    // setFixedSize(1087, 590);
+    resize(980, 590);
     setWindowTitle(tr("Dimecoin") + " - " + tr("Wallet"));
 	qApp->setStyleSheet("QMainWindow { border:none;font-family:'Open Sans,sans-serif'; }");
 #ifndef Q_OS_MAC
@@ -215,6 +218,11 @@ void BitcoinGUI::createActions()
     aboutAction = new QAction(QIcon(":/icons/bitcoin"), tr("&About Dimecoin"), this);
     aboutAction->setStatusTip(tr("Show information about Dimecoin"));
     aboutAction->setMenuRole(QAction::AboutRole);
+
+    //Dimecoin specific donation address window
+    donateAction = new QAction(QIcon(":/icons/donate"), tr("Donate"), this);
+    donateAction->setStatusTip(tr("Donate to Dimecoin"));
+
     aboutQtAction = new QAction(QIcon(":/trolltech/qmessagebox/images/qtlogo-64.png"), tr("About &Qt"), this);
     aboutQtAction->setStatusTip(tr("Show information about Qt"));
     aboutQtAction->setMenuRole(QAction::AboutQtRole);
@@ -239,6 +247,10 @@ void BitcoinGUI::createActions()
     openRPCConsoleAction = new QAction(QIcon(":/icons/debugwindow"), tr("&Debug window"), this);
     openRPCConsoleAction->setStatusTip(tr("Open debugging and diagnostic console"));
 
+    // New : import dimecoin private key feature
+    importPrivateKeyAction = new QAction(QIcon(":/icons/key"), tr("&Import private key..."), this);
+    importPrivateKeyAction->setStatusTip(tr("Import a Dimecoin private key"));
+
     connect(quitAction, SIGNAL(triggered()), qApp, SLOT(quit()));
     connect(aboutAction, SIGNAL(triggered()), this, SLOT(aboutClicked()));
     connect(aboutQtAction, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
@@ -249,6 +261,8 @@ void BitcoinGUI::createActions()
     connect(changePassphraseAction, SIGNAL(triggered()), walletFrame, SLOT(changePassphrase()));
     connect(signMessageAction, SIGNAL(triggered()), this, SLOT(gotoSignMessageTab()));
     connect(verifyMessageAction, SIGNAL(triggered()), this, SLOT(gotoVerifyMessageTab()));
+    connect(importPrivateKeyAction, SIGNAL(triggered()), walletFrame, SLOT(importPrivateKey()));
+    connect(donateAction, SIGNAL(triggered()), this, SLOT(donateClicked()));
 }
 
 void BitcoinGUI::createMenuBar()
@@ -267,6 +281,8 @@ void BitcoinGUI::createMenuBar()
     file->addAction(signMessageAction);
     file->addAction(verifyMessageAction);
     file->addSeparator();
+    file->addAction(importPrivateKeyAction);  //new dimecoin import priv key gui menu
+    file->addSeparator();
     file->addAction(quitAction);
 
     QMenu *settings = appMenuBar->addMenu(tr("&Settings"));
@@ -280,6 +296,8 @@ void BitcoinGUI::createMenuBar()
     help->addSeparator();
     help->addAction(aboutAction);
     help->addAction(aboutQtAction);
+    help->addSeparator();
+    help->addAction(donateAction); //New form of donation address menu
 }
 
 void BitcoinGUI::createToolBars()
@@ -450,6 +468,15 @@ void BitcoinGUI::aboutClicked()
     AboutDialog dlg;
     dlg.setModel(clientModel);
     dlg.exec();
+}
+
+void BitcoinGUI::donateClicked()
+{
+    QString DonateAddr = DIMECOIN_ADDRESS;
+    DonateDialog *dialog = new DonateDialog(DonateAddr, this);
+    //dialog->setModel(optionsModel);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
 }
 
 void BitcoinGUI::gotoOverviewPage()

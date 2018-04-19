@@ -102,6 +102,8 @@ private:
     QAction *changePassphraseAction;
     QAction *aboutQtAction;
     QAction *openRPCConsoleAction;
+    QAction *importPrivateKeyAction; //new feature for Dimecoin wallet
+    QAction *donateAction;           //dimecoin donation address with QR code if enabled
 
     QSystemTrayIcon *trayIcon;
     Notificator *notificator;
@@ -181,6 +183,8 @@ private slots:
     void optionsClicked();
     /** Show about dialog */
     void aboutClicked();
+    /** Show dimecoin'donate address dialog */
+    void donateClicked();
 #ifndef Q_OS_MAC
     /** Handle tray icon clicked */
     void trayIconActivated(QSystemTrayIcon::ActivationReason reason);

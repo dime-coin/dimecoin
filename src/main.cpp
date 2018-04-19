@@ -4695,143 +4695,143 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
     return true;
 }
 
-void static BitcoinMiner(CWallet *pwallet)
-{
-    printf("DimecoinMiner started\n");
-    SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("dimecoin-miner");
+//void static BitcoinMiner(CWallet *pwallet)
+//{
+//    printf("DimecoinMiner started\n");
+//    SetThreadPriority(THREAD_PRIORITY_LOWEST);
+//    RenameThread("dimecoin-miner");
 
-    // Each thread has its own key and counter
-    CReserveKey reservekey(pwallet);
-    unsigned int nExtraNonce = 0;
+//    // Each thread has its own key and counter
+//    CReserveKey reservekey(pwallet);
+//    unsigned int nExtraNonce = 0;
 
-    try { LOOP {
-        // disable in testing
-        while (vNodes.empty())
-            MilliSleep(1000);
-            printf("Step after sleep\n");
+//    try { LOOP {
+//        // disable in testing
+//        while (vNodes.empty())
+//            MilliSleep(1000);
+//            printf("Step after sleep\n");
 
-        //
-        // Create new block
-        //
-        unsigned int nTransactionsUpdatedLast = nTransactionsUpdated;
-        CBlockIndex* pindexPrev = pindexBest;
+//        //
+//        // Create new block
+//        //
+//        unsigned int nTransactionsUpdatedLast = nTransactionsUpdated;
+//        CBlockIndex* pindexPrev = pindexBest;
 
-        auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(reservekey));
-        if (!pblocktemplate.get())
-            return;
-        CBlock *pblock = &pblocktemplate->block;
-        IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
+//        auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(reservekey));
+//        if (!pblocktemplate.get())
+//            return;
+//        CBlock *pblock = &pblocktemplate->block;
+//        IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 
-        printf("Running DimecoinMiner with %" PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
-               ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
+//        printf("Running DimecoinMiner with %" PRIszu" transactions in block (%u bytes)\n", pblock->vtx.size(),
+//               ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
 
-        //
-        // Pre-build hash buffers
-        //
-/*
-        char pmidstatebuf[32+16]; char* pmidstate = alignup<16>(pmidstatebuf);
-        char pdatabuf[128+16];    char* pdata     = alignup<16>(pdatabuf);
-        char phash1buf[64+16];    char* phash1    = alignup<16>(phash1buf);
+//        //
+//        // Pre-build hash buffers
+//        //
+///*
+//        char pmidstatebuf[32+16]; char* pmidstate = alignup<16>(pmidstatebuf);
+//        char pdatabuf[128+16];    char* pdata     = alignup<16>(pdatabuf);
+//        char phash1buf[64+16];    char* phash1    = alignup<16>(phash1buf);
 
-        FormatHashBuffers(pblock, pmidstate, pdata, phash1);
+//        FormatHashBuffers(pblock, pmidstate, pdata, phash1);
 
-        unsigned int& nBlockTime = *(unsigned int*)(pdata + 64 + 4);
-        unsigned int& nBlockBits = *(unsigned int*)(pdata + 64 + 8);
-        unsigned int& nBlockNonce = *(unsigned int*)(pdata + 64 + 12);
+//        unsigned int& nBlockTime = *(unsigned int*)(pdata + 64 + 4);
+//        unsigned int& nBlockBits = *(unsigned int*)(pdata + 64 + 8);
+//        unsigned int& nBlockNonce = *(unsigned int*)(pdata + 64 + 12);
 
-        */
-        //
-        // Search
-        //
-/*
-        int64 nStart = GetTime();
-        uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
-        uint256 hashbuf[2];
-        uint256& hash = *alignup<16>(hashbuf);
-*/
-        uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
-        int64 nStart = GetTime();
-        uint256 hash;
-        // unsigned int nHashesDone = 0;
-        LOOP
-        {
-//            unsigned int nNonceFound;
+//*/
+//        //
+//        // Search
+//        //
+///*
+//        int64 nStart = GetTime();
+//        uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
+//        uint256 hashbuf[2];
+//        uint256& hash = *alignup<16>(hashbuf);
+//*/
+//        uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
+//        int64 nStart = GetTime();
+//        uint256 hash;
+//        // unsigned int nHashesDone = 0;
+//        LOOP
+//        {
+////            unsigned int nNonceFound;
 
-            hash = pblock->GetHash();
-            if (hash <= hashTarget){
-                // nHashesDone += pblock->nNonce;
-                SetThreadPriority(THREAD_PRIORITY_NORMAL);
+//            hash = pblock->GetHash();
+//            if (hash <= hashTarget){
+//                // nHashesDone += pblock->nNonce;
+//                SetThreadPriority(THREAD_PRIORITY_NORMAL);
 
-                printf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", hash.GetHex().c_str(), hashTarget.GetHex().c_str());
-                pblock->print();
+//                printf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", hash.GetHex().c_str(), hashTarget.GetHex().c_str());
+//                pblock->print();
 
-                CheckWork(pblock, *pwalletMain, reservekey);
-                SetThreadPriority(THREAD_PRIORITY_LOWEST);
-                break;
-            }
-            ++pblock->nNonce;
+//                CheckWork(pblock, *pwalletMain, reservekey);
+//                SetThreadPriority(THREAD_PRIORITY_LOWEST);
+//                break;
+//            }
+//            ++pblock->nNonce;
             
-            // Meter hashes/sec
-            static int64 nHashCounter;
-            if (nHPSTimerStart == 0)
-            {
-                nHPSTimerStart = GetTimeMillis();
-                nHashCounter = 0;
-            }
-            else
-                // nHashCounter += nHashesDone;
-                nHashCounter += 1;
-            if (GetTimeMillis() - nHPSTimerStart > 4000)
-            {
-                static CCriticalSection cs;
-                {
-                    LOCK(cs);
-                    if (GetTimeMillis() - nHPSTimerStart > 4000)
-                    {
-                        dHashesPerSec = 1000.0 * nHashCounter / (GetTimeMillis() - nHPSTimerStart);
-                        nHPSTimerStart = GetTimeMillis();
-                        nHashCounter = 0;
-                        //static int64 nLogTime;
-                        //if (GetTime() - nLogTime > 30 * 60)
-                        //{
-                            // nLogTime = GetTime();
-                            printf("hashmeter %6.0f khash/s\n", dHashesPerSec/1000.0);
-                        //}
-                    }
-                }
-            }
+//            // Meter hashes/sec
+//            static int64 nHashCounter;
+//            if (nHPSTimerStart == 0)
+//            {
+//                nHPSTimerStart = GetTimeMillis();
+//                nHashCounter = 0;
+//            }
+//            else
+//                // nHashCounter += nHashesDone;
+//                nHashCounter += 1;
+//            if (GetTimeMillis() - nHPSTimerStart > 4000)
+//            {
+//                static CCriticalSection cs;
+//                {
+//                    LOCK(cs);
+//                    if (GetTimeMillis() - nHPSTimerStart > 4000)
+//                    {
+//                        dHashesPerSec = 1000.0 * nHashCounter / (GetTimeMillis() - nHPSTimerStart);
+//                        nHPSTimerStart = GetTimeMillis();
+//                        nHashCounter = 0;
+//                        //static int64 nLogTime;
+//                        //if (GetTime() - nLogTime > 30 * 60)
+//                        //{
+//                            // nLogTime = GetTime();
+//                            printf("hashmeter %6.0f khash/s\n", dHashesPerSec/1000.0);
+//                        //}
+//                    }
+//                }
+//            }
 
-            // Check for stop or if block needs to be rebuilt
-            boost::this_thread::interruption_point();
-        // disable in testing
-            if (vNodes.empty())
-                break;
-            if (++pblock->nNonce >= 0xffff0000)
-                break;
-            if (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 60)
-                break;
-            if (pindexPrev != pindexBest)
-                break;
+//            // Check for stop or if block needs to be rebuilt
+//            boost::this_thread::interruption_point();
+//        // disable in testing
+//            if (vNodes.empty())
+//                break;
+//            if (++pblock->nNonce >= 0xffff0000)
+//                break;
+//            if (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 60)
+//                break;
+//            if (pindexPrev != pindexBest)
+//                break;
 
-            // Update nTime every few seconds
-            pblock->UpdateTime(pindexPrev);
-            //nBlockTime = ByteReverse(pblock->nTime);
-            if (fTestNet)
-            {
-                // Changing pblock->nTime can change work required on testnet:
-                //nBlockBits = ByteReverse(pblock->nBits);
-                hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
-            }
-        }
-    } }
-    catch (boost::thread_interrupted)
-    {
-        printf("DimecoinMiner terminated\n");
-        throw;
-    }
-}
-
+//            // Update nTime every few seconds
+//            pblock->UpdateTime(pindexPrev);
+//            //nBlockTime = ByteReverse(pblock->nTime);
+//            if (fTestNet)
+//            {
+//                // Changing pblock->nTime can change work required on testnet:
+//                //nBlockBits = ByteReverse(pblock->nBits);
+//                hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
+//            }
+//        }
+//    } }
+//    catch (boost::thread_interrupted)
+//    {
+//        printf("DimecoinMiner terminated\n");
+//        throw;
+//    }
+//}
+/*
 void GenerateBitcoins(bool fGenerate, CWallet* pwallet)
 {
     static boost::thread_group* minerThreads = NULL;
@@ -4853,7 +4853,7 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet)
     minerThreads = new boost::thread_group();
     for (int i = 0; i < nThreads; i++)
         minerThreads->create_thread(boost::bind(&BitcoinMiner, pwallet));
-}
+} */
 
 // Amount compression:
 // * If the amount is 0, output 0

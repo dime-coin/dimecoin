@@ -70,7 +70,7 @@ Value getgenerate(const Array& params, bool fHelp)
     return GetBoolArg("-gen");
 }
 
-
+/*
 Value setgenerate(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
@@ -94,7 +94,7 @@ Value setgenerate(const Array& params, bool fHelp)
 
     GenerateBitcoins(fGenerate, pwalletMain);
     return Value::null;
-}
+} */
 
 
 Value gethashespersec(const Array& params, bool fHelp)
