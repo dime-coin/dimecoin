@@ -30,12 +30,12 @@ This version of the code has been forked from https://github.com/dimecoinproject
 
 Here are the third party libraries required to build the code and the exact versions used:
 
-* boost 1.55.0<br/>
+* boost 1.58.0<br/>
 * berkeley db 5.0.32.NC<br/>
 * libpng 1.6.12<br/>
 * miniupnpc 1.9<br/>
-* openssl 1.0.1j<br/>
-* qrencode 3.4.3<br/>
+* openssl 1.0.2g<br/>
+* qrencode 3.4.4<br/>
 
 If you want to build the wallet from the source, you can follow the instructions below:
 
