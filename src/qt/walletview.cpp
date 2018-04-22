@@ -273,7 +273,7 @@ void WalletView::doRescan(CWallet *pwallet)
 {
     pwallet->ScanForWalletTransactions(pindexGenesisBlock, true);
     pwallet->ReacceptWalletTransactions();      
-	QMessageBox::information(0, tr("Import private key"), tr("Rescan complete."));
+    //QMessageBox::information(0, tr("Import private key"), tr("Rescan complete."));
 }
 
 
