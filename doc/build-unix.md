@@ -153,25 +153,35 @@ download 1.0.2g version here : https://www.openssl.org/source/old/1.0.2/openssl
 place archive in deps folders then :
 ```
 tar xvfz openssl-1.0.2g.tar.gz
-
+cd openssl-1.0.2g
 ./config no-shared no-dso
 make depend
 make
 ```
 
-### Compiling QT 5.4.2 statically
-Download QT 5.4.2 sources
-https://download.qt.io/archive/qt/5.4/5.4.2/single/qt-everywhere-opensource-src-5.4.2.tar.gz<br>
+### Compiling QREncode
+
+download 3.4.4 vereion here : https://fukuchi.org/works/qrencode/qrencode-3.4.4.tar.gz<br>
+```
+tar xvfz qrencode-3.4.4.tar.gz
+cd qrencode-3.4.4
+configure --enable-static --disable-shared --without-tools
+make
+```
+
+### Compiling QT 5.5.0 statically
+Download QT 5.5.0 sources
+https://download.qt.io/archive/qt/5.5/5.5.0/single/qt-everywhere-opensource-src-5.5.0.tar.gz<br>
 Extract in deps folder
 ```
-tar xvfz qt-everywhere-opensource-src-5.4.2.tar.gz
+tar xvfz qt-everywhere-opensource-src-5.5.0.tar.gz
 ```
 after everything is extracted, create another directory where static libs will be installed. 
 For example, i created ~/deps/Qt/5.4.2_static and used that directory in configure command below :
 ```
-cd ~/deps/qt-everywhere-opensource-src-5.4.2
+cd ~/deps/qt-everywhere-opensource-src-5.5.0
 
-./configure -static -opensource -release -confirm-license -no-compile-examples -nomake tests -prefix ~/deps/Qt/5.4.2_static -qt-zlib -qt-libpng -no-libjpeg -qt-xcb -qt-freetype -qt-pcre -qt-harfbuzz -largefile -no-openssl -gtkstyle -skip wayland -skip qtserialport -skip script -pulseaudio -alsa -c++11 -nomake tools
+./configure -static -opensource -release -confirm-license -no-compile-examples -nomake tests -prefix ~/deps/Qt/5.5.0_static -qt-zlib -qt-libpng -no-libjpeg -qt-xcb -qt-freetype -qt-pcre -qt-harfbuzz -largefile -no-opengl -no-openssl -gtkstyle -skip wayland -skip qtserialport -skip script -skip qtdeclarative -pulseaudio -alsa -c++11 -nomake tools
 ```
 After it successfuly ends :
 ```
@@ -201,28 +211,24 @@ nano dimecoin-qt.pro
 ```
 All dependencies dir variables to set according to what have been done above :
 ```
-##############################################
-# Wherever you compile the dependencies, 
-# specify the path here (linux, windows)
-# ############################################
-DEPS_PATH = $(HOME)/deps
-
-##############################################
-# Uncomment to build on Ubuntu
-##############################################
-MINIUPNPC_LIB_PATH = $$DEPS_PATH/miniupnpc
-MINIUPNPC_INCLUDE_PATH = $$DEPS_PATH
-BOOST_LIB_PATH = $$DEPS_PATH/boost_1_58_0/stage/lib
-BOOST_INCLUDE_PATH = $$DEPS_PATH/boost_1_58_0
-BDB_LIB_PATH = $$DEPS_PATH/db-5.0.32.NC/build_unix
-BDB_INCLUDE_PATH = $$DEPS_PATH/db-5.0.32.NC/build_unix
-OPENSSL_LIB_PATH = $$DEPS_PATH/openssl-1.0.2g
-OPENSSL_INCLUDE_PATH = $$DEPS_PATH/openssl-1.0.2g/include
-# BOOST_LIB_SUFFIX=""
+linux {
+	DEPS_PATH = $(HOME)/deps
+  ## comment below dependencies if u don't need to compile a static binary on linux
+	MINIUPNPC_LIB_PATH = $$DEPS_PATH/miniupnpc
+	MINIUPNPC_INCLUDE_PATH = $$DEPS_PATH
+	BOOST_LIB_PATH = $$DEPS_PATH/boost_1_58_0/stage/lib
+	BOOST_INCLUDE_PATH = $$DEPS_PATH/boost_1_58_0
+	BDB_LIB_PATH = $$DEPS_PATH/db-5.0.32.NC/build_unix
+	BDB_INCLUDE_PATH = $$DEPS_PATH/db-5.0.32.NC/build_unix
+	OPENSSL_LIB_PATH = $$DEPS_PATH/openssl-1.0.2g
+	OPENSSL_INCLUDE_PATH = $$DEPS_PATH/openssl-1.0.2g/include
+	QRENCODE_INCLUDE_PATH= $$DEPS_PATH/qrencode-3.4.4
+	QRENCODE_LIB_PATH= $$DEPS_PATH/qrencode-3.4.4/.libs
+}
 ```
 After saving the .pro file :
 ```
-export PATH=$HOME/deps/Qt/5.4.2_static/bin:$PATH
+export PATH=$HOME/deps/Qt/5.5.0_static/bin:$PATH
 qmake
 make
 ```
