@@ -182,6 +182,8 @@ For example, i created ~/deps/Qt/5.4.2_static and used that directory in configu
 cd ~/deps/qt-everywhere-opensource-src-5.5.0
 
 ./configure -static -opensource -release -confirm-license -no-compile-examples -nomake tests -prefix ~/deps/Qt/5.5.0_static -qt-zlib -qt-libpng -no-libjpeg -qt-xcb -qt-freetype -qt-pcre -qt-harfbuzz -largefile -no-opengl -no-openssl -gtkstyle -skip wayland -skip qtserialport -skip script -skip qtdeclarative -pulseaudio -alsa -c++11 -nomake tools
+
+make -j 4
 ```
 After it successfuly ends :
 ```
