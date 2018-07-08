@@ -4,6 +4,10 @@
 #include <QDialog>
 #include <QImage>
 
+#if defined(HAVE_CONFIG_H)
+#include "config/bitcoin-config.h" /* for USE_QRCODE */
+#endif
+
 namespace Ui {
     class DonateDialog;
 }
@@ -16,8 +20,6 @@ class DonateDialog : public QDialog
 public:
     explicit DonateDialog(const QString &addr, QWidget *parent = 0);
     ~DonateDialog();
-
-    //void setModel(OptionsModel *model);
 
 private slots:
     void on_btnOk_clicked();

@@ -1,0 +1,22 @@
+[Unit]
+Description=Bitcoin's distributed currency daemon
+After=network.target
+
+[Service]
+User=dimecoin
+Group=dimecoin
+
+Type=forking
+PIDFile=/var/lib/dimecoind/dimecoind.pid
+ExecStart=/usr/bin/dimecoind -daemon -pid=/var/lib/dimecoind/dimecoind.pid \
+-conf=/etc/dimecoin/dimecoin.conf -datadir=/var/lib/dimecoind -disablewallet
+
+Restart=always
+PrivateTmp=true
+TimeoutStopSec=60s
+TimeoutStartSec=2s
+StartLimitInterval=120s
+StartLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target

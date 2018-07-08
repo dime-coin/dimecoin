@@ -1,3 +1,4 @@
+build_config.mk
 *.a
 *.o
 *.dylib*
@@ -5,6 +6,7 @@
 *.so.*
 *_test
 db_bench
+leveldbutil
 Release
 Debug
 Benchmark

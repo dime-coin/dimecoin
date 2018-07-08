@@ -1,4 +1,10 @@
+// Copyright (c) 2011-2013 The Bitcoin developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #include "bitcoinunits.h"
+
+#include "primitives/transaction.h"
 
 #include <QStringList>
 
@@ -11,9 +17,9 @@ BitcoinUnits::BitcoinUnits(QObject *parent):
 QList<BitcoinUnits::Unit> BitcoinUnits::availableUnits()
 {
     QList<BitcoinUnits::Unit> unitlist;
-    unitlist.append(DIME);
-    unitlist.append(cDIME);
-    unitlist.append(mDIME);
+    unitlist.append(BTC);
+    unitlist.append(mBTC);
+    unitlist.append(uBTC);
     return unitlist;
 }
 
@@ -21,12 +27,23 @@ bool BitcoinUnits::valid(int unit)
 {
     switch(unit)
     {
-    case DIME:
-    case cDIME:
-    case mDIME:
+    case BTC:
+    case mBTC:
+    case uBTC:
         return true;
     default:
         return false;
+    }
+}
+
+QString BitcoinUnits::id(int unit)
+{
+    switch(unit)
+    {
+    case BTC: return QString("dime");
+    case mBTC: return QString("mdime");
+    case uBTC: return QString("dudime");
+    default: return QString("???");
     }
 }
 
@@ -34,9 +51,9 @@ QString BitcoinUnits::name(int unit)
 {
     switch(unit)
     {
-    case DIME: return QString("DIME");
-    case cDIME: return QString("cDIME");
-    case mDIME: return QString("mDIME");
+    case BTC: return QString("DIME");
+    case mBTC: return QString("mDIME");
+    case uBTC: return QString::fromUtf8("dμDIME");
     default: return QString("???");
     }
 }
@@ -45,9 +62,9 @@ QString BitcoinUnits::description(int unit)
 {
     switch(unit)
     {
-    case DIME: return QString("Dimecoins");
-    case cDIME: return QString("Centum-Dimecoins (1 / 100)");
-    case mDIME: return QString("Milli-Dimecoins (1 / 1,000)");
+    case BTC: return QString("Dimecoins");
+    case mBTC: return QString("Milli-Dimecoins (1 / 1" THIN_SP_UTF8 "000)");
+    case uBTC: return QString("Deca-Micro-Dimecoins (1 / 1" THIN_SP_UTF8 "00" THIN_SP_UTF8 "000)");
     default: return QString("???");
     }
 }
@@ -56,21 +73,10 @@ qint64 BitcoinUnits::factor(int unit)
 {
     switch(unit)
     {
-    case DIME:  return 100000;
-    case cDIME: return 1000;
-    case mDIME: return 100;
+    case BTC:  return 100000;
+    case mBTC: return 100;
+    case uBTC: return 1;
     default:   return 100000;
-    }
-}
-
-int BitcoinUnits::amountDigits(int unit)
-{
-    switch(unit)
-    {
-    case DIME: return 17; // trillions (# digits, without commas)
-    case cDIME: return 19; // *100
-    case mDIME: return 20; // *1,000
-    default: return 0;
     }
 }
 
@@ -78,19 +84,20 @@ int BitcoinUnits::decimals(int unit)
 {
     switch(unit)
     {
-    case DIME: return 5;
-    case cDIME: return 3;
-    case mDIME: return 2;
+    case BTC: return 5;
+    case mBTC: return 2;
+    case uBTC: return 0;
     default: return 0;
     }
 }
 
-QString BitcoinUnits::format(int unit, qint64 n, bool fPlus)
+QString BitcoinUnits::format(int unit, const CAmount& nIn, bool fPlus, SeparatorStyle separators)
 {
     // Note: not using straight sprintf here because we do NOT want
     // localized number formatting.
     if(!valid(unit))
         return QString(); // Refuse to format invalid unit
+    qint64 n = (qint64)nIn;
     qint64 coin = factor(unit);
     int num_decimals = decimals(unit);
     qint64 n_abs = (n > 0 ? n : -n);
@@ -99,11 +106,13 @@ QString BitcoinUnits::format(int unit, qint64 n, bool fPlus)
     QString quotient_str = QString::number(quotient);
     QString remainder_str = QString::number(remainder).rightJustified(num_decimals, '0');
 
-    // Right-trim excess zeros after the decimal point
-    int nTrim = 0;
-    for (int i = remainder_str.size()-1; i>=2 && (remainder_str.at(i) == '0'); --i)
-        ++nTrim;
-    remainder_str.chop(nTrim);
+    // Use SI-style thin space separators as these are locale independent and can't be
+    // confused with the decimal marker.
+    QChar thin_sp(THIN_SP_CP);
+    int q_size = quotient_str.size();
+    if (separators == separatorAlways || (separators == separatorStandard && q_size > 4))
+        for (int i = 3; i < q_size; i += 3)
+            quotient_str.insert(q_size - i, thin_sp);
 
     if (n < 0)
         quotient_str.insert(0, '-');
@@ -112,17 +121,43 @@ QString BitcoinUnits::format(int unit, qint64 n, bool fPlus)
     return quotient_str + QString(".") + remainder_str;
 }
 
-QString BitcoinUnits::formatWithUnit(int unit, qint64 amount, bool plussign)
+
+// TODO: Review all remaining calls to BitcoinUnits::formatWithUnit to
+// TODO: determine whether the output is used in a plain text context
+// TODO: or an HTML context (and replace with
+// TODO: BtcoinUnits::formatHtmlWithUnit in the latter case). Hopefully
+// TODO: there aren't instances where the result could be used in
+// TODO: either context.
+
+// NOTE: Using formatWithUnit in an HTML context risks wrapping
+// quantities at the thousands separator. More subtly, it also results
+// in a standard space rather than a thin space, due to a bug in Qt's
+// XML whitespace canonicalisation
+//
+// Please take care to use formatHtmlWithUnit instead, when
+// appropriate.
+
+QString BitcoinUnits::formatWithUnit(int unit, const CAmount& amount, bool plussign, SeparatorStyle separators)
 {
-    return format(unit, amount, plussign) + QString(" ") + name(unit);
+    return format(unit, amount, plussign, separators) + QString(" ") + name(unit);
 }
 
-bool BitcoinUnits::parse(int unit, const QString &value, qint64 *val_out)
+QString BitcoinUnits::formatHtmlWithUnit(int unit, const CAmount& amount, bool plussign, SeparatorStyle separators)
+{
+    QString str(formatWithUnit(unit, amount, plussign, separators));
+    str.replace(QChar(THIN_SP_CP), QString(THIN_SP_HTML));
+    return QString("<span style='white-space: nowrap;'>%1</span>").arg(str);
+}
+
+
+bool BitcoinUnits::parse(int unit, const QString &value, CAmount *val_out)
 {
     if(!valid(unit) || value.isEmpty())
         return false; // Refuse to parse invalid unit or empty string
     int num_decimals = decimals(unit);
-    QStringList parts = value.split(".");
+
+    // Ignore spaces and thin spaces when parsing
+    QStringList parts = removeSpaces(value).split(".");
 
     if(parts.size() > 2)
     {
@@ -146,12 +181,22 @@ bool BitcoinUnits::parse(int unit, const QString &value, qint64 *val_out)
     {
         return false; // Longer numbers will exceed 63 bits
     }
-    qint64 retvalue = str.toLongLong(&ok);
+    CAmount retvalue(str.toLongLong(&ok));
     if(val_out)
     {
         *val_out = retvalue;
     }
     return ok;
+}
+
+QString BitcoinUnits::getAmountColumnTitle(int unit)
+{
+    QString amountTitle = QObject::tr("Amount");
+    if (BitcoinUnits::valid(unit))
+    {
+        amountTitle += " ("+BitcoinUnits::name(unit) + ")";
+    }
+    return amountTitle;
 }
 
 int BitcoinUnits::rowCount(const QModelIndex &parent) const
@@ -178,4 +223,9 @@ QVariant BitcoinUnits::data(const QModelIndex &index, int role) const
         }
     }
     return QVariant();
+}
+
+CAmount BitcoinUnits::maxMoney()
+{
+    return MAX_MONEY;
 }
