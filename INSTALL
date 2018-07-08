@@ -1,1 +1,5 @@
-# Building and installing dimecoin wallet
+Building Dimecoin
+
+See doc/build-*.md for instructions on building dimecoind,
+the intended-for-services, no-graphical-interface, reference
+implementation of Dimecoin.

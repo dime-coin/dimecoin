@@ -13,7 +13,6 @@
 DonateDialog::DonateDialog(const QString &addr, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::DonateDialog),
-    //model(0),
     address(addr)
 {
     ui->setupUi(this);
@@ -76,37 +75,6 @@ QString DonateDialog::getURI()
 
     ui->outDonateUri->clear();
 
-/*
-    if (ui->chkReqPayment->isChecked())
-    {
-        if (ui->lnReqAmount->validate())
-        {
-            // even if we allow a non DIME unit input in lnReqAmount, we generate the URI with DIME as unit (as defined in BIP21)
-            ret += QString("?amount=%1").arg(BitcoinUnits::format(BitcoinUnits::DIME, ui->lnReqAmount->value()));
-            paramCount++;
-        }
-        else
-        {
-            ui->btnSaveAs->setEnabled(false);
-            ui->lblQRCode->setText(tr("The entered amount is invalid, please check."));
-            return QString("");
-        }
-    } 
-
-    if (!ui->lnLabel->text().isEmpty())
-    {
-        QString lbl(QUrl::toPercentEncoding(ui->lnLabel->text()));
-        ret += QString("%1label=%2").arg(paramCount == 0 ? "?" : "&").arg(lbl);
-        paramCount++;
-    }
-
-    if (!ui->lnMessage->text().isEmpty())
-    {
-        QString msg(QUrl::toPercentEncoding(ui->lnMessage->text()));
-        ret += QString("%1message=%2").arg(paramCount == 0 ? "?" : "&").arg(msg);
-        paramCount++;
-    }
-*/
     // limit URI length to prevent a DoS against the QR-Code dialog
     if (ret.length() > MAX_URI_LENGTH)
     {

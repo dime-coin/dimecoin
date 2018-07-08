@@ -48,17 +48,14 @@
          <item>
           <widget class="QValidatedLineEdit" name="addressIn_SM">
            <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The address to sign the message with (e.g. Qi1NooNjQySQLDJ643HWfZZ7UN2EmLEvix)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="maxLength">
-            <number>34</number>
+            <string>The Dimecoin address to sign the message with</string>
            </property>
           </widget>
          </item>
          <item>
           <widget class="QPushButton" name="addressBookButton_SM">
            <property name="toolTip">
-            <string>Choose an address from the address book</string>
+            <string>Choose previously used address</string>
            </property>
            <property name="text">
             <string/>
@@ -155,7 +152,7 @@
          <item>
           <widget class="QPushButton" name="signMessageButton_SM">
            <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sign the message to prove you own this Dimecoin address&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            <string>Sign the message to prove you own this Dimecoin address</string>
            </property>
            <property name="text">
             <string>Sign &amp;Message</string>
@@ -261,17 +258,14 @@
          <item>
           <widget class="QValidatedLineEdit" name="addressIn_VM">
            <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The address the message was signed with (e.g. Qi1NooNjQySQLDJ643HWfZZ7UN2EmLEvix)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="maxLength">
-            <number>34</number>
+            <string>The Dimecoin address the message was signed with</string>
            </property>
           </widget>
          </item>
          <item>
           <widget class="QPushButton" name="addressBookButton_VM">
            <property name="toolTip">
-            <string>Choose an address from the address book</string>
+            <string>Choose previously used address</string>
            </property>
            <property name="text">
             <string/>
@@ -301,7 +295,7 @@
          <item>
           <widget class="QPushButton" name="verifyMessageButton_VM">
            <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Verify the message to ensure it was signed with the specified Dimecoin address&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            <string>Verify the message to ensure it was signed with the specified Dimecoin address</string>
            </property>
            <property name="text">
             <string>Verify &amp;Message</string>
