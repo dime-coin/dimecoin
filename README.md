@@ -18,10 +18,10 @@ Our official social media pages are as follows.
 ## Getting started
 The following instructions will get you a copy of the dimecoin source code up and running on your local machine for development and testing purposes. If you are only interested in getting a release of the dimecoin wallet for your system see the Releases section below
 
-## Releases
+## Releases for Windows, Mac and Linux
 
-* **Windows**: <a href="https://github.com/dime-coin/dimecoin/releases/tag/1.9.0">Release 1.9.0</a><br/>
-* **Linux**: <a href="https://github.com/dime-coin/dimecoin/releases/tag/1.9.0">Release 1.9.0</a><br/>
+<a href="https://github.com/dime-coin/dimecoin/releases/latest">Latest release : 1.9.0.0</a><br/>
+
 
 Find all the documentation in the <a href="https://github.com/dime-coin/dimecoin/wiki">Wiki</a>
 
