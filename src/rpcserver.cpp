@@ -95,8 +95,9 @@ static inline int64_t roundint64(double d)
 CAmount AmountFromValue(const Value& value)
 {
     double dAmount = value.get_real();
-    if (dAmount <= 0.0 || dAmount > 500000000.0)
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
+    // useless : the lines of code just below the commented ones do exactly the same already with MoneyRange, with no need of hardcoded value
+    //if (dAmount <= 0.0 || dAmount > 500000000.0)
+    //    throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount"); 
     CAmount nAmount = roundint64(dAmount * COIN);
     if (!MoneyRange(nAmount))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
