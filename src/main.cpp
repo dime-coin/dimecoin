@@ -3678,6 +3678,21 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         else
             pfrom->fRelayTxes = true;
 
+        if (pfrom->cleanSubVer == "/dimecoin:1.8.0/" 
+            || pfrom->cleanSubVer == "/dimecoin:1.7.0.2/" 
+            || pfrom->cleanSubVer == "/bitnodes.net:1.7.2/"
+            || pfrom->cleanSubVer == "/dimecoin:1.7.2/"
+            || pfrom->cleanSubVer == "/Satoshi:1.6.9/"
+            || pfrom->cleanSubVer == "/Satoshi:1.5.0.14/"
+            || pfrom->cleanSubVer == "/Satoshi:0.8.3.14/"
+            || pfrom->cleanSubVer == "/Satoshi:0.8.3.13/"
+            || pfrom->cleanSubVer == "/DimecoinJ:0.12.4/Dimecoin Wallet:1.0.0rc3/"
+            || pfrom->cleanSubVer == "/DimecoinJ:0.12.4/Dimecoin Wallet:1.0.0rc4/") {
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 100); // instantly ban uncompatible peers (temporary solution before proper PROTO_VERSION update)
+            return false;
+        }
+
         // Disconnect if we connected to ourself
         if (nNonce == nLocalHostNonce && nNonce > 1)
         {

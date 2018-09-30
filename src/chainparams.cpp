@@ -62,7 +62,7 @@ static const int64_t nBlockRewardMinimumCoin = 1 * COIN;
  */
 static Checkpoints::MapCheckpoints mapCheckpoints =
         boost::assign::map_list_of
-        (       0,     uint256(""))
+        (       0,     uint256("0x00000d5a9113f87575c77eb5442845ff8a0014f6e79e2dd2317d88946ef910da"))
 	    (   20000,     uint256("0x0000008e1581ca6fc2a796401be25dd68bd444a286a322f1f7354b2f102e2e26"))
 	    (   30000,     uint256("0x00000034a4be19182d0e8e56bad69541be2e6fa3274043e6c0fb90ad4a436820"))
 	    (   40000,     uint256("0x0000004227fb1fc8dfd51919cdc080ede60c3c8590b38e6c88b3d733d805b779"))
@@ -100,24 +100,28 @@ static Checkpoints::MapCheckpoints mapCheckpoints =
       //new checkpoints added in version 1.9.0.0
         ( 2700000,     uint256("0x000000000005fb1c672edbd26aad6e86db15dc6b7f2ad9bf0bdefdd7a2fe74c5"))
         ( 2800000,     uint256("0x000000000001ee0e0a348d177511ed2d79b4ec98359242c0b386e1931d42489a"))     
-        ( 2900000,     uint256("0x000000000002c4539330ab986e1fa4f2fe720559d8858c381859f3b896cac7a5"))     
+        ( 2900000,     uint256("0x000000000002c4539330ab986e1fa4f2fe720559d8858c381859f3b896cac7a5"))
+      //new checkpoints added in version 1.9.0.2
+        ( 3000000,     uint256("0x000000000000c7552284192bd1e3e7b1b7648ec4868cef082f2aa4945f7bad36"))
+        ( 3100000,     uint256("0x00000000000e46ee7f527b6ba4b557ef49a9c17ae4a852a7e0fe3023048288f4"))
         ;
 static const Checkpoints::CCheckpointData data = {
         &mapCheckpoints,
-        1528016174, // * UNIX timestamp of last checkpoint block 2900000
-        3815829,    // * total number of transactions between genesis and last checkpoint 2900000
+        1536340070, // * UNIX timestamp of last checkpoint block 3100000
+        4055939,    // * total number of transactions between genesis and last checkpoint 2900000
                     //   (the tx=... number in the SetBestChain debug.log lines)
         2880.0      // * estimated number of transactions per day after checkpoint
     };
 
 static Checkpoints::MapCheckpoints mapCheckpointsTestnet =
         boost::assign::map_list_of
-        ( 0, uint256("0xe5524c7f4b08e6a04689a551fa060d9e39934991d5a4111105d9359447733285")) //DIME testnet
+        ( 0  , uint256("0x0000025aeaa593ebf9bb305fd1d00b4972d87aacf688b1f48434ff5f12488a35")) //DIME testnet
+        ( 238, uint256("0x00000ee17c7e6fec2bbb3e022a23d35b41bebf03d028f44fba23596742dc4378")) 
         ;
 static const Checkpoints::CCheckpointData dataTestnet = {
         &mapCheckpointsTestnet,
-        1373481000,
-        0,
+        1538258716,
+        240,
         2880
     };
 
@@ -189,15 +193,11 @@ public:
         hashGenesisBlock = genesis.GetHash();
         assert(hashGenesisBlock == hashMainGenesisBlock);
 
-        /* comments these old seeds and use new ones chainparamseeds.h instead
-        vSeeds.push_back(CDNSSeedData("217.175.119.125", "217.175.119.125"));
-        vSeeds.push_back(CDNSSeedData("184.164.129.202", "184.164.129.202"));
-        vSeeds.push_back(CDNSSeedData("200.123.47.184", "200.123.47.184"));
-        vSeeds.push_back(CDNSSeedData("13.81.2.56", "13.81.2.56"));
-        vSeeds.push_back(CDNSSeedData("189.27.221.173", "189.27.221.173"));
-        vSeeds.push_back(CDNSSeedData("45.116.233.61", "45.116.233.61"));
-        vSeeds.push_back(CDNSSeedData("200.123.47.184", "200.123.47.184"));
-        */
+        vSeeds.push_back(CDNSSeedData("seed1.dimecoinnetwork.com", "seed1.dimecoinnetwork.com"));         //Primary DNS Seed
+        vSeeds.push_back(CDNSSeedData("seed2.dimecoinnetwork.com", "seed2.dimecoinnetwork.com"));         //Secondary DNS Seed
+        vSeeds.push_back(CDNSSeedData("node1.dimecoinnetwork.com", "node1.dimecoinnetwork.com"));         //Primary node
+        vSeeds.push_back(CDNSSeedData("node2.dimecoinnetwork.com", "node2.dimecoinnetwork.com"));         //Secondary node
+        vSeeds.push_back(CDNSSeedData("dime-pool.dimecoinnetwork.com", "dime-pool.dimecoinnetwork.com")); //dime-pool.com node 
  
 /* used if using -std=c++11
         base58Prefixes[PUBKEY_ADDRESS] = {15};
@@ -254,11 +254,34 @@ public:
         nMaxTipAge = 0x7fffffff;
 
         //! Modify the testnet genesis block so the timestamp is valid for a later start.
-        genesis.nTime = 1373481000;
-        genesis.nNonce = 905523645;
+        genesis.nTime = 1514764800; //new testnet 1/01/2018
+        genesis.nNonce = 146813;
         hashGenesisBlock = genesis.GetHash();
 
-        assert(hashGenesisBlock == uint256("0xe5524c7f4b08e6a04689a551fa060d9e39934991d5a4111105d9359447733285")); //DIME
+/* create a genesis block with a hash below first nbits
+        while (hashGenesisBlock > uint256("00000fffff000000000000000000000000000000000000000000000000000000"))
+        {
+
+                if (hashGenesisBlock < uint256("00000fffff000000000000000000000000000000000000000000000000000000"))
+                    break;
+                if ((genesis.nNonce & 0xFFF) == 0)
+                {
+                    printf("nonce %08X: hash = %s (target = %s)\n", genesis.nNonce, hashGenesisBlock.ToString().c_str(), uint256("00000fffff000000000000000000000000000000000000000000000000000000").ToString().c_str());
+                }
+                ++genesis.nNonce;
+                if (genesis.nNonce == 0)
+                {
+                    printf("NONCE WRAPPED, incrementing time\n");
+                    ++genesis.nTime;
+                }
+                hashGenesisBlock = genesis.GetHash();
+
+            printf("block.nTime = %u \n", genesis.nTime);
+            printf("block.nNonce = %u \n", genesis.nNonce);
+            printf("block.GetHash = %s\n", hashGenesisBlock.ToString().c_str());
+        } */
+
+        assert(hashGenesisBlock == uint256("0x0000025aeaa593ebf9bb305fd1d00b4972d87aacf688b1f48434ff5f12488a35")); //DIME
 
         vFixedSeeds.clear();
         vSeeds.clear();
