@@ -3,7 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "checkpoints.h"
-
+#include "chain.h"
 #include "chainparams.h"
 #include "main.h"
 #include "uint256.h"
@@ -95,5 +95,25 @@ namespace Checkpoints {
         }
         return NULL;
     }
+
+    uint256 GetLastAvailableCheckpoint() {
+        
+        const MapCheckpoints& checkpoints = *Params().Checkpoints().mapCheckpoints;
+         BOOST_REVERSE_FOREACH(const MapCheckpoints::value_type& i, checkpoints)
+        {
+            const uint256& hash = i.second;
+            if(mapBlockIndex.count(hash) && chainActive.Contains(mapBlockIndex[hash]))
+                return(hash);
+        }
+        return(Params().HashGenesisBlock());
+   }
+	
+    uint256 GetLatestHardenedCheckpoint()
+    {
+        const MapCheckpoints& checkpoints = *Params().Checkpoints().mapCheckpoints;
+         if (checkpoints.empty())
+            return Params().HashGenesisBlock();
+         return (checkpoints.rbegin()->second);
+    }   
 
 } // namespace Checkpoints

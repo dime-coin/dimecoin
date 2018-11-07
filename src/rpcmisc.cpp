@@ -12,6 +12,7 @@
 #include "rpcserver.h"
 #include "timedata.h"
 #include "util.h"
+#include "checkpointsync.h"
 #ifdef ENABLE_WALLET
 #include "wallet.h"
 #include "walletdb.h"
@@ -375,4 +376,102 @@ Value setmocktime(const Array& params, bool fHelp)
     SetMockTime(params[0].get_int64());
 
     return Value::null;
+}
+
+
+// ACP : RPC commands related to sync checkpoints
+// get information of sync-checkpoint (first introduced in ppcoin)
+Value getcheckpoint(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getcheckpoint\n"
+            "Show info of synchronized checkpoint.\n");
+
+    Array result;
+    Object entry;
+    CBlockIndex* pindexCheckpoint;
+    entry.push_back(Pair("synccheckpoint", hashSyncCheckpoint.ToString().c_str()));
+
+    if (mapBlockIndex.count(hashSyncCheckpoint))
+    {
+        pindexCheckpoint = mapBlockIndex[hashSyncCheckpoint];
+        entry.push_back(Pair("height", pindexCheckpoint->nHeight));
+        entry.push_back(Pair("timestamp", (boost::int64_t) pindexCheckpoint->GetBlockTime()));
+    }
+
+    if (mapArgs.count("-checkpointkey"))
+        entry.push_back(Pair("checkpointmaster", true));
+    result.push_back(entry);
+
+    return result;
+}
+
+Value sendcheckpoint(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "sendcheckpoint <blockhash>\n"
+            "Send a synchronized checkpoint.\n");
+
+    if (!mapArgs.count("-checkpointkey") || CSyncCheckpoint::strMasterPrivKey.empty())
+        throw runtime_error("Not a checkpointmaster node, first set checkpointkey in configuration and restart client. ");
+
+    string strHash = params[0].get_str();
+    uint256 hash; 
+    hash.SetHex(strHash);    
+
+    if (!SendSyncCheckpoint(hash))
+        throw runtime_error("Failed to send checkpoint, check log. ");
+
+    Array result;
+    Object entry;
+    CBlockIndex* pindexCheckpoint;
+    entry.push_back(Pair("synccheckpoint", hashSyncCheckpoint.ToString().c_str()));
+
+    if (mapBlockIndex.count(hashSyncCheckpoint))
+    {
+        pindexCheckpoint = mapBlockIndex[hashSyncCheckpoint];
+        entry.push_back(Pair("height", pindexCheckpoint->nHeight));
+        entry.push_back(Pair("timestamp", (boost::int64_t) pindexCheckpoint->GetBlockTime()));
+    }
+
+    if (mapArgs.count("-checkpointkey"))
+        entry.push_back(Pair("checkpointmaster", true));
+    result.push_back(entry);
+    return result;
+}
+
+Value makekeypair(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() > 1)
+        throw runtime_error(
+            "makekeypair [prefix]\n"
+            "Make a public/private key pair.\n"
+            "[prefix] is optional preferred prefix for the public key.\n");
+
+    string strPrefix = "";
+    if (params.size() > 0)
+        strPrefix = params[0].get_str();
+
+    CKey key;
+    CPubKey pubkey;
+    int nCount = 0;
+    do
+    {
+        key.MakeNewKey(false);
+        pubkey = key.GetPubKey();
+        nCount++;
+    } while (nCount < 10000 && strPrefix != HexStr(pubkey.begin(), pubkey.end()).substr(0, strPrefix.size()));
+
+    if (strPrefix != HexStr(pubkey.begin(), pubkey.end()).substr(0, strPrefix.size()))
+        return Value::null;
+
+    Array result;
+    Object entry;
+    entry.push_back(Pair("PublicKey", HexStr(pubkey.begin(), pubkey.end())));
+    entry.push_back(Pair("PrivateKey", CBitcoinSecret(key).ToString()));
+    result.push_back(entry);
+
+    return result;
 }
