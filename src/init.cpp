@@ -12,6 +12,7 @@
 #include "addrman.h"
 #include "amount.h"
 #include "checkpoints.h"
+#include "checkpointsync.h"
 #include "compat/sanity.h"
 #include "key.h"
 #include "main.h"
@@ -747,6 +748,13 @@ bool AppInit2(boost::thread_group& threadGroup)
     nMaxDatacarrierBytes = GetArg("-datacarriersize", nMaxDatacarrierBytes);
 
     fAlerts = GetBoolArg("-alerts", DEFAULT_ALERTS);
+
+    // ACP : try to pull privkey from command line
+	if (mapArgs.count("-checkpointkey")) // ppcoin: checkpoint master priv key
+	{
+		if (!SetCheckpointPrivKey(GetArg("-checkpointkey", "")))
+			return InitError(_("Unable to sign checkpoint, wrong checkpointkey?"));
+	}
 
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 

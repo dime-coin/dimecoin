@@ -175,25 +175,27 @@ bool CBlockTreeDB::ReadFlag(const std::string &name, bool &fValue) {
     return true;
 }
 
+// ACP Begin
 bool CBlockTreeDB::ReadSyncCheckpoint(uint256& hashCheckpoint)
 {
-    return Read('P', hashCheckpoint);
+    return Read(string("hashSyncCheckpoint"), hashCheckpoint);
 }
-
+ 
 bool CBlockTreeDB::WriteSyncCheckpoint(uint256 hashCheckpoint)
 {
-    return Write('P', hashCheckpoint);
+    return Write(string("hashSyncCheckpoint"), hashCheckpoint);
 }
-
+ 
 bool CBlockTreeDB::ReadCheckpointPubKey(string& strPubKey)
 {
-    return Read('p', strPubKey);
+    return Read(string("strCheckpointPubKey"), strPubKey);
 }
-
+ 
 bool CBlockTreeDB::WriteCheckpointPubKey(const string& strPubKey)
 {
-    return Write('p', strPubKey);
-}
+    return Write(string("strCheckpointPubKey"), strPubKey);
+} 
+// ACP end
 
 bool CBlockTreeDB::LoadBlockIndexGuts()
 {

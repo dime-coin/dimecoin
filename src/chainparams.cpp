@@ -104,11 +104,13 @@ static Checkpoints::MapCheckpoints mapCheckpoints =
       //new checkpoints added in version 1.9.0.2
         ( 3000000,     uint256("0x000000000000c7552284192bd1e3e7b1b7648ec4868cef082f2aa4945f7bad36"))
         ( 3100000,     uint256("0x00000000000e46ee7f527b6ba4b557ef49a9c17ae4a852a7e0fe3023048288f4"))
+      //new checkpoint added in version 1.9.1.0
+        ( 3200000,     uint256("0x0000000000015dfaf2bf3f4c05192f61baa66bd682df1359bf77bfa07c2c9e0c"))   
         ;
 static const Checkpoints::CCheckpointData data = {
         &mapCheckpoints,
-        1536340070, // * UNIX timestamp of last checkpoint block 3100000
-        4055939,    // * total number of transactions between genesis and last checkpoint 2900000
+        1539877199, // * UNIX timestamp of last checkpoint block 3100000
+        4173777,    // * total number of transactions between genesis and last checkpoint 3200000
                     //   (the tx=... number in the SetBestChain debug.log lines)
         2880.0      // * estimated number of transactions per day after checkpoint
     };
@@ -161,6 +163,7 @@ public:
         nTargetTimespan = 65536; // DIME : about 18 hour
         nTargetSpacing = 64;     // DIME : 64 seconds
         nMaxTipAge = 96 * 60 * 60; //DIME
+        nCheckpointPubKey = "045af95d3e64f3166cef9fab4ce87f6a085055b7552bac891c2600f7a90b382053f88b0741282b02c763b1b3352de4dd98d8b32c4664686b6ba050e6c2f8ca0520";
 
         /**
          * Build the genesis block. Note that the output of the genesis coinbase cannot
@@ -252,11 +255,13 @@ public:
         nTargetTimespan = 65536; // DIME : ten minutes
         nTargetSpacing = 64;     // DIME : 30 seconds
         nMaxTipAge = 0x7fffffff;
+        nCheckpointPubKey = "042f99f07597141a8675be9bb36666b332ad8ba4a3b7e2ae913f0d2f8521342a7fe88ae9cd5d13faf16bedd6d43ad66c48d0f9609be878c6420395076c956898b8";
 
         //! Modify the testnet genesis block so the timestamp is valid for a later start.
         genesis.nTime = 1514764800; //new testnet 1/01/2018
         genesis.nNonce = 146813;
         hashGenesisBlock = genesis.GetHash();
+
 
 /* create a genesis block with a hash below first nbits
         while (hashGenesisBlock > uint256("00000fffff000000000000000000000000000000000000000000000000000000"))
@@ -338,6 +343,7 @@ public:
         nTargetSpacing = 30; // 30 seconds
         bnProofOfWorkLimit = ~uint256(0) >> 1;
         nMaxTipAge = 24 * 60 * 60;
+        nCheckpointPubKey = "";
         genesis.nTime = 1296688602;
         genesis.nBits = 0x207fffff;
         genesis.nNonce = 2;

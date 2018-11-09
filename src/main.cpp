@@ -9,6 +9,7 @@
 #include "alert.h"
 #include "chainparams.h"
 #include "checkpoints.h"
+#include "checkpointsync.h"
 #include "checkqueue.h"
 #include "init.h"
 #include "merkleblock.h"
@@ -1927,6 +1928,10 @@ void static UpdateTip(CBlockIndex *pindexNew) {
       Checkpoints::GuessVerificationProgress(chainActive.Tip()), (unsigned int)pcoinsTip->GetCacheSize());
 
     cvBlockChange.notify_all();
+    
+    // ACP : Check against synchronized checkpoint
+    if (!IsInitialBlockDownload() && chainActive.Tip()->pprev)
+        CheckSyncCheckpoint(chainActive.Tip()->GetBlockHash(), chainActive.Tip()->pprev);
 
     // Check the version of the last 100 blocks to see if we need to upgrade:
     /*
@@ -2568,6 +2573,11 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         return state.DoS(100, error("%s : rejected by checkpoint lock-in at %d", __func__, nHeight),
                          REJECT_CHECKPOINT, "checkpoint mismatch");
 
+    // ACP : Check that the block satisfies synchronized checkpoint
+    if (!IsInitialBlockDownload() && !CheckSyncCheckpoint(block.GetHash(), pindexPrev))
+        return state.Invalid(error("%s : rejected by synchronized checkpoint", __func__),
+                             REJECT_OBSOLETE, "bad-version");
+
     // Don't accept any forks from the main chain prior to last checkpoint
     CBlockIndex* pcheckpoint = Checkpoints::GetLastCheckpoint();
     if (pcheckpoint && nHeight < pcheckpoint->nHeight)
@@ -2698,6 +2708,10 @@ bool AcceptBlock(CBlock& block, CValidationState& state, CBlockIndex** ppindex, 
         return state.Abort(std::string("System error: ") + e.what());
     }
 
+    // ACP
+    if (!IsInitialBlockDownload())
+        AcceptPendingSyncCheckpoint();
+
     return true;
 }
 
@@ -2801,8 +2815,16 @@ bool ProcessNewBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, CDis
             return error("%s : AcceptBlock FAILED", __func__);
     }
 
+	// ACP : Ask for pending sync-checkpoint if any
+    if (!IsInitialBlockDownload())
+        AskForPendingSyncCheckpoint(pfrom);
+
     if (!ActivateBestChain(state, pblock))
         return error("%s : ActivateBestChain failed", __func__);
+
+	// ACP : If responsible for sync-checkpoint send it
+    if (pfrom && !CSyncCheckpoint::strMasterPrivKey.empty() && (int)GetArg("-checkpointdepth", -1) >= 0)
+    	SendSyncCheckpoint(AutoSelectSyncCheckpoint());
     
     return true;
 }
@@ -2973,6 +2995,9 @@ bool static LoadBlockIndexDB()
             break;
         }
     }
+
+    // ACP : Load hashSyncCheckpoint
+    pblocktree->ReadSyncCheckpoint(hashSyncCheckpoint);
 
     // Check presence of blk files
     LogPrintf("Checking all blk files are present...\n");
@@ -3150,12 +3175,19 @@ bool InitBlockIndex() {
                 return error("LoadBlockIndex() : genesis block not accepted");
             if (!ActivateBestChain(state, &block))
                 return error("LoadBlockIndex() : genesis block cannot be activated");
+            // ACP : 
+            if (!WriteSyncCheckpoint(Params().HashGenesisBlock()))
+                return error("LoadBlockIndex() : failed to init sync checkpoint");
             // Force a chainstate write so that when we VerifyDB in a moment, it doesnt check stale data
             return FlushStateToDisk(state, FLUSH_STATE_ALWAYS);
         } catch(std::runtime_error &e) {
             return error("LoadBlockIndex() : failed to initialize block database: %s", e.what());
         }
     }
+
+    // ACP
+	if (!CheckCheckpointPubKey())
+        return error("LoadBlockIndex() : failed to reset checkpoint master pubkey");
 
     return true;
 }
@@ -3423,6 +3455,13 @@ string GetWarnings(string strFor)
 
     if (GetBoolArg("-testsafemode", false))
         strStatusBar = strRPC = "testsafemode enabled";
+
+    // ACP : Checkpoint warning
+    if (strCheckpointWarning != "")
+    {
+        nPriority = 1000;
+        strStatusBar = strCheckpointWarning;
+    }
 
     // Misc warnings like out of disk space and clock is wrong
     if (strMiscWarning != "")
@@ -3757,6 +3796,13 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 item.second.RelayTo(pfrom);
         }
 
+		// ACP : Relay sync-checkpoint
+		{
+            LOCK(cs_hashSyncCheckpoint);
+            if (!checkpointMessage.IsNull())
+                checkpointMessage.RelayTo(pfrom);
+        }
+
         pfrom->fSuccessfullyConnected = true;
 
         string remoteAddr;
@@ -3769,6 +3815,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                   remoteAddr);
 
         AddTimeData(pfrom->addr, nTime);
+
+        // ACP
+        if (!IsInitialBlockDownload())
+            AskForPendingSyncCheckpoint(pfrom);
     }
 
 
@@ -4355,6 +4405,19 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         }
     }
 
+	else if (strCommand == "checkpoint") // ACP : Synchronized checkpoint
+    {
+        CSyncCheckpoint checkpoint;
+        vRecv >> checkpoint;
+        if (checkpoint.ProcessSyncCheckpoint(pfrom))
+        {
+            // Relay
+            pfrom->hashCheckpointKnown = checkpoint.hashCheckpoint;
+            LOCK(cs_vNodes);
+            BOOST_FOREACH(CNode* pnode, vNodes)
+                checkpoint.RelayTo(pnode);
+        }
+    }
 
     else if (strCommand == "filterload")
     {

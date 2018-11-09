@@ -301,6 +301,9 @@ static const CRPCCommand vRPCCommands[] =
     { "util",               "verifymessage",          &verifymessage,          true,      false,      false },
     { "util",               "estimatefee",            &estimatefee,            true,      true,       false },
     { "util",               "estimatepriority",       &estimatepriority,       true,      true,       false },
+    { "util",               "getcheckpoint",          &getcheckpoint,          true,      false,      false }, // ACP
+    { "util",               "sendcheckpoint",         &sendcheckpoint,         true,      false,      false }, // ACP
+    { "util",               "makekeypair",            &makekeypair,            true,      false,      false }, // ACP
 
     /* Not shown in help */
     { "hidden",             "invalidateblock",        &invalidateblock,        true,      true,       false },
