@@ -1245,28 +1245,32 @@ CAmount GetBlockValue(int nHeight, const CAmount& nFees)
 
     CAmount nSubsidy = nBlockRewardStartCoin;
 
-    // Subsidy is cut in half every 512000 blocks (21 days)
-    nSubsidy >>= (nHeight / Params().SubsidyHalvingInterval()); //DIME
-
-    // Minimum subsidy
-    /*
-    if (nSubsidy < nBlockRewardMinimumCoin)
+    if (nHeight < Params().Lwma3Height()) // Old reward distribution before LWMA3 difficulty adjustment
     {
-        nSubsidy = nBlockRewardMinimumCoin;
-    } */
-	int64_t modNumber = nHeight % 1024;
-	
-	if(modNumber == 0){
-		modNumber = 1024; //every 1024 have a big bonus
-	}
-	
-	nSubsidy = nSubsidy * modNumber;
-	
-	//premined 8% for dev, support, bounty, and giveaway etc
-	if(nHeight > 9 && nHeight < 128){
-		nSubsidy = 350000000 * COIN;
-	}
+        // Subsidy is cut in half every 512000 blocks (21 days)
+        nSubsidy >>= (nHeight / Params().SubsidyHalvingInterval()); //DIME
 
+	    int64_t modNumber = nHeight % 1024;
+	
+	    if(modNumber == 0){
+		    modNumber = 1024; //every 1024 have a big bonus
+	    }
+	
+	    nSubsidy = nSubsidy * modNumber;
+	
+	    //premined 8% for dev, support, bounty, and giveaway etc
+	    if(nHeight > 9 && nHeight < 128){
+		    nSubsidy = 350000000 * COIN;
+	    }
+    } // Old reward distribution - end
+    else { //New reward distribution that we decide to make start at same block height as LWMA3 difficulty adjustment
+        nSubsidy = nBlockRewardStartCoin * 8; // 8096 DIME, which is the current average reward amount in above distribution
+        // yearly decline of production by 8%
+        for (int i = Params().SubsidyHalvingInterval(); i <= (nHeight - Params().Lwma3Height()); i += Params().SubsidyHalvingInterval()) {
+            nSubsidy -= nSubsidy/12.5;
+        }
+        nSubsidy = std::max(nSubsidy, 4 * nBlockRewardStartCoin); // but not going below 4096 DIME
+    }
 
     return nSubsidy + nFees;
 }
@@ -3692,12 +3696,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         CAddress addrFrom;
         uint64_t nNonce = 1;
         vRecv >> pfrom->nVersion >> pfrom->nServices >> nTime >> addrMe;
-        if (pfrom->nVersion < MIN_PEER_PROTO_VERSION)
+        if (pfrom->nVersion < ActiveProtocol())
         {
             // disconnect from peers older than this proto version
             LogPrintf("peer=%d using obsolete version %i; disconnecting\n", pfrom->id, pfrom->nVersion);
             pfrom->PushMessage("reject", strCommand, REJECT_OBSOLETE,
-                               strprintf("Version must be %d or greater", MIN_PEER_PROTO_VERSION));
+                               strprintf("Version must be %d or greater", ActiveProtocol()));
             pfrom->fDisconnect = true;
             return false;
         }
@@ -4866,6 +4870,14 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
     return true;
 }
 
+
+int ActiveProtocol() {
+
+    if (chainActive.Height() < Params().Lwma3Height())
+        return MIN_PEER_PROTO_VERSION;
+
+    return PROTOCOL_VERSION;
+}
 
 bool CBlockUndo::WriteToDisk(CDiskBlockPos &pos, const uint256 &hashBlock)
 {

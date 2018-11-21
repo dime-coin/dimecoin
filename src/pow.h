@@ -18,6 +18,10 @@ static const int64_t nInterval = nTargetTimespan / nTargetSpacing; // DIME : 102
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock);
 
+/** Zawy's LWMA - next generation algorithm for testnet currently */
+unsigned int Lwma3GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock);
+/** ...LWMA **/
+
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
 bool CheckProofOfWork(uint256 hash, unsigned int nBits);
 uint256 GetBlockProof(const CBlockIndex& block);

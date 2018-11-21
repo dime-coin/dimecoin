@@ -164,6 +164,10 @@ public:
         nTargetSpacing = 64;     // DIME : 64 seconds
         nMaxTipAge = 96 * 60 * 60; //DIME
         strCheckpointPubKey = "045af95d3e64f3166cef9fab4ce87f6a085055b7552bac891c2600f7a90b382053f88b0741282b02c763b1b3352de4dd98d8b32c4664686b6ba050e6c2f8ca0520"; // ACP
+        //LWMA3 implementation
+        nLwma3Height = 9999999; 
+        nLwmaAveragingWindow = 90;
+        //LWMA3 - end
 
         /**
          * Build the genesis block. Note that the output of the genesis coinbase cannot
@@ -256,6 +260,7 @@ public:
         nTargetSpacing = 64;     // DIME : 30 seconds
         nMaxTipAge = 0x7fffffff;
         strCheckpointPubKey = "042f99f07597141a8675be9bb36666b332ad8ba4a3b7e2ae913f0d2f8521342a7fe88ae9cd5d13faf16bedd6d43ad66c48d0f9609be878c6420395076c956898b8"; // ACP
+        nLwma3Height = 30000; //LWMA implementation
 
         //! Modify the testnet genesis block so the timestamp is valid for a later start.
         genesis.nTime = 1514764800; //new testnet 1/01/2018
