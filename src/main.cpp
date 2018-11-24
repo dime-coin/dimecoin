@@ -4873,7 +4873,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 
 int ActiveProtocol() {
 
-    if (chainActive.Height() < Params().Lwma3Height())
+    if (chainActive.Height() < Params().Lwma3Height() - 2700) //older versions will be refused 48h before Difficulty adjustement algorithm switch
         return MIN_PEER_PROTO_VERSION;
 
     return PROTOCOL_VERSION;
