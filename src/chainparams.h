@@ -70,7 +70,11 @@ public:
     int64_t TargetSpacing() const { return nTargetSpacing; }
     int64_t Interval() const { return nTargetTimespan / nTargetSpacing; }
     int64_t MaxTipAge() const { return nMaxTipAge; }
-    std::string CheckpointPubKey() const {return nCheckpointPubKey;}
+    std::string CheckpointPubKey() const {return strCheckpointPubKey;} //ACP
+    //LWMA implementation
+    int Lwma3Height() const { return nLwma3Height; } 
+    int LwmaAveragingWindow() const { return nLwmaAveragingWindow; } 
+    //LWMA - end
     /** Make miner stop after a block is found. In RPC, don't return until nGenProcLimit blocks are generated */
     bool MineBlocksOnDemand() const { return fMineBlocksOnDemand; }
     /** In the future use NetworkIDString() for RPC fields */
@@ -98,7 +102,11 @@ protected:
     int64_t nTargetSpacing;
     int nMinerThreads;
     long nMaxTipAge;
-    std::string nCheckpointPubKey;
+    std::string strCheckpointPubKey; // ACP
+    //LWMA implementation
+    int nLwma3Height; 
+    int nLwmaAveragingWindow;
+    //LWMA - end
     std::vector<CDNSSeedData> vSeeds;
     std::vector<unsigned char> base58Prefixes[MAX_BASE58_TYPES];
     CBaseChainParams::Network networkID;
