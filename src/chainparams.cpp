@@ -165,7 +165,7 @@ public:
         nMaxTipAge = 96 * 60 * 60; //DIME
         strCheckpointPubKey = "045af95d3e64f3166cef9fab4ce87f6a085055b7552bac891c2600f7a90b382053f88b0741282b02c763b1b3352de4dd98d8b32c4664686b6ba050e6c2f8ca0520"; // ACP
         //LWMA3 implementation
-        nLwma3Height = 9999999; 
+        nLwma3Height = 3310000; //around the 27/12/2018
         nLwmaAveragingWindow = 90;
         //LWMA3 - end
 

@@ -20,8 +20,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
         return nProofOfWorkLimit;
 
     /* LWMA3 start */
-    bool postLWMA3 = pindexLast->nHeight + 1 >= Params().Lwma3Height();
-    if(postLWMA3)
+    if(pindexLast->nHeight + 1 >= Params().Lwma3Height())
         return Lwma3GetNextWorkRequired(pindexLast, pblock);
     /* LWMA3 end */
 
