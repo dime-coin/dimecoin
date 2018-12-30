@@ -106,11 +106,13 @@ static Checkpoints::MapCheckpoints mapCheckpoints =
         ( 3100000,     uint256("0x00000000000e46ee7f527b6ba4b557ef49a9c17ae4a852a7e0fe3023048288f4"))
       //new checkpoint added in version 1.9.1.0
         ( 3200000,     uint256("0x0000000000015dfaf2bf3f4c05192f61baa66bd682df1359bf77bfa07c2c9e0c"))   
+      //new checkpoint added in version 1.10.0.1
+        ( 3300000,     uint256("0x0000000000048833e8eba44d3f0cfac03add5859a861df0333ba334b0d902889"))   
         ;
 static const Checkpoints::CCheckpointData data = {
         &mapCheckpoints,
-        1539877199, // * UNIX timestamp of last checkpoint block 3100000
-        4173777,    // * total number of transactions between genesis and last checkpoint 3200000
+        1545295212, // * UNIX timestamp of last checkpoint block 3300000
+        4291581,    // * total number of transactions between genesis and last checkpoint 3300000
                     //   (the tx=... number in the SetBestChain debug.log lines)
         2880.0      // * estimated number of transactions per day after checkpoint
     };
@@ -166,6 +168,7 @@ public:
         strCheckpointPubKey = "045af95d3e64f3166cef9fab4ce87f6a085055b7552bac891c2600f7a90b382053f88b0741282b02c763b1b3352de4dd98d8b32c4664686b6ba050e6c2f8ca0520"; // ACP
         //LWMA3 implementation
         nLwma3Height = 3310000; //around the 27/12/2018
+        nLwma3FixHeight = 3358350; //around the 21/01/2019 
         nLwmaAveragingWindow = 90;
         //LWMA3 - end
 
@@ -261,6 +264,7 @@ public:
         nMaxTipAge = 0x7fffffff;
         strCheckpointPubKey = "042f99f07597141a8675be9bb36666b332ad8ba4a3b7e2ae913f0d2f8521342a7fe88ae9cd5d13faf16bedd6d43ad66c48d0f9609be878c6420395076c956898b8"; // ACP
         nLwma3Height = 30000; //LWMA implementation
+        nLwma3FixHeight = 33000; 
 
         //! Modify the testnet genesis block so the timestamp is valid for a later start.
         genesis.nTime = 1514764800; //new testnet 1/01/2018

@@ -177,7 +177,8 @@ unsigned int Lwma3GetNextWorkRequired(const CBlockIndex* pindexLast, const CBloc
     nextTarget = t * sumTarget;
     
     if (nextTarget > (previousDiff * 150) / 100) { nextTarget = (previousDiff * 150) / 100; }
-    if ((previousDiff * 67) / 100 > nextTarget) { nextTarget = (previousDiff * 67); }
+    if (height < Params().Lwma3FixHeight() && ((previousDiff * 67) / 100 > nextTarget)) { nextTarget = (previousDiff * 67); }         // This wasn't right, but already triggered at certain blocks unfortunately
+    if (height >= Params().Lwma3FixHeight() && (nextTarget < (previousDiff * 67) / 100)) { nextTarget = (previousDiff * 67) / 100; }  // That's why we have to enable the correction later. Fixed here
     if (solvetimeSum < (8 * T) / 10) { nextTarget = previousDiff * 100 / 106; }
     if (nextTarget > powLimit) { nextTarget = powLimit; }
 

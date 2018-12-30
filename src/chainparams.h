@@ -73,6 +73,7 @@ public:
     std::string CheckpointPubKey() const {return strCheckpointPubKey;} //ACP
     //LWMA implementation
     int Lwma3Height() const { return nLwma3Height; } 
+    int Lwma3FixHeight() const { return nLwma3FixHeight; } 
     int LwmaAveragingWindow() const { return nLwmaAveragingWindow; } 
     //LWMA - end
     /** Make miner stop after a block is found. In RPC, don't return until nGenProcLimit blocks are generated */
@@ -104,7 +105,8 @@ protected:
     long nMaxTipAge;
     std::string strCheckpointPubKey; // ACP
     //LWMA implementation
-    int nLwma3Height; 
+    int nLwma3Height;
+    int nLwma3FixHeight; 
     int nLwmaAveragingWindow;
     //LWMA - end
     std::vector<CDNSSeedData> vSeeds;
