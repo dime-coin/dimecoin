@@ -3696,12 +3696,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         CAddress addrFrom;
         uint64_t nNonce = 1;
         vRecv >> pfrom->nVersion >> pfrom->nServices >> nTime >> addrMe;
-        if (pfrom->nVersion < ActiveProtocol())
+        if (pfrom->nVersion < MIN_PEER_PROTO_VERSION)
         {
             // disconnect from peers older than this proto version
             LogPrintf("peer=%d using obsolete version %i; disconnecting\n", pfrom->id, pfrom->nVersion);
             pfrom->PushMessage("reject", strCommand, REJECT_OBSOLETE,
-                               strprintf("Version must be %d or greater", ActiveProtocol()));
+                               strprintf("Version must be %d or greater", MIN_PEER_PROTO_VERSION));
             pfrom->fDisconnect = true;
             return false;
         }
@@ -3720,21 +3720,6 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             vRecv >> pfrom->fRelayTxes; // set to true after we get the first filter* message
         else
             pfrom->fRelayTxes = true;
-
-        if (pfrom->cleanSubVer == "/dimecoin:1.8.0/" 
-            || pfrom->cleanSubVer == "/dimecoin:1.7.0.2/" 
-            || pfrom->cleanSubVer == "/bitnodes.net:1.7.2/"
-            || pfrom->cleanSubVer == "/dimecoin:1.7.2/"
-            || pfrom->cleanSubVer == "/Satoshi:1.6.9/"
-            || pfrom->cleanSubVer == "/Satoshi:1.5.0.14/"
-            || pfrom->cleanSubVer == "/Satoshi:0.8.3.14/"
-            || pfrom->cleanSubVer == "/Satoshi:0.8.3.13/"
-            || pfrom->cleanSubVer == "/DimecoinJ:0.12.4/Dimecoin Wallet:1.0.0rc3/"
-            || pfrom->cleanSubVer == "/DimecoinJ:0.12.4/Dimecoin Wallet:1.0.0rc4/") {
-            LOCK(cs_main);
-            Misbehaving(pfrom->GetId(), 100); // instantly ban uncompatible peers (temporary solution before proper PROTO_VERSION update)
-            return false;
-        }
 
         // Disconnect if we connected to ourself
         if (nNonce == nLocalHostNonce && nNonce > 1)
@@ -4868,15 +4853,6 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 
     }
     return true;
-}
-
-
-int ActiveProtocol() {
-
-    if (chainActive.Height() < Params().Lwma3Height() - 2700) //older versions will be refused 48h before Difficulty adjustement algorithm switch
-        return MIN_PEER_PROTO_VERSION;
-
-    return PROTOCOL_VERSION;
 }
 
 bool CBlockUndo::WriteToDisk(CDiskBlockPos &pos, const uint256 &hashBlock)
