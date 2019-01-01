@@ -20,7 +20,7 @@ The following instructions will get you a copy of the dimecoin source code up an
 
 ## Releases for Windows, Mac and Linux
 
-<a href="https://github.com/dime-coin/dimecoin/releases/latest">Latest release : 1.10.0.0</a><br/>
+<a href="https://github.com/dime-coin/dimecoin/releases/latest">Latest release : 1.10.0.1</a><br/>
 
 
 Find all the documentation in the <a href="https://github.com/dime-coin/dimecoin/wiki">Wiki</a>
