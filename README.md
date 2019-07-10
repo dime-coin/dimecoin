@@ -13,8 +13,8 @@ Our official social media pages are as follows.
 <a href="https://www.facebook.com/dimecoincommunity">Facebook</a> •
 <a href="https://www.instagram.com/dimecoinnetwork">Instagram</a> •
 <a href="https://www.linkedin.com/company/dimecoin1/">Linkedin</a> •
-<a href="https://t.me.dimecoinofficialpublic">Telegram</a> •
-<a href="https://t.me/dimeofficialsupport">Support</a> •
+<a href="t.me.dimecoinofficialpublic">Telegram</a> •
+<a href="t.me/dimeofficialsupport">Support</a> •
 <a href="https://discord.gg/b3fuZT">Discord</a>
 
 ## Getting started
