@@ -216,11 +216,11 @@ public:
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04,0x88,0xB2,0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04,0x88,0xAD,0xE4};
 */
-        base58Prefixes[PUBKEY_ADDRESS] = list_of(15);
-        base58Prefixes[SCRIPT_ADDRESS] = list_of(9);
-        base58Prefixes[SECRET_KEY] =     list_of(143);
-        base58Prefixes[EXT_PUBLIC_KEY] = list_of(0x04)(0x88)(0xB2)(0x1E);
-        base58Prefixes[EXT_SECRET_KEY] = list_of(0x04)(0x88)(0xAD)(0xE4);
+        base58Prefixes[PUBKEY_ADDRESS] = {15};
+        base58Prefixes[SCRIPT_ADDRESS] = {9};
+        base58Prefixes[SECRET_KEY] =     {143};
+        base58Prefixes[EXT_PUBLIC_KEY] = {0x04,0x88,0xB2,0x1E};
+        base58Prefixes[EXT_SECRET_KEY] = {0x04,0x88,0xAD,0xE4};
 
         convertSeed6(vFixedSeeds, pnSeed6_main, ARRAYLEN(pnSeed6_main));
 
@@ -300,19 +300,11 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
 
-/* used if using -std=c++11
         base58Prefixes[PUBKEY_ADDRESS] = {119};
         base58Prefixes[SCRIPT_ADDRESS] = {199};
-        base58Prefixes[SECRET_KEY]     = {247};
+        base58Prefixes[SECRET_KEY] =     {247};
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04,0x35,0x87,0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04,0x35,0x83,0x94};
-*/
-
-        base58Prefixes[PUBKEY_ADDRESS] = list_of(119);
-        base58Prefixes[SCRIPT_ADDRESS] = list_of(199);
-        base58Prefixes[SECRET_KEY] =     list_of(247);
-        base58Prefixes[EXT_PUBLIC_KEY] = list_of(0x04)(0x35)(0x87)(0xCF);
-        base58Prefixes[EXT_SECRET_KEY] = list_of(0x04)(0x35)(0x83)(0x94);
 
         convertSeed6(vFixedSeeds, pnSeed6_test, ARRAYLEN(pnSeed6_test));
 
