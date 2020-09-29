@@ -3845,6 +3845,7 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
                 }
             }
         }
+
         if (!vInv.empty())
             connman->PushMessage(pto, msgMaker.Make(NetMsgType::INV, vInv));
 
@@ -3895,11 +3896,11 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
             }
             pto->vInventoryToSend = vInvWait;
         }
+
         if (!vInv.empty()) {
             connman->PushMessage(pto, msgMaker.Make(NetMsgType::INV, vInv));
             LogPrint(BCLog::NET, "SendMessages -- pushing tailing inv's: count=%d peer=%d\n", vInv.size(), pto->GetId());
         }
-        //
 
         // Detect whether we're stalling
         nNow = GetTimeMicros();

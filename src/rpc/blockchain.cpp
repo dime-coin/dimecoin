@@ -344,8 +344,6 @@ static UniValue getdifficulty(const JSONRPCRequest& request)
     CBlockIndex* tip = chainActive.Tip();
     const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue obj(UniValue::VOBJ);
-    obj.push_back(Pair("proof-of-work",(double)nround(GetDifficulty(GetNextWorkRequired(tip,consensusParams,false)),8)));
-    obj.push_back(Pair("proof-of-stake",(double)nround(GetDifficulty(GetNextWorkRequired(tip,consensusParams,true)),8)));
     return obj;
 }
 
@@ -1229,8 +1227,6 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
     obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
     UniValue diff(UniValue::VOBJ);
-    diff.push_back(Pair("proof-of-work",(double)nround(GetDifficulty(GetNextWorkRequired(tip,consensusParams,false)),8)));
-    diff.push_back(Pair("proof-of-stake",(double)nround(GetDifficulty(GetNextWorkRequired(tip,consensusParams,true)),8)));
     obj.push_back(Pair("difficulty", diff));
     obj.pushKV("difficulty", diff);
     obj.pushKV("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast());

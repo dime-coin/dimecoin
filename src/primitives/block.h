@@ -21,6 +21,7 @@ class CBlockHeader
 {
 public:
     // header
+    static const int32_t CURRENT_VERSION=113;
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
@@ -38,6 +39,7 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(this->nVersion);
+        nVersion = this->nVersion;
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
@@ -47,7 +49,7 @@ public:
 
     void SetNull()
     {
-        nVersion = 0;
+        nVersion = CBlockHeader::CURRENT_VERSION;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         nTime = 0;
@@ -61,8 +63,6 @@ public:
     }
 
     uint256 GetHash() const;
-
-    uint256 GetPoWHash() const;
 
     int64_t GetBlockTime() const
     {

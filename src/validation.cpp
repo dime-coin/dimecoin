@@ -1118,7 +1118,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
     }
 
     // Check the header
-    if (block.IsProofOfWork() && !CheckProofOfWork(block.GetPoWHash(), block.nBits, consensusParams))
+    if (block.IsProofOfWork() && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
         return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
 
     return true;
@@ -1140,9 +1140,93 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus
     return true;
 }
 
+bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& message_start)
+{
+    CDiskBlockPos hpos = pos;
+    hpos.nPos -= 8; // Seek back 8 bytes for meta header
+    CAutoFile filein(OpenBlockFile(hpos, true), SER_DISK, CLIENT_VERSION);
+    if (filein.IsNull()) {
+        return error("%s: OpenBlockFile failed for %s", __func__, pos.ToString());
+    }
+
+    try {
+        CMessageHeader::MessageStartChars blk_start;
+        unsigned int blk_size;
+
+        filein >> blk_start >> blk_size;
+
+        if (memcmp(blk_start, message_start, CMessageHeader::MESSAGE_START_SIZE)) {
+            return error("%s: Block magic mismatch for %s: %s versus expected %s", __func__, pos.ToString(),
+                    HexStr(blk_start, blk_start + CMessageHeader::MESSAGE_START_SIZE),
+                    HexStr(message_start, message_start + CMessageHeader::MESSAGE_START_SIZE));
+        }
+
+        if (blk_size > MAX_SIZE) {
+            return error("%s: Block data is larger than maximum deserialization size for %s: %s versus %s", __func__, pos.ToString(),
+                    blk_size, MAX_SIZE);
+        }
+
+        block.resize(blk_size); // Zeroing of memory is intentional here
+        filein.read((char*)block.data(), blk_size);
+    } catch(const std::exception& e) {
+        return error("%s: Read from block file failed: %s for %s", __func__, e.what(), pos.ToString());
+    }
+
+    return true;
+}
+
+bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex, const CMessageHeader::MessageStartChars& message_start)
+{
+    CDiskBlockPos block_pos;
+    {
+        LOCK(cs_main);
+        block_pos = pindex->GetBlockPos();
+    }
+
+    return ReadRawBlockFromDisk(block, block_pos, message_start);
+}
+
+static const int64_t nGenesisBlockRewardCoin = 1 * COIN;
+static const int64_t nBlockRewardStartCoin = 1024 * COIN; //DIME
+static const int64_t nBlockRewardMinimumCoin = 1 * COIN;
+
 CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParams, bool fSuperblockPartOnly)
 {
-    CAmount nSubsidy = 1000 * COIN;
+    const int nHeight = nPrevHeight;
+    const int lwma3height = 3310000;
+    const int lwma3fixheight = 3358350;
+
+    if (nHeight == 0) {
+        return nGenesisBlockRewardCoin;
+    }
+
+    CAmount nSubsidy = nBlockRewardStartCoin;
+    if (nHeight < lwma3fixheight) // Old reward distribution before LWMA3 difficulty adjustment
+    {
+        // Subsidy is cut in half every 512000 blocks (21 days)
+        nSubsidy >>= (nHeight / Params().GetConsensus().nSubsidyHalvingInterval); //DIME
+
+        int64_t modNumber = nHeight % 1024;
+
+        if (modNumber == 0) {
+            modNumber = 1024; //every 1024 have a big bonus
+        }
+
+        nSubsidy = nSubsidy * modNumber;
+
+        //premined 8% for dev, support, bounty, and giveaway etc
+        if (nHeight > 9 && nHeight < 128) {
+            nSubsidy = 350000000 * COIN;
+        }
+    } // Old reward distribution - end
+    else { //New reward distribution that we decide to make start at same block height as LWMA3 difficulty adjustment
+        nSubsidy = nBlockRewardStartCoin * 8; // 8096 DIME, which is the current average reward amount in above distribution
+        // yearly decline of production by 8%
+        for (int i = Params().GetConsensus().nSubsidyHalvingInterval; i <= (nHeight - lwma3height); i += Params().GetConsensus().nSubsidyHalvingInterval) {
+            nSubsidy -= nSubsidy / 12.5;
+        }
+        nSubsidy = std::max(nSubsidy, 4 * nBlockRewardStartCoin); // but not going below 4096 DIME
+    }
 
     return nSubsidy;
 }
@@ -1847,7 +1931,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return true;
     }
 
-    if (block.IsProofOfWork() && (pindex->nHeight > Params().GetConsensus().nLastPoWBlock)) {
+    if (block.IsProofOfWork() && (pindex->nHeight > Params().GetConsensus().nFirstPoSBlock)) {
         return state.DoS(100, error("ConnectBlock() : PoW period ended"), REJECT_INVALID, "PoW-ended");
     }
 
@@ -2083,8 +2167,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // the peer who sent us this block is missing some data and wasn't able
     // to recognize that block is actually invalid.
     // TODO: resync data (both ways?) and try to reprocess this block later.
-    CAmount expectedReward = GetBlockSubsidy(pindex->pprev->nHeight,
-                                             chainparams.GetConsensus());
+
+
+    //! instead of trying to emulate the old fee schema..
+    CAmount minLegacyFee = 2.5 * COIN;
+    CAmount expectedReward = minLegacyFee + GetBlockSubsidy(pindex->pprev->nHeight + 1, chainparams.GetConsensus());
 
     std::string strError = "";
     if (!IsBlockValueValid(block, pindex->nHeight, expectedReward, pindex->nMint, strError)) {
@@ -2123,24 +2210,27 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         }
     }
 
-    // add new entries
-    for (const CTransactionRef ptx: block.vtx) {
-        const CTransaction& tx = *ptx;
-        if (tx.IsCoinBase())
-            continue;
-        for (const CTxIn in: tx.vin) {
-            LogPrintf("mapStakeSpent: Insert %s | %u\n", in.prevout.ToString(), pindex->nHeight);
-            mapStakeSpent.insert(std::make_pair(in.prevout, pindex->nHeight));
+    //! dont perform fakestake checks until PoS has begun
+    if (pindex->nHeight >= Params().GetConsensus().nFirstPoSBlock)
+    {
+        // add new entries
+        for (const CTransactionRef ptx: block.vtx) {
+            const CTransaction& tx = *ptx;
+            if (tx.IsCoinBase())
+                continue;
+            for (const CTxIn in: tx.vin) {
+                LogPrintf("mapStakeSpent: Insert %s | %u\n", in.prevout.ToString(), pindex->nHeight);
+                mapStakeSpent.insert(std::make_pair(in.prevout, pindex->nHeight));
+            }
         }
-    }
-
-    // delete old entries
-    for (auto it = mapStakeSpent.begin(); it != mapStakeSpent.end();) {
-        if (it->second < pindex->nHeight - Params().MaxReorganizationDepth()) {
-            LogPrintf("mapStakeSpent: Erase %s | %u\n", it->first.ToString(), it->second);
-            it = mapStakeSpent.erase(it);
-        }else {
-            it++;
+        // delete old entries
+        for (auto it = mapStakeSpent.begin(); it != mapStakeSpent.end();) {
+            if (it->second < pindex->nHeight - Params().MaxReorganizationDepth()) {
+                LogPrintf("mapStakeSpent: Erase %s | %u\n", it->first.ToString(), it->second);
+                it = mapStakeSpent.erase(it);
+            }else {
+                it++;
+            }
         }
     }
 
@@ -3194,7 +3284,7 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
     // Check proof of work matches claimed amount
-    if (fCheckPOW && !CheckProofOfWork(block.GetPoWHash(), block.nBits, consensusParams))
+    if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
         return state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
 
     return true;
@@ -3225,12 +3315,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if (mutated)
             return state.DoS(100, false, REJECT_INVALID, "bad-txns-duplicate", true, "duplicate transaction");
     }
-
-    // Check timestamp
-    int nBlocktimeDelta = abs(GetAdjustedTime() - block.GetBlockTime());
-    if (nBlocktimeDelta > (block.IsProofOfWork() ? MAX_FUTUREDRIFT_POW : MAX_FUTUREDRIFT_POS))
-        return state.Invalid(error("%s : block timestamp deviates too far from the present", __func__),
-                             REJECT_INVALID, "timerange-invalid");
 
     // All potential-corruption validation must be done before we do any
     // transaction validation, as otherwise we may mark the header as invalid
@@ -3438,13 +3522,9 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
     }
 
     // Check difficulty
-    if (block.nBits != GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake()))
+    if (block.nBits != GetNextWorkRequired(pindexPrev, &block))
         return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, strprintf("incorrect difficulty: block pow=%d bits=%08x calc=%08x",
-                  block.IsProofOfWork() ? "Y" : "N", block.nBits, GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake())));
-    else
-        LogPrintf("Block pow=%s bits=%08x found=%08x %s=%s\n", block.IsProofOfWork() ? "Y" : "N", GetNextWorkRequired(pindexPrev,
-                  consensusParams, block.IsProofOfStake()), block.nBits, block.IsProofOfWork() ? "powhash" : "hashproof",
-                  block.IsProofOfWork() ? block.GetPoWHash().ToString().c_str() : hashProofOfStake.ToString().c_str());
+                  block.IsProofOfWork() ? "Y" : "N", block.nBits, GetNextWorkRequired(pindexPrev, &block)));
 
     // Start enforcing BIP113 (Median Time Past) using versionbits logic.
     int nLockTimeFlags = 0;
@@ -3716,7 +3796,8 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         return error("%s: %s", __func__, FormatStateMessage(state));
     }
 
-    AcceptProofOfStakeBlock(block, pindex);
+    if (pindex->nHeight >= Params().GetConsensus().nFirstPoSBlock)
+        AcceptProofOfStakeBlock(block, pindex);
 
     // Header is valid/has work, merkle tree and segwit merkle tree are good...RELAY NOW
     // (but if it does not build on our best tip, let the SendMessages loop relay it)

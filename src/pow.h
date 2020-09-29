@@ -15,9 +15,9 @@ class CBlockIndex;
 class uint256;
 
 const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfStake);
-unsigned int DualKGW3(const CBlockIndex* pindexLast, const CBlockHeader* pblock, const Consensus::Params& params);
-unsigned int PoSWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& params);
-unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& params, bool fProofOfStake);
+unsigned int GetNextWorkRequiredLegacy(const CBlockIndex* pindexLast, const CBlockHeader* pblock);
+unsigned int Lwma3GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock);
+unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock);
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params);
 
 #endif // BITCOIN_POW_H

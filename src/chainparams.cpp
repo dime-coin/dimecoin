@@ -9,7 +9,7 @@
 #include <tinyformat.h>
 #include <utilstrencodings.h>
 #include <arith_uint256.h>
-
+#include <util.h>
 #include <assert.h>
 
 #include <chainparamsseeds.h>
@@ -48,7 +48,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
  */
 static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
-    const char* pszTimestamp = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+    const char* pszTimestamp = "BIN COIN START";
     const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
 }
@@ -74,7 +74,8 @@ public:
     CMainParams() {
         strNetworkID = "main";
 
-        consensus.nLastPoWBlock = 100;
+        consensus.nSubsidyHalvingInterval = 512000;
+        consensus.nFirstPoSBlock = std::numeric_limits<int>::max();
         consensus.nInstantSendKeepLock = 24;
         consensus.nBudgetPaymentsStartBlock = 0;
         consensus.nBudgetPaymentsCycleBlocks = 16616;
@@ -86,19 +87,19 @@ public:
         consensus.nGovernanceFilterElements = 20000;
         consensus.BIP34Height = 10;
         consensus.BIP34Hash = uint256S("0000000000000000000000000000000000000000000000000000000000000000");
-        consensus.BIP65Height = consensus.nLastPoWBlock;
-        consensus.BIP66Height = consensus.nLastPoWBlock;
-        consensus.powLimit = uint256S("0000ffff00000000000000000000000000000000000000000000000000000000");
-        consensus.posLimit = uint256S("007ffff000000000000000000000000000000000000000000000000000000000");
-        consensus.nPowTargetTimespan = 2 * 60;
-        consensus.nPowTargetSpacing = 40;
+        consensus.BIP65Height = consensus.nFirstPoSBlock;
+        consensus.BIP66Height = consensus.nFirstPoSBlock;
+        consensus.powLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        consensus.posLimit = consensus.powLimit;
+        consensus.nPowTargetTimespan = 65536; //! this is a worry
+        consensus.nPowTargetSpacing = 64;     //! this is a worry
         consensus.nPosTargetSpacing = consensus.nPowTargetSpacing;
         consensus.nPosTargetTimespan = consensus.nPowTargetTimespan;
         consensus.nMasternodeMinimumConfirmations = 15;
         consensus.nStakeMinAge = 10 * 60;
         consensus.nStakeMaxAge = 60 * 60 * 24 * 30;
         consensus.nModifierInterval = 60 * 20;
-        consensus.nCoinbaseMaturity = 20;
+        consensus.nCoinbaseMaturity = 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1080;
@@ -129,35 +130,28 @@ public:
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
          */
-        pchMessageStart[0] = 0xc4;
-        pchMessageStart[1] = 0x4d;
-        pchMessageStart[2] = 0xe4;
-        pchMessageStart[3] = 0x4f;
-        nDefaultPort = 20000;
+        pchMessageStart[0] = 0xfe;
+        pchMessageStart[1] = 0xa5;
+        pchMessageStart[2] = 0x03;
+        pchMessageStart[3] = 0xdd;
+        nDefaultPort = 11931;
         nPruneAfterHeight = 100000;
         nMaxReorganizationDepth = 100;
 
-	////////////////////////////////////////////////////////////////////////////////
-	uint32_t nTime = 1556915433;
-	uint32_t nNonce = 34897;
-
-        if (nNonce == 0) {
-	  while (UintToArith256(genesis.GetPoWHash()) > UintToArith256(consensus.powLimit)) {
-	    nNonce++;
-	    genesis = CreateGenesisBlock(nTime, nNonce, 0x1f00ffff, 1, 0 * COIN);
-	    if (nNonce % 128 == 0)
-	      printf("\rnonce %08x", nNonce);
-	  }
-        }
-	////////////////////////////////////////////////////////////////////////////////
-
-        genesis = CreateGenesisBlock(nTime, nNonce, 0x1f00ffff, 1, 0 * COIN);
+        genesis = CreateGenesisBlock(1387807823, 16888732, 0x1e0fffff, 112, 1 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
-        // assert(consensus.hashGenesisBlock == uint256S(""));
+        assert(consensus.hashGenesisBlock == uint256S("00000d5a9113f87575c77eb5442845ff8a0014f6e79e2dd2317d88946ef910da"));
+        assert(genesis.hashMerkleRoot == uint256S("72596a6a36d42416b5486386c6e2b7e339782ef4eb49fb8a60ec7dc3475da545"));
 
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,70);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,132);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,198);
+        vSeeds.emplace_back("seed1.dimecoinnetwork.com", "seed1.dimecoinnetwork.com");         //Primary DNS Seed
+        vSeeds.emplace_back("seed2.dimecoinnetwork.com", "seed2.dimecoinnetwork.com");         //Secondary DNS Seed
+        vSeeds.emplace_back("node1.dimecoinnetwork.com", "node1.dimecoinnetwork.com");         //Primary node
+        vSeeds.emplace_back("node2.dimecoinnetwork.com", "node2.dimecoinnetwork.com");         //Secondary node
+        vSeeds.emplace_back("dime-pool.dimecoinnetwork.com", "dime-pool.dimecoinnetwork.com"); //dime-pool.com node
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,15);
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,9);
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,143);
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
         bech32_hrp = "vx";
@@ -174,15 +168,9 @@ public:
         strSporkPubKey = "";
 
         checkpointData = {
-            {
-                { 0, uint256S("") },
-            }
         };
 
         chainTxData = ChainTxData{
-            0,
-            1,
-            1.0
         };
 
         /* disable fallback fee on mainnet */

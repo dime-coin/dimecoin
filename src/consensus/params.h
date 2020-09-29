@@ -48,6 +48,7 @@ struct BIP9Deployment {
  */
 struct Params {
     uint256 hashGenesisBlock;
+    int nSubsidyHalvingInterval;
     int nMasternodePaymentsIncreaseBlock;
     int nMasternodePaymentsIncreasePeriod;
     int nInstantSendKeepLock;
@@ -87,7 +88,7 @@ struct Params {
     uint256 posLimit;
     int64_t nPosTargetSpacing;
     int64_t nPosTargetTimespan;
-    int nLastPoWBlock;
+    int nFirstPoSBlock;
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;

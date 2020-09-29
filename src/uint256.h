@@ -163,6 +163,7 @@ inline uint256 uint256S(const std::string& str)
     return rv;
 }
 
+
 /** 512-bit unsigned big integer. */
 class uint512 : public base_blob<512> {
 public:
@@ -178,5 +179,15 @@ public:
     }
 };
 
+namespace std {
+    template <>
+    struct hash<uint256>
+    {
+        std::size_t operator()(const uint256& k) const
+        {
+            return (std::size_t)k.GetCheapHash();
+        }
+    };
+}
 
 #endif // BITCOIN_UINT256_H

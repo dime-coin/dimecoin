@@ -174,7 +174,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     if(fProofOfStake) {
         assert(wallet);
         boost::this_thread::interruption_point();
-        pblock->nBits = GetNextWorkRequired(pindexPrev, chainparams.GetConsensus(), fProofOfStake);
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock);
         CMutableTransaction coinstakeTx;
         int64_t nSearchTime = pblock->nTime;
         bool fStakeFound = false;
@@ -194,7 +194,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     }
     else
     {
-        if (nHeight <= Params().GetConsensus().nLastPoWBlock) {
+        if (nHeight <= Params().GetConsensus().nFirstPoSBlock) {
 		coinbaseTx.vout[0].nValue = nFees + blockReward;
         } else {
 		// masternode payment
@@ -244,7 +244,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     if(!fProofOfStake)
         UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-    pblock->nBits          = GetNextWorkRequired(pindexPrev, chainparams.GetConsensus(), fProofOfStake);
+    pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock);
     pblock->nNonce         = 0;
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 
@@ -584,7 +584,7 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
 
             if(fProofOfStake)
             {
-                if (chainActive.Tip()->nHeight+1 < chainparams.GetConsensus().nLastPoWBlock ||
+                if (chainActive.Tip()->nHeight+1 < chainparams.GetConsensus().nFirstPoSBlock ||
                     pwallet->IsLocked() || !masternodeSync.IsSynced())
                 {
                     nLastCoinStakeSearchInterval = 0;
@@ -650,7 +650,7 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
                 uint256 hash;
                 while (true)
                 {
-                    hash = pblock->GetPoWHash();
+                    hash = pblock->GetHash();
                     if (UintToArith256(hash) <= hashTarget)
                     {
                         // Found a solution
