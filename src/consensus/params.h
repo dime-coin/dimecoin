@@ -96,6 +96,7 @@ struct Params {
     int nStakeMaxAge;
     int64_t nModifierInterval;
     int nCoinbaseMaturity;
+    std::string checkpointPubKey;
 };
 } // namespace Consensus
 

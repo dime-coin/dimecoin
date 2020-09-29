@@ -14,6 +14,7 @@
 #include <chain.h>
 #include <chainparams.h>
 #include <checkpoints.h>
+#include <checkpointsync.h>
 #include <compat/sanity.h>
 #include <consensus/validation.h>
 #include <dsnotificationinterface.h>
@@ -604,6 +605,9 @@ void SetupServerArgs()
     gArgs.AddArg("-mnconflock=<n>", "Lock masternodes from masternode configuration file (default: %u)", false, OptionsCategory::MASTERNODE);
     gArgs.AddArg("-masternodeprivkey=<n>", "Set the masternode private key", false, OptionsCategory::MASTERNODE);
     gArgs.AddArg("-clearmncache", "Clears mncache on startup", false, OptionsCategory::MASTERNODE);
+
+    gArgs.AddArg("-checkpointdepth", "Set block depth to checkpoint", false, OptionsCategory::CHECKPOINTING);
+    gArgs.AddArg("-checkpointkey", "Set private key to sign checkpoint messages", false, OptionsCategory::CHECKPOINTING);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", false, OptionsCategory::OPTIONS);
@@ -1405,6 +1409,15 @@ bool AppInitPrivateSend()
     CPrivateSend::InitStandardDenominations();
 #endif
 
+    if (gArgs.IsArgSet("-checkpointkey")) // Checkpoint master priv key
+    {
+        if (!SetCheckpointPrivKey(gArgs.GetArg("-checkpointkey", "")))
+            return InitError("Unable to sign checkpoint, wrong checkpointkey?");
+    }
+
+    // Include NODE_ACP in services. Currently no arg to toggle this behaviour.
+    nLocalServices = ServiceFlags(nLocalServices | NODE_ACP);
+
     return true;
 }
 
@@ -1736,6 +1749,15 @@ bool AppInitMain()
                     uiInterface.InitMessage(_("Rewinding blocks..."));
                     if (!RewindBlockIndex(chainparams)) {
                         strLoadError = _("Unable to rewind the database to a pre-fork state. You will need to redownload the blockchain");
+                        break;
+                    }
+                }
+
+                {
+                    LOCK(cs_main);
+                    uiInterface.InitMessage("Checking ACP ...");
+                    if (!CheckCheckpointPubKey()) {
+                        strLoadError = "Checking ACP pubkey failed";
                         break;
                     }
                 }

@@ -652,6 +652,9 @@ std::string ArgsManager::GetHelpMessage() const
             case OptionsCategory::MASTERNODE:
                 usage += HelpMessageGroup("Masternodes options:");
                 break;
+            case OptionsCategory::CHECKPOINTING:
+                usage += HelpMessageGroup("Automatic Checkpointing:");
+                break;
             default:
                 break;
         }

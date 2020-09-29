@@ -10,6 +10,7 @@
 #include <arith_uint256.h>
 #include <blockencodings.h>
 #include <chainparams.h>
+#include <checkpointsync.h>
 #include <consensus/validation.h>
 #include <hash.h>
 #include <validation.h>
@@ -1926,6 +1927,17 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             connman->MarkAddressGood(pfrom->addr);
         }
 
+        if((nServices & NODE_ACP)) {
+            pfrom->supportACPMessages = true;
+
+            // Relay sync-checkpoint
+            {
+                LOCK(cs_main);
+                if (!checkpointMessage.IsNull())
+                    checkpointMessage.RelayTo(pfrom);
+            }
+        }
+
         std::string remoteAddr;
         if (fLogIPs)
             remoteAddr = ", peeraddr=" + pfrom->addr.ToString();
@@ -3032,6 +3044,21 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         return true;
     }
 
+    else if (strCommand == NetMsgType::CHECKPOINT) // Synchronized checkpoint
+    {
+        CSyncCheckpoint checkpoint;
+        vRecv >> checkpoint;
+
+        if (checkpoint.ProcessSyncCheckpoint())
+        {
+            // Relay checkpoint
+            pfrom->hashCheckpointKnown = checkpoint.hashCheckpoint;
+            g_connman->ForEachNode([&checkpoint](CNode* pnode) {
+                checkpoint.RelayTo(pnode);
+            });
+        }
+        return true;
+    }
 
     else if (strCommand == NetMsgType::FILTERLOAD)
     {

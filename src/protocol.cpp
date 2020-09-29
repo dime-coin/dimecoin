@@ -41,6 +41,7 @@ const char *SENDCMPCT="sendcmpct";
 const char *CMPCTBLOCK="cmpctblock";
 const char *GETBLOCKTXN="getblocktxn";
 const char *BLOCKTXN="blocktxn";
+const char *CHECKPOINT="checkpoint";
 
 // Bitcoin message types
 const char *TXLOCKREQUEST="ix";
@@ -119,7 +120,8 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::MNGOVERNANCESYNC,
     NetMsgType::MNGOVERNANCEOBJECT,
     NetMsgType::MNGOVERNANCEOBJECTVOTE,
-    NetMsgType::MNVERIFY
+    NetMsgType::MNVERIFY,
+    NetMsgType::CHECKPOINT
 };
 const static std::vector<std::string> allNetMessageTypesVec(allNetMessageTypes, allNetMessageTypes+ARRAYLEN(allNetMessageTypes));
 
