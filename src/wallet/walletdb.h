@@ -62,7 +62,7 @@ class CHDChain
 public:
     uint32_t nExternalChainCounter;
     uint32_t nInternalChainCounter;
-    CKeyID seed_id; //!< seed hash160
+    CKeyID masterKeyID; //!< master key hash160
 
     static const int VERSION_HD_BASE        = 1;
     static const int VERSION_HD_CHAIN_SPLIT = 2;
@@ -76,7 +76,7 @@ public:
     {
         READWRITE(this->nVersion);
         READWRITE(nExternalChainCounter);
-        READWRITE(seed_id);
+        READWRITE(masterKeyID);
         if (this->nVersion >= VERSION_HD_CHAIN_SPLIT)
             READWRITE(nInternalChainCounter);
     }
@@ -86,7 +86,7 @@ public:
         nVersion = CHDChain::CURRENT_VERSION;
         nExternalChainCounter = 0;
         nInternalChainCounter = 0;
-        seed_id.SetNull();
+        masterKeyID.SetNull();
     }
 };
 
@@ -99,7 +99,7 @@ public:
     int nVersion;
     int64_t nCreateTime; // 0 means unknown
     std::string hdKeypath; //optional HD/bip32 keypath
-    CKeyID hd_seed_id; //id of the HD seed used to derive this key
+    CKeyID hdMasterKeyID; //id of the HD masterkey used to derive this key
 
     CKeyMetadata()
     {
@@ -120,7 +120,7 @@ public:
         if (this->nVersion >= VERSION_WITH_HDDATA)
         {
             READWRITE(hdKeypath);
-            READWRITE(hd_seed_id);
+            READWRITE(hdMasterKeyID);
         }
     }
 
@@ -129,7 +129,7 @@ public:
         nVersion = CKeyMetadata::CURRENT_VERSION;
         nCreateTime = 0;
         hdKeypath.clear();
-        hd_seed_id.SetNull();
+        hdMasterKeyID.SetNull();
     }
 };
 
@@ -193,6 +193,10 @@ public:
 
     bool WriteOrderPosNext(int64_t nOrderPosNext);
 
+    bool WriteStakeSplitThreshold(uint64_t nStakeSplitThreshold);
+    bool WriteTPoSContractTx(uint256 hash, const CWalletTx& wtx);
+    bool EraseTPoSContractTx(uint256 hash);
+
     bool ReadPool(int64_t nPool, CKeyPool& keypool);
     bool WritePool(int64_t nPool, const CKeyPool& keypool);
     bool ErasePool(int64_t nPool);
@@ -248,6 +252,35 @@ public:
 private:
     BerkeleyBatch m_batch;
     WalletDatabase& m_database;
+};
+
+/* hd pubkey data model */
+class CHDPubKey
+{
+private:
+    static const int CURRENT_VERSION = 1;
+    int nVersion;
+
+public:
+    CExtPubKey extPubKey;
+    uint256 hdchainID;
+    uint32_t nAccountIndex;
+    uint32_t nChangeIndex;
+
+    CHDPubKey() : nVersion(CHDPubKey::CURRENT_VERSION), nAccountIndex(0), nChangeIndex(0) {}
+
+    ADD_SERIALIZE_METHODS;
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(this->nVersion);
+        READWRITE(extPubKey);
+        READWRITE(hdchainID);
+        READWRITE(nAccountIndex);
+        READWRITE(nChangeIndex);
+    }
+
+    std::string GetKeyPath() const;
 };
 
 //! Compacts BDB state so that wallet.dat is self-contained (if there are changes)

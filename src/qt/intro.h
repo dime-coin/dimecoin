@@ -17,6 +17,10 @@ namespace interfaces {
     class Node;
 }
 
+namespace interfaces {
+    class Node;
+}
+
 namespace Ui {
     class Intro;
 }

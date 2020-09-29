@@ -24,6 +24,8 @@
 #include <wallet/feebumper.h>
 #include <wallet/fees.h>
 #include <wallet/wallet.h>
+#include <masternode.h>
+#include <masternodeman.h>
 
 namespace interfaces {
 namespace {
@@ -117,7 +119,7 @@ WalletTxOut MakeWalletTxOut(CWallet& wallet, const CWalletTx& wtx, int n, int de
 class WalletImpl : public Wallet
 {
 public:
-    WalletImpl(const std::shared_ptr<CWallet>& wallet) : m_shared_wallet(wallet), m_wallet(*wallet.get()) {}
+    WalletImpl(CWallet& wallet) : m_wallet(wallet) {}
 
     bool encryptWallet(const SecureString& wallet_passphrase) override
     {
@@ -125,8 +127,9 @@ public:
     }
     bool isCrypted() override { return m_wallet.IsCrypted(); }
     bool lock() override { return m_wallet.Lock(); }
-    bool unlock(const SecureString& wallet_passphrase) override { return m_wallet.Unlock(wallet_passphrase); }
+    bool unlock(const SecureString& wallet_passphrase, bool stakingOnly = false) override { return m_wallet.Unlock(wallet_passphrase, stakingOnly); }
     bool isLocked() override { return m_wallet.IsLocked(); }
+    bool isLockedForStaking() override { return m_wallet.fWalletUnlockStakingOnly; }
     bool changeWalletPassphrase(const SecureString& old_wallet_passphrase,
         const SecureString& new_wallet_passphrase) override
     {
@@ -289,6 +292,12 @@ public:
         }
         return result;
     }
+
+    CAmount getStakeSplitThreshold() const override
+    {
+        return m_wallet.nStakeSplitThreshold;
+    }
+
     bool tryGetTxStatus(const uint256& txid,
         interfaces::WalletTxStatus& tx_status,
         int& num_blocks,
@@ -338,7 +347,7 @@ public:
         result.immature_balance = m_wallet.GetImmatureBalance();
         result.have_watch_only = m_wallet.HaveWatchOnly();
         if (result.have_watch_only) {
-            result.watch_only_balance = m_wallet.GetBalance(ISMINE_WATCH_ONLY);
+            result.watch_only_balance = m_wallet.GetBalance();
             result.unconfirmed_watch_only_balance = m_wallet.GetUnconfirmedWatchOnlyBalance();
             result.immature_watch_only_balance = m_wallet.GetImmatureWatchOnlyBalance();
         }
@@ -371,6 +380,13 @@ public:
         LOCK2(::cs_main, m_wallet.cs_wallet);
         return m_wallet.IsMine(txout);
     }
+
+    bool txoutIsSpent(const uint256 &hash, unsigned int outputIndex) override
+    {
+        LOCK2(::cs_main, m_wallet.cs_wallet);
+        return m_wallet.IsSpent(hash, outputIndex);
+    }
+
     CAmount getDebit(const CTxIn& txin, isminefilter filter) override
     {
         LOCK2(::cs_main, m_wallet.cs_wallet);
@@ -456,13 +472,24 @@ public:
     {
         return MakeHandler(m_wallet.NotifyWatchonlyChanged.connect(fn));
     }
-
+    bool startMasternode(std::string strService, std::string strKeyMasternode, std::string strTxHash, std::string strOutputIndex, std::string& strErrorRet) override
+    {
+        CMasternodeBroadcast mnb;
+        bool fSuccess = CMasternodeBroadcast::Create(&m_wallet, strService, strKeyMasternode, strTxHash, strOutputIndex, strErrorRet, mnb);
+        if(fSuccess)
+        {
+            mnodeman.UpdateMasternodeList(mnb, *g_connman);
+            mnb.Relay(*g_connman);
+            mnodeman.NotifyMasternodeUpdates(*g_connman);
+        }
+        return true;
+    }
     std::shared_ptr<CWallet> m_shared_wallet;
     CWallet& m_wallet;
 };
 
 } // namespace
 
-std::unique_ptr<Wallet> MakeWallet(const std::shared_ptr<CWallet>& wallet) { return MakeUnique<WalletImpl>(wallet); }
+std::unique_ptr<Wallet> MakeWallet(CWallet& wallet) { return MakeUnique<WalletImpl>(wallet); }
 
 } // namespace interfaces

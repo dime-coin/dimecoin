@@ -48,7 +48,18 @@ struct BIP9Deployment {
  */
 struct Params {
     uint256 hashGenesisBlock;
-    int nSubsidyHalvingInterval;
+    int nMasternodePaymentsIncreaseBlock;
+    int nMasternodePaymentsIncreasePeriod;
+    int nInstantSendKeepLock;
+    int nBudgetPaymentsStartBlock;
+    int nBudgetPaymentsCycleBlocks;
+    int nBudgetPaymentsWindowBlocks;
+    int nBudgetProposalEstablishingTime;
+    int nSuperblockStartBlock;
+    int nSuperblockCycle;
+    int nGovernanceMinQuorum;
+    int nGovernanceFilterElements;
+    int nMasternodeMinimumConfirmations;
     /* Block hash that is excepted from BIP16 enforcement */
     uint256 BIP16Exception;
     /** Block height and hash at which BIP34 becomes active */
@@ -72,9 +83,18 @@ struct Params {
     bool fPowNoRetargeting;
     int64_t nPowTargetSpacing;
     int64_t nPowTargetTimespan;
+    /** Proof of stake parameters */
+    uint256 posLimit;
+    int64_t nPosTargetSpacing;
+    int64_t nPosTargetTimespan;
+    int nLastPoWBlock;
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
+    int nStakeMinAge;
+    int nStakeMaxAge;
+    int64_t nModifierInterval;
+    int nCoinbaseMaturity;
 };
 } // namespace Consensus
 

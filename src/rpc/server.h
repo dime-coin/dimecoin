@@ -138,7 +138,7 @@ public:
 };
 
 /**
- * Bitcoin RPC command dispatcher.
+ * BTC RPC command dispatcher.
  */
 class CRPCTable
 {
@@ -198,7 +198,7 @@ extern CAmount AmountFromValue(const UniValue& value);
 extern std::string HelpExampleCli(const std::string& methodname, const std::string& args);
 extern std::string HelpExampleRpc(const std::string& methodname, const std::string& args);
 
-void StartRPC();
+bool StartRPC();
 void InterruptRPC();
 void StopRPC();
 std::string JSONRPCExecBatch(const JSONRPCRequest& jreq, const UniValue& vReq);

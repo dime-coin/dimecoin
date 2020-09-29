@@ -189,20 +189,7 @@ CPubKey CKey::GetPubKey() const {
     return result;
 }
 
-// Check that the sig has a low R value and will be less than 71 bytes
-bool SigHasLowR(const secp256k1_ecdsa_signature* sig)
-{
-    unsigned char compact_sig[64];
-    secp256k1_ecdsa_signature_serialize_compact(secp256k1_context_sign, compact_sig, sig);
-
-    // In DER serialization, all values are interpreted as big-endian, signed integers. The highest bit in the integer indicates
-    // its signed-ness; 0 is positive, 1 is negative. When the value is interpreted as a negative integer, it must be converted
-    // to a positive value by prepending a 0x00 byte so that the highest bit is 0. We can avoid this prepending by ensuring that
-    // our highest bit is always 0, and thus we must check that the first byte is less than 0x80.
-    return compact_sig[0] < 0x80;
-}
-
-bool CKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig, bool grind, uint32_t test_case) const {
+bool CKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig, uint32_t test_case) const {
     if (!fValid)
         return false;
     vchSig.resize(CPubKey::SIGNATURE_SIZE);
@@ -210,14 +197,7 @@ bool CKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig, bool gr
     unsigned char extra_entropy[32] = {0};
     WriteLE32(extra_entropy, test_case);
     secp256k1_ecdsa_signature sig;
-    uint32_t counter = 0;
-    int ret = secp256k1_ecdsa_sign(secp256k1_context_sign, &sig, hash.begin(), begin(), secp256k1_nonce_function_rfc6979, (!grind && test_case) ? extra_entropy : nullptr);
-
-    // Grind for low R
-    while (ret && !SigHasLowR(&sig) && grind) {
-        WriteLE32(extra_entropy, ++counter);
-        ret = secp256k1_ecdsa_sign(secp256k1_context_sign, &sig, hash.begin(), begin(), secp256k1_nonce_function_rfc6979, extra_entropy);
-    }
+    int ret = secp256k1_ecdsa_sign(secp256k1_context_sign, &sig, hash.begin(), begin(), secp256k1_nonce_function_rfc6979, test_case ? extra_entropy : nullptr);
     assert(ret);
     secp256k1_ecdsa_signature_serialize_der(secp256k1_context_sign, vchSig.data(), &nSigLen, &sig);
     vchSig.resize(nSigLen);
@@ -238,7 +218,7 @@ bool CKey::VerifyPubKey(const CPubKey& pubkey) const {
     return pubkey.Verify(hash, vchSig);
 }
 
-bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig) const {
+bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig, CPubKey::InputScriptType scriptType) const {
     if (!fValid)
         return false;
     vchSig.resize(CPubKey::COMPACT_SIGNATURE_SIZE);
@@ -249,7 +229,15 @@ bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig) 
     secp256k1_ecdsa_recoverable_signature_serialize_compact(secp256k1_context_sign, &vchSig[1], &rec, &sig);
     assert(ret);
     assert(rec != -1);
-    vchSig[0] = 27 + rec + (fCompressed ? 4 : 0);
+
+    switch(scriptType) {
+    case CPubKey::InputScriptType::SPENDP2SHWITNESS: vchSig[0] = 31 + rec + (fCompressed ? 4 : 0); break;
+    case CPubKey::InputScriptType::SPENDWITNESS: vchSig[0] = 35 + rec + (fCompressed ? 4 : 0); break;
+    case CPubKey::InputScriptType::SPENDP2PKH: vchSig[0] = 27 + rec + (fCompressed ? 4 : 0); break;
+    default:
+        return false;
+    }
+
     return true;
 }
 
@@ -293,7 +281,7 @@ bool CExtKey::Derive(CExtKey &out, unsigned int _nChild) const {
     return key.Derive(out.key, out.chaincode, _nChild, chaincode);
 }
 
-void CExtKey::SetSeed(const unsigned char *seed, unsigned int nSeedLen) {
+void CExtKey::SetMaster(const unsigned char *seed, unsigned int nSeedLen) {
     static const unsigned char hashkey[] = {'B','i','t','c','o','i','n',' ','s','e','e','d'};
     std::vector<unsigned char, secure_allocator<unsigned char>> vout(64);
     CHMAC_SHA512(hashkey, sizeof(hashkey)).Write(seed, nSeedLen).Finalize(vout.data());

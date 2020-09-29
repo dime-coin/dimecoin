@@ -1,4 +1,5 @@
 // Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2014-2017 The Dash Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -123,6 +124,12 @@ namespace GUIUtil
 
     // Open the config file
     bool openBitcoinConf();
+
+    // Open bitcoin.conf
+    void openConfigfile();
+
+    // Open masternode.conf
+    void openMNConfigfile();
 
     /** Qt event filter that intercepts ToolTipChange events, and replaces the tooltip with a rich text
       representation if needed. This assures that Qt can word-wrap long tooltip messages.

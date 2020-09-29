@@ -1,4 +1,5 @@
 // Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2014-2017 The Dash Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -133,9 +134,19 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         return OK;
     }
 
+    if (isStakingOnlyUnlocked()) 
+    {
+        return StakingOnlyUnlocked;
+    }
+    
+    if (isStakingOnlyUnlocked()) 
+    {
+        return StakingOnlyUnlocked;
+    }
+
     QSet<QString> setAddress; // Used to detect duplicates
     int nAddresses = 0;
-
+    
     // Pre-check input data for validity
     for (const SendCoinsRecipient &rcp : recipients)
     {
@@ -201,7 +212,9 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         std::string strFailReason;
 
         auto& newTx = transaction.getWtx();
+
         newTx = m_wallet->createTransaction(vecSend, coinControl, true /* sign */, nChangePosRet, nFeeRequired, strFailReason);
+
         transaction.setTransactionFee(nFeeRequired);
         if (fSubtractFeeFromAmount && newTx)
             transaction.reassignAmounts(nChangePosRet);
@@ -230,6 +243,15 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
 WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &transaction)
 {
     QByteArray transaction_array; /* store serialized transaction */
+    
+    if (isStakingOnlyUnlocked()) {
+        return StakingOnlyUnlocked;
+    }
+
+    if (isStakingOnlyUnlocked())
+    {
+        return StakingOnlyUnlocked;
+    }
 
     {
         std::vector<std::pair<std::string, std::string>> vOrderForm;
@@ -323,6 +345,22 @@ WalletModel::EncryptionStatus WalletModel::getEncryptionStatus() const
     {
         return Locked;
     }
+    else if(m_wallet->isLockedForStaking()) 
+    {
+        return UnlockedForStakingOnly;
+    }
+    else if(m_wallet->isLockedForStaking()) 
+    {
+        return UnlockedForStakingOnly;
+    }
+    else if(m_wallet->isLockedForStaking()) 
+    {
+        return UnlockedForStakingOnly;
+    }
+    else if(m_wallet->isLockedForStaking()) 
+    {
+        return UnlockedForStakingOnly;
+    }
     else
     {
         return Unlocked;
@@ -343,7 +381,7 @@ bool WalletModel::setWalletEncrypted(bool encrypted, const SecureString &passphr
     }
 }
 
-bool WalletModel::setWalletLocked(bool locked, const SecureString &passPhrase)
+bool WalletModel::setWalletLocked(bool locked, const SecureString &passPhrase, bool stakingOnly)
 {
     if(locked)
     {
@@ -353,21 +391,19 @@ bool WalletModel::setWalletLocked(bool locked, const SecureString &passPhrase)
     else
     {
         // Unlock
-        return m_wallet->unlock(passPhrase);
+        return m_wallet->unlock(passPhrase, stakingOnly);
     }
+}
+
+bool WalletModel::isStakingOnlyUnlocked()
+{
+    return m_wallet->isLockedForStaking();
 }
 
 bool WalletModel::changePassphrase(const SecureString &oldPass, const SecureString &newPass)
 {
     m_wallet->lock(); // Make sure wallet is locked before attempting pass change
     return m_wallet->changeWalletPassphrase(oldPass, newPass);
-}
-
-// Handlers for core signals
-static void NotifyUnload(WalletModel* walletModel)
-{
-    qDebug() << "NotifyUnload";
-    QMetaObject::invokeMethod(walletModel, "unload", Qt::QueuedConnection);
 }
 
 static void NotifyKeyStoreStatusChanged(WalletModel *walletmodel)
@@ -416,8 +452,6 @@ static void NotifyWatchonlyChanged(WalletModel *walletmodel, bool fHaveWatchonly
 
 void WalletModel::subscribeToCoreSignals()
 {
-    // Connect signals to wallet
-    m_handler_unload = m_wallet->handleUnload(boost::bind(&NotifyUnload, this));
     m_handler_status_changed = m_wallet->handleStatusChanged(boost::bind(&NotifyKeyStoreStatusChanged, this));
     m_handler_address_book_changed = m_wallet->handleAddressBookChanged(boost::bind(NotifyAddressBookChanged, this, _1, _2, _3, _4, _5));
     m_handler_transaction_changed = m_wallet->handleTransactionChanged(boost::bind(NotifyTransactionChanged, this, _1, _2));
@@ -427,8 +461,6 @@ void WalletModel::subscribeToCoreSignals()
 
 void WalletModel::unsubscribeFromCoreSignals()
 {
-    // Disconnect signals from wallet
-    m_handler_unload->disconnect();
     m_handler_status_changed->disconnect();
     m_handler_address_book_changed->disconnect();
     m_handler_transaction_changed->disconnect();
@@ -440,6 +472,12 @@ void WalletModel::unsubscribeFromCoreSignals()
 WalletModel::UnlockContext WalletModel::requestUnlock()
 {
     bool was_locked = getEncryptionStatus() == Locked;
+    
+    if (!was_locked && isStakingOnlyUnlocked()) {
+        setWalletLocked(true);
+        was_locked = getEncryptionStatus() == Locked;
+    }
+    
     if(was_locked)
     {
         // Request UI to unlock wallet
@@ -558,10 +596,15 @@ bool WalletModel::isWalletEnabled()
    return !gArgs.GetBoolArg("-disablewallet", DEFAULT_DISABLE_WALLET);
 }
 
-bool WalletModel::privateKeysDisabled() const
-{
-    return m_wallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS);
-}
+//bool WalletModel::privateKeysDisabled() const
+//{
+//    return m_wallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS);
+//}
+
+//bool WalletModel::privateKeysDisabled() const
+//{
+//    return m_wallet->IsWalletFlagSet(WALLET_FLAG_DISABLE_PRIVATE_KEYS);
+//}
 
 QString WalletModel::getWalletName() const
 {

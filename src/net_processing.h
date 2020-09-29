@@ -1,12 +1,17 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
+// Copyright (c) 2014-2017 The Dash Core developers
+// Copyright (c) 2018 FXTC developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef BITCOIN_NET_PROCESSING_H
-#define BITCOIN_NET_PROCESSING_H
+#ifndef FXTC_NET_PROCESSING_H
+#define FXTC_NET_PROCESSING_H
 
 #include <net.h>
+// FXTC BEGIN
+#include <validation.h>
+// FXTC END
 #include <validationinterface.h>
 #include <consensus/params.h>
 
@@ -14,6 +19,15 @@
 static const unsigned int DEFAULT_MAX_ORPHAN_TRANSACTIONS = 100;
 /** Default number of orphan+recently-replaced txn to keep around for block reconstruction */
 static const unsigned int DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN = 100;
+
+// Dash
+/** Register with a network node to receive its signals */
+///void RegisterNodeSignals(CNodeSignals& nodeSignals);
+/** Unregister a network node */
+///void UnregisterNodeSignals(CNodeSignals& nodeSignals);
+void Misbehaving(NodeId nodeid, int howmuch, const std::string& message="") EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+//
+
 /** Default for BIP61 (sending reject messages) */
 static constexpr bool DEFAULT_ENABLE_BIP61 = true;
 
@@ -58,7 +72,7 @@ public:
     * @param[in]   pto             The node which we are sending messages to.
     * @return                      True if there is more work to be done
     */
-    bool SendMessages(CNode* pto) override EXCLUSIVE_LOCKS_REQUIRED(pto->cs_sendProcessing);
+    bool SendMessages(CNode* pto) EXCLUSIVE_LOCKS_REQUIRED(pto->cs_sendProcessing);
 
     /** Consider evicting an outbound peer based on the amount of time they've been behind our tip */
     void ConsiderEviction(CNode *pto, int64_t time_in_seconds);
@@ -84,4 +98,4 @@ struct CNodeStateStats {
 /** Get statistics from node state */
 bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
 
-#endif // BITCOIN_NET_PROCESSING_H
+#endif // FXTC_NET_PROCESSING_H

@@ -130,6 +130,11 @@ bool WalletBatch::WriteOrderPosNext(int64_t nOrderPosNext)
     return WriteIC(std::string("orderposnext"), nOrderPosNext);
 }
 
+bool WalletBatch::WriteStakeSplitThreshold(uint64_t nStakeSplitThreshold)
+{
+    return WriteIC(std::string("stakeSplitThreshold"), nStakeSplitThreshold);
+}
+
 bool WalletBatch::ReadPool(int64_t nPool, CKeyPool& keypool)
 {
     return m_batch.Read(std::make_pair(std::string("pool"), nPool), keypool);
@@ -248,7 +253,7 @@ public:
 
 static bool
 ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
-             CWalletScanState &wss, std::string& strType, std::string& strErr) EXCLUSIVE_LOCKS_REQUIRED(pwallet->cs_wallet)
+             CWalletScanState &wss, std::string& strType, std::string& strErr)
 {
     try {
         // Unserialize
@@ -489,27 +494,32 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         {
             ssValue >> pwallet->nOrderPosNext;
         }
+        else if (strType == "stakeSplitThreshold") //presstab HyperStake
+        {
+            ssValue >> pwallet->nStakeSplitThreshold;
+        }
         else if (strType == "destdata")
         {
             std::string strAddress, strKey, strValue;
             ssKey >> strAddress;
             ssKey >> strKey;
             ssValue >> strValue;
-            pwallet->LoadDestData(DecodeDestination(strAddress), strKey, strValue);
+            if (!pwallet->LoadDestData(DecodeDestination(strAddress), strKey, strValue))
+            {
+                strErr = "Error reading wallet database: LoadDestData failed";
+                return false;
+            }
         }
         else if (strType == "hdchain")
         {
             CHDChain chain;
             ssValue >> chain;
-            pwallet->SetHDChain(chain, true);
-        } else if (strType == "flags") {
-            uint64_t flags;
-            ssValue >> flags;
-            if (!pwallet->SetWalletFlags(flags, true)) {
-                strErr = "Error reading wallet database: Unknown non-tolerable wallet flags found";
+            if (!pwallet->SetHDChain(chain, true))
+            {
+                strErr = "Error reading wallet database: SetHDChain failed";
                 return false;
             }
-        } else if (strType != "bestblock" && strType != "bestblock_nomerkle") {
+        } else if (strType != "bestblock" && strType != "bestblock_nomerkle"){
             wss.m_unknown_records++;
         }
     } catch (...)
@@ -536,7 +546,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
         int nMinVersion = 0;
         if (m_batch.Read((std::string)"minversion", nMinVersion))
         {
-            if (nMinVersion > FEATURE_LATEST)
+            if (nMinVersion > CLIENT_VERSION)
                 return DBErrors::TOO_NEW;
             pwallet->LoadMinVersion(nMinVersion);
         }
@@ -545,7 +555,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
         Dbc* pcursor = m_batch.GetCursor();
         if (!pcursor)
         {
-            pwallet->WalletLogPrintf("Error getting wallet database cursor\n");
+            LogPrintf("Error getting wallet database cursor\n");
             return DBErrors::CORRUPT;
         }
 
@@ -559,7 +569,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
                 break;
             else if (ret != 0)
             {
-                pwallet->WalletLogPrintf("Error reading next record from wallet database\n");
+                LogPrintf("Error reading next record from wallet database\n");
                 return DBErrors::CORRUPT;
             }
 
@@ -569,12 +579,10 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
             {
                 // losing keys is considered a catastrophic error, anything else
                 // we assume the user can live with:
-                if (IsKeyType(strType) || strType == "defaultkey") {
+                if (IsKeyType(strType) || strType == "defaultkey")
                     result = DBErrors::CORRUPT;
-                } else if(strType == "flags") {
-                    // reading the wallet flags can only fail if unknown flags are present
-                    result = DBErrors::TOO_NEW;
-                } else {
+                else
+                {
                     // Leave other errors alone, if we try to fix them we might make things worse.
                     fNoncriticalErrors = true; // ... but do warn the user there is something wrong.
                     if (strType == "tx")
@@ -583,7 +591,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
                 }
             }
             if (!strErr.empty())
-                pwallet->WalletLogPrintf("%s\n", strErr);
+                LogPrintf("%s\n", strErr);
         }
         pcursor->close();
     }
@@ -602,9 +610,9 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
     if (result != DBErrors::LOAD_OK)
         return result;
 
-    pwallet->WalletLogPrintf("nFileVersion = %d\n", wss.nFileVersion);
+    LogPrintf("nFileVersion = %d\n", wss.nFileVersion);
 
-    pwallet->WalletLogPrintf("Keys: %u plaintext, %u encrypted, %u w/ metadata, %u total. Unknown wallet records: %u\n",
+    LogPrintf("Keys: %u plaintext, %u encrypted, %u w/ metadata, %u total. Unknown wallet records: %u\n",
            wss.nKeys, wss.nCKeys, wss.nKeyMeta, wss.nKeys + wss.nCKeys, wss.m_unknown_records);
 
     // nTimeFirstKey is only reliable if all keys have metadata
@@ -641,7 +649,7 @@ DBErrors WalletBatch::FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CW
         int nMinVersion = 0;
         if (m_batch.Read((std::string)"minversion", nMinVersion))
         {
-            if (nMinVersion > FEATURE_LATEST)
+            if (nMinVersion > CLIENT_VERSION)
                 return DBErrors::TOO_NEW;
         }
 
@@ -757,7 +765,7 @@ void MaybeCompactWalletDB()
         return;
     }
 
-    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
+    for (CWallet* pwallet : GetWallets()) {
         WalletDatabase& dbh = pwallet->GetDBHandle();
 
         unsigned int nUpdateCounter = dbh.nUpdateCounter;

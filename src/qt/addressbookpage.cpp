@@ -104,12 +104,10 @@ AddressBookPage::AddressBookPage(const PlatformStyle *platformStyle, Mode _mode,
     case SendingTab:
         ui->labelExplanation->setText(tr("These are your Bitcoin addresses for sending payments. Always check the amount and the receiving address before sending coins."));
         ui->deleteAddress->setVisible(true);
-        ui->newAddress->setVisible(true);
         break;
     case ReceivingTab:
         ui->labelExplanation->setText(tr("These are your Bitcoin addresses for receiving payments. It is recommended to use a new receiving address for each transaction."));
         ui->deleteAddress->setVisible(false);
-        ui->newAddress->setVisible(false);
         break;
     }
 
@@ -208,11 +206,10 @@ void AddressBookPage::on_newAddress_clicked()
     if(!model)
         return;
 
-    if (tab == ReceivingTab) {
-        return;
-    }
-
-    EditAddressDialog dlg(EditAddressDialog::NewSendingAddress, this);
+    EditAddressDialog dlg(
+        tab == SendingTab ?
+        EditAddressDialog::NewSendingAddress :
+        EditAddressDialog::NewReceivingAddress, this);
     dlg.setModel(model);
     if(dlg.exec())
     {

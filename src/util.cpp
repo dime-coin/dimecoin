@@ -72,6 +72,7 @@
 #endif
 
 #include <boost/interprocess/sync/file_lock.hpp>
+#include <boost/program_options/detail/config_file.hpp>
 #include <boost/thread.hpp>
 #include <openssl/crypto.h>
 #include <openssl/rand.h>
@@ -83,6 +84,11 @@ const int64_t nStartupTime = GetTime();
 
 const char * const BITCOIN_CONF_FILENAME = "bitcoin.conf";
 const char * const BITCOIN_PID_FILENAME = "bitcoind.pid";
+
+//Bitcoin only features
+bool fMasterNode = false;
+bool fLiteMode = false;
+bool fMerchantNode = false;
 
 ArgsManager gArgs;
 
@@ -643,6 +649,9 @@ std::string ArgsManager::GetHelpMessage() const
             case OptionsCategory::REGISTER_COMMANDS:
                 usage += HelpMessageGroup("Register Commands:");
                 break;
+            case OptionsCategory::MASTERNODE:
+                usage += HelpMessageGroup("Masternodes options:");
+                break;
             default:
                 break;
         }
@@ -740,9 +749,11 @@ static fs::path pathCached;
 static fs::path pathCachedNetSpecific;
 static CCriticalSection csPathCached;
 
+static fs::path backupsDirCached;
+static CCriticalSection csBackupsDirCached;
+
 const fs::path &GetBlocksDir(bool fNetSpecific)
 {
-
     LOCK(csPathCached);
 
     fs::path &path = fNetSpecific ? g_blocks_path_cache_net_specific : g_blocks_path_cached;
@@ -771,7 +782,6 @@ const fs::path &GetBlocksDir(bool fNetSpecific)
 
 const fs::path &GetDataDir(bool fNetSpecific)
 {
-
     LOCK(csPathCached);
 
     fs::path &path = fNetSpecific ? pathCachedNetSpecific : pathCached;
@@ -799,6 +809,37 @@ const fs::path &GetDataDir(bool fNetSpecific)
     }
 
     return path;
+}
+
+const fs::path &GetBackupsDir(bool fNetSpecific)
+{
+    LOCK(csBackupsDirCached);
+
+    fs::path &path = backupsDirCached;
+
+    if (!path.empty())
+        return path;
+
+    if (gArgs.IsArgSet("-walletbackupsdir")) {
+        path = fs::system_complete(gArgs.GetArg("-walletbackupsdir", ""));
+        if (!fs::is_directory(path)) {
+            path = "";
+            return path;
+        }
+    } else {
+        path = GetDefaultDataDir();
+    }
+
+    if (fNetSpecific)
+        path /= BaseParams().DataDir();
+
+    if (fs::create_directories(path)) {
+        // This is the first run, create wallets subdirectory too
+        fs::create_directories(path / "backups");
+    }
+
+    return path;
+
 }
 
 void ClearDatadirCache()
@@ -858,6 +899,15 @@ static bool GetConfigOptions(std::istream& stream, std::string& error, std::vect
         ++linenr;
     }
     return true;
+}
+
+fs::path GetMasternodeConfigFile()
+{
+    boost::filesystem::path pathConfigFile(gArgs.GetArg("-mnconf", "masternode.conf"));
+    if (!pathConfigFile.is_complete())
+        return fs::absolute(pathConfigFile, GetDataDir());
+
+    return pathConfigFile;
 }
 
 bool ArgsManager::ReadConfigStream(std::istream& stream, std::string& error, bool ignore_invalid_keys)
@@ -1039,22 +1089,22 @@ bool FileCommit(FILE *file)
         return false;
     }
 #else
-    #if defined(__linux__) || defined(__NetBSD__)
+#if defined(__linux__) || defined(__NetBSD__)
     if (fdatasync(fileno(file)) != 0 && errno != EINVAL) { // Ignore EINVAL for filesystems that don't support sync
         LogPrintf("%s: fdatasync failed: %d\n", __func__, errno);
         return false;
     }
-    #elif defined(MAC_OSX) && defined(F_FULLFSYNC)
+#elif defined(__APPLE__) && defined(F_FULLFSYNC)
     if (fcntl(fileno(file), F_FULLFSYNC, 0) == -1) { // Manpage says "value other than -1" is returned on success
         LogPrintf("%s: fcntl F_FULLFSYNC failed: %d\n", __func__, errno);
         return false;
     }
-    #else
+#else
     if (fsync(fileno(file)) != 0 && errno != EINVAL) {
         LogPrintf("%s: fsync failed: %d\n", __func__, errno);
         return false;
     }
-    #endif
+#endif
 #endif
     return true;
 }
@@ -1161,6 +1211,19 @@ void runCommand(const std::string& strCommand)
         LogPrintf("runCommand error: system(%s) returned %d\n", strCommand, nErr);
 }
 
+void SetThreadPriority(int nPriority)
+{
+#ifdef WIN32
+    SetThreadPriority(GetCurrentThread(), nPriority);
+#else // WIN32
+#ifdef PRIO_THREAD
+    setpriority(PRIO_THREAD, 0, nPriority);
+#else // PRIO_THREAD
+    setpriority(PRIO_PROCESS, 0, nPriority);
+#endif // PRIO_THREAD
+#endif // WIN32
+}
+
 void RenameThread(const char* name)
 {
 #if defined(PR_SET_NAME)
@@ -1226,11 +1289,6 @@ int GetNumCores()
 std::string CopyrightHolders(const std::string& strPrefix)
 {
     std::string strCopyrightHolders = strPrefix + strprintf(_(COPYRIGHT_HOLDERS), _(COPYRIGHT_HOLDERS_SUBSTITUTION));
-
-    // Check for untranslated substitution to make sure Bitcoin Core copyright is not removed by accident
-    if (strprintf(COPYRIGHT_HOLDERS, COPYRIGHT_HOLDERS_SUBSTITUTION).find("Bitcoin Core") == std::string::npos) {
-        strCopyrightHolders += "\n" + strPrefix + "The Bitcoin Core developers";
-    }
     return strCopyrightHolders;
 }
 
@@ -1243,6 +1301,12 @@ int64_t GetStartupTime()
 fs::path AbsPathForConfigVal(const fs::path& path, bool net_specific)
 {
     return fs::absolute(path, GetDataDir(net_specific));
+}
+
+double nround(double value, int to)
+{
+    double places = pow(10.0, to);
+    return round(value * places) / places;
 }
 
 int ScheduleBatchPriority(void)

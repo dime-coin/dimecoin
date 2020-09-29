@@ -6,10 +6,11 @@
 #include <rpc/server.h>
 
 #include <fs.h>
+#include <init.h>
 #include <key_io.h>
 #include <random.h>
-#include <shutdown.h>
 #include <sync.h>
+#include <shutdown.h>
 #include <ui_interface.h>
 #include <util.h>
 #include <utilstrencodings.h>
@@ -23,10 +24,10 @@
 #include <memory> // for unique_ptr
 #include <unordered_map>
 
-static CCriticalSection cs_rpcWarmup;
 static bool fRPCRunning = false;
-static bool fRPCInWarmup GUARDED_BY(cs_rpcWarmup) = true;
-static std::string rpcWarmupStatus GUARDED_BY(cs_rpcWarmup) = "RPC server started";
+static bool fRPCInWarmup = true;
+static std::string rpcWarmupStatus("RPC server started");
+static CCriticalSection cs_rpcWarmup;
 /* Timer-creating functions */
 static RPCTimerInterface* timerInterface = nullptr;
 /* Map of name to timer. */
@@ -301,11 +302,12 @@ bool CRPCTable::appendCommand(const std::string& name, const CRPCCommand* pcmd)
     return true;
 }
 
-void StartRPC()
+bool StartRPC()
 {
     LogPrint(BCLog::RPC, "Starting RPC\n");
     fRPCRunning = true;
     g_rpcSignals.Started();
+    return true;
 }
 
 void InterruptRPC()

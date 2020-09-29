@@ -31,29 +31,37 @@ struct CLogCategoryActive
 
 namespace BCLog {
     enum LogFlags : uint32_t {
-        NONE        = 0,
-        NET         = (1 <<  0),
-        TOR         = (1 <<  1),
-        MEMPOOL     = (1 <<  2),
-        HTTP        = (1 <<  3),
-        BENCH       = (1 <<  4),
-        ZMQ         = (1 <<  5),
-        DB          = (1 <<  6),
-        RPC         = (1 <<  7),
-        ESTIMATEFEE = (1 <<  8),
-        ADDRMAN     = (1 <<  9),
-        SELECTCOINS = (1 << 10),
-        REINDEX     = (1 << 11),
-        CMPCTBLOCK  = (1 << 12),
-        RAND        = (1 << 13),
-        PRUNE       = (1 << 14),
-        PROXY       = (1 << 15),
-        MEMPOOLREJ  = (1 << 16),
-        LIBEVENT    = (1 << 17),
-        COINDB      = (1 << 18),
-        QT          = (1 << 19),
-        LEVELDB     = (1 << 20),
-        ALL         = ~(uint32_t)0,
+        NONE         = 0,
+        NET          = (1 <<  0),
+        TOR          = (1 <<  1),
+        MEMPOOL      = (1 <<  2),
+        HTTP         = (1 <<  3),
+        BENCH        = (1 <<  4),
+        ZMQ          = (1 <<  5),
+        DB           = (1 <<  6),
+        RPC          = (1 <<  7),
+        ESTIMATEFEE  = (1 <<  8),
+        ADDRMAN      = (1 <<  9),
+        SELECTCOINS  = (1 << 10),
+        REINDEX      = (1 << 11),
+        CMPCTBLOCK   = (1 << 12),
+        RAND         = (1 << 13),
+        PRUNE        = (1 << 14),
+        PROXY        = (1 << 15),
+        MEMPOOLREJ   = (1 << 16),
+        LIBEVENT     = (1 << 17),
+        COINDB       = (1 << 18),
+        QT           = (1 << 19),
+        LEVELDB      = (1 << 20),
+        KERNEL       = (1 << 21),
+        SPORK        = (1 << 23),
+        MNSYNC       = (1 << 24),
+        MASTERNODE   = (1 << 25),
+        GOBJECT      = (1 << 26),
+        MNPAYMENTS   = (1 << 27),
+        INSTANTSEND  = (1 << 28),
+        PRIVATESEND  = (1 << 29),
+        ALL          = ~(uint32_t)0,
     };
 
     class Logger
@@ -74,6 +82,8 @@ namespace BCLog {
         std::atomic<uint32_t> m_categories{0};
 
         std::string LogTimestampStr(const std::string& str);
+        bool OpenDebugLogHelper();
+        void RotateLogs();
 
     public:
         bool m_print_to_console = false;

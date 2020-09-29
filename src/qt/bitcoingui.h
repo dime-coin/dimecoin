@@ -1,4 +1,5 @@
 // Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2014-2017 The Dash Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -32,6 +33,7 @@ class WalletFrame;
 class WalletModel;
 class HelpMessageDialog;
 class ModalOverlay;
+class MasternodeList;
 
 namespace interfaces {
 class Handler;
@@ -91,6 +93,7 @@ private:
     WalletFrame* walletFrame = nullptr;
 
     UnitDisplayStatusBarControl* unitDisplayControl = nullptr;
+    QLabel* labelStakingIcon = nullptr;
     QLabel* labelWalletEncryptionIcon = nullptr;
     QLabel* labelWalletHDStatusIcon = nullptr;
     QLabel* labelProxyIcon = nullptr;
@@ -104,6 +107,8 @@ private:
     QToolBar* appToolBar = nullptr;
     QAction* overviewAction = nullptr;
     QAction* historyAction = nullptr;
+    QAction* masternodeAction = nullptr;
+    QAction* governanceAction = nullptr; 
     QAction* quitAction = nullptr;
     QAction* sendCoinsAction = nullptr;
     QAction* sendCoinsMenuAction = nullptr;
@@ -112,17 +117,27 @@ private:
     QAction* signMessageAction = nullptr;
     QAction* verifyMessageAction = nullptr;
     QAction* aboutAction = nullptr;
-    QAction* receiveCoinsAction = nullptr;
-    QAction* receiveCoinsMenuAction = nullptr;
-    QAction* optionsAction = nullptr;
-    QAction* toggleHideAction = nullptr;
-    QAction* encryptWalletAction = nullptr;
-    QAction* backupWalletAction = nullptr;
-    QAction* changePassphraseAction = nullptr;
-    QAction* aboutQtAction = nullptr;
-    QAction* openRPCConsoleAction = nullptr;
-    QAction* openAction = nullptr;
-    QAction* showHelpMessageAction = nullptr;
+    QAction *receiveCoinsAction = nullptr;
+    QAction *receiveCoinsMenuAction = nullptr;
+    QAction *optionsAction = nullptr;
+    QAction *toggleHideAction = nullptr;
+    QAction *encryptWalletAction = nullptr;
+    QAction *backupWalletAction = nullptr;
+    QAction *changePassphraseAction = nullptr;
+    QAction *unlockWalletAction = nullptr;
+    QAction *lockWalletAction = nullptr;
+    QAction *aboutQtAction = nullptr;
+    QAction *openInfoAction = nullptr;
+    QAction *openRPCConsoleAction = nullptr;
+    QAction *openGraphAction = nullptr;
+    QAction *openPeersAction = nullptr;
+    QAction *openRepairAction = nullptr;
+    QAction *openConfEditorAction = nullptr;
+    QAction *openMNConfEditorAction = nullptr;
+    // QAction *showBackupsAction = nullptr;
+    QAction *openAction = nullptr;
+    QAction *showHelpMessageAction = nullptr;
+
     QAction* m_wallet_selector_label_action = nullptr;
     QAction* m_wallet_selector_action = nullptr;
 
@@ -178,6 +193,10 @@ public Q_SLOTS:
     /** Set number of blocks and last block date shown in the UI */
     void setNumBlocks(int count, const QDateTime& blockDate, double nVerificationProgress, bool headers);
 
+    /** Set additional data sync status shown in the UI */
+    void setAdditionalDataSyncProgress(double nSyncProgress);
+    //
+
     /** Notify the user of an event from the core network or transaction handling code.
        @param[in] title     the message box / notification title
        @param[in] message   the displayed text
@@ -193,6 +212,7 @@ public Q_SLOTS:
     /** Set the UI status indicators based on the currently selected wallet.
     */
     void updateWalletStatus();
+    void setStakingStatus();
 
 private:
     /** Set the encryption status as shown in the UI.
@@ -224,6 +244,10 @@ private Q_SLOTS:
     void gotoOverviewPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
+    /** Switch to masternode page */
+    void gotoMasternodePage();
+    /** Switch to governance page */
+    void gotoGovernancePage();
     /** Switch to receive coins page */
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */
@@ -245,6 +269,21 @@ private Q_SLOTS:
     void showDebugWindow();
     /** Show debug window and set focus to the console */
     void showDebugWindowActivateConsole();
+
+    /** Show debug window and set focus to the appropriate tab */
+    void showInfo();
+    void showConsole();
+    void showGraph();
+    void showPeers();
+    void showRepair();
+
+    /** Open external (default) editor with dash.conf */
+    void showConfEditor();
+    /** Open external (default) editor with masternode.conf */
+    void showMNConfEditor();
+    /** Show folder with wallet backups in default file browser */
+    // void showBackups();
+
     /** Show help message dialog */
     void showHelpMessageClicked();
 #ifndef Q_OS_MAC

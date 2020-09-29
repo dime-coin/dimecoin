@@ -26,17 +26,27 @@ public:
 
 typedef uint256 ChainCode;
 
+
+
 /** An encapsulated public key. */
 class CPubKey
 {
 public:
+
+    enum class InputScriptType {
+        SPENDP2SHWITNESS,
+        SPENDWITNESS,
+        SPENDP2PKH,
+        SPENDUNKNOWN
+    };
+
     /**
      * secp256k1:
      */
-    static constexpr unsigned int PUBLIC_KEY_SIZE             = 65;
-    static constexpr unsigned int COMPRESSED_PUBLIC_KEY_SIZE  = 33;
-    static constexpr unsigned int SIGNATURE_SIZE              = 72;
-    static constexpr unsigned int COMPACT_SIGNATURE_SIZE      = 65;
+    static const unsigned int PUBLIC_KEY_SIZE             = 65;
+    static const unsigned int COMPRESSED_PUBLIC_KEY_SIZE  = 33;
+    static const unsigned int SIGNATURE_SIZE              = 72;
+    static const unsigned int COMPACT_SIGNATURE_SIZE      = 65;
     /**
      * see www.keylength.com
      * script supports up to 75 for single byte push
@@ -107,7 +117,6 @@ public:
 
     //! Simple read-only vector-like interface to the pubkey data.
     unsigned int size() const { return GetLen(vch[0]); }
-    const unsigned char* data() const { return vch; }
     const unsigned char* begin() const { return vch; }
     const unsigned char* end() const { return vch + size(); }
     const unsigned char& operator[](unsigned int pos) const { return vch[pos]; }
@@ -182,6 +191,11 @@ public:
         return size() == COMPRESSED_PUBLIC_KEY_SIZE;
     }
 
+    std::vector<unsigned char> Raw() const
+    {
+        return std::vector<unsigned char>(vch, vch + size());
+    }
+
     /**
      * Verify a DER signature (~72 bytes).
      * If this public key is not fully valid, the return value will be false.
@@ -194,7 +208,7 @@ public:
     static bool CheckLowS(const std::vector<unsigned char>& vchSig);
 
     //! Recover a public key from a compact signature.
-    bool RecoverCompact(const uint256& hash, const std::vector<unsigned char>& vchSig);
+    bool RecoverCompact(const uint256& hash, const std::vector<unsigned char>& vchSig, InputScriptType &inputScriptType);
 
     //! Turn this public key into an uncompressed public key.
     bool Decompress();

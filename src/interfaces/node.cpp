@@ -28,6 +28,7 @@
 #include <util.h>
 #include <validation.h>
 #include <warnings.h>
+#include <masternodeman.h>
 
 #if defined(HAVE_CONFIG_H)
 #include <config/bitcoin-config.h>
@@ -165,6 +166,11 @@ class NodeImpl : public Node
         LOCK(::cs_main);
         return ::chainActive.Height();
     }
+    MasternodeCountInfo getNumMasternodes() override
+    {
+        MasternodeCountInfo mnCount(mnodeman.size(), mnodeman.CountEnabled(PROTOCOL_VERSION), mnodeman.CountEnabled());
+        return mnCount;
+    }
     int64_t getLastBlockTime() override
     {
         LOCK(::cs_main);
@@ -223,8 +229,8 @@ class NodeImpl : public Node
     {
 #ifdef ENABLE_WALLET
         std::vector<std::unique_ptr<Wallet>> wallets;
-        for (const std::shared_ptr<CWallet>& wallet : GetWallets()) {
-            wallets.emplace_back(MakeWallet(wallet));
+        for (CWallet* wallet : GetWallets()) {
+            wallets.emplace_back(MakeWallet(*wallet));
         }
         return wallets;
 #else
@@ -250,7 +256,7 @@ class NodeImpl : public Node
     std::unique_ptr<Handler> handleLoadWallet(LoadWalletFn fn) override
     {
         CHECK_WALLET(
-            return MakeHandler(::uiInterface.LoadWallet.connect([fn](std::shared_ptr<CWallet> wallet) { fn(MakeWallet(wallet)); })));
+            return MakeHandler(::uiInterface.LoadWallet.connect([fn](CWallet* wallet) { fn(MakeWallet(*wallet)); })));
     }
     std::unique_ptr<Handler> handleNotifyNumConnectionsChanged(NotifyNumConnectionsChangedFn fn) override
     {
@@ -282,6 +288,11 @@ class NodeImpl : public Node
                 fn(initial_download, block->nHeight, block->GetBlockTime(),
                     GuessVerificationProgress(Params().TxData(), block));
             }));
+    }
+
+    std::unique_ptr<Handler> handleNotifyAdditionalDataSyncProgressChanged(NotifyAdditionalDataSyncProressChangedFn fn)
+    {
+        return MakeHandler(::uiInterface.NotifyAdditionalDataSyncProgressChanged.connect(fn));
     }
 };
 

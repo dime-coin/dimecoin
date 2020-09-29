@@ -37,6 +37,9 @@
 // Application startup time (used for uptime calculation)
 int64_t GetStartupTime();
 
+extern bool fMasterNode;
+extern bool fLiteMode;
+
 /** Signals for translation. */
 class CTranslationInterface
 {
@@ -49,6 +52,9 @@ extern CTranslationInterface translationInterface;
 
 extern const char * const BITCOIN_CONF_FILENAME;
 extern const char * const BITCOIN_PID_FILENAME;
+
+const char * const MASTERNODE_CONF_FILENAME_ARG = "-mnconf";
+const char * const MASTERNODE_CONF_FILENAME = "masternode.conf";
 
 /**
  * Translation function: Call Translate signal on UI interface, which returns a boost::optional result.
@@ -89,8 +95,10 @@ bool TryCreateDirectories(const fs::path& p);
 fs::path GetDefaultDataDir();
 const fs::path &GetBlocksDir(bool fNetSpecific = true);
 const fs::path &GetDataDir(bool fNetSpecific = true);
+const fs::path &GetBackupsDir(bool fNetSpecific = true);
 void ClearDatadirCache();
 fs::path GetConfigFile(const std::string& confPath);
+fs::path GetMasternodeConfigFile();
 #ifndef WIN32
 fs::path GetPidFile();
 void CreatePidFile(const fs::path &path, pid_t pid);
@@ -99,6 +107,7 @@ void CreatePidFile(const fs::path &path, pid_t pid);
 fs::path GetSpecialFolderPath(int nFolder, bool fCreate = true);
 #endif
 void runCommand(const std::string& strCommand);
+void SetThreadPriority(int nPriority);
 
 /**
  * Most paths passed as configuration arguments are treated as relative to
@@ -133,6 +142,7 @@ enum class OptionsCategory {
     GUI,
     COMMANDS,
     REGISTER_COMMANDS,
+    MASTERNODE,
 
     HIDDEN // Always the last option to avoid printing these in the help
 };
@@ -356,6 +366,8 @@ std::string CopyrightHolders(const std::string& strPrefix);
  */
 int ScheduleBatchPriority(void);
 
+double nround(double value, int to);
+
 namespace util {
 
 //! Simplification of std insertion
@@ -368,6 +380,6 @@ inline void insert(std::set<TsetT>& dst, const Tsrc& src) {
     dst.insert(src.begin(), src.end());
 }
 
-} // namespace util
+}
 
 #endif // BITCOIN_UTIL_H

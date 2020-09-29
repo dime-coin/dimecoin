@@ -62,6 +62,8 @@ public:
 
     uint256 GetHash() const;
 
+    uint256 GetPoWHash() const;
+
     int64_t GetBlockTime() const
     {
         return (int64_t)nTime;
@@ -74,8 +76,11 @@ class CBlock : public CBlockHeader
 public:
     // network and disk
     std::vector<CTransactionRef> vtx;
+    std::vector<unsigned char> vchBlockSig;
 
     // memory only
+    mutable CTxOut txoutMasternode;
+    mutable std::vector<CTxOut> voutSuperblock;
     mutable bool fChecked;
 
     CBlock()
@@ -95,6 +100,10 @@ public:
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITEAS(CBlockHeader, *this);
         READWRITE(vtx);
+        if(vtx.size() > 1 && vtx[1]->IsCoinStake())
+        {
+            READWRITE(vchBlockSig);
+        }
     }
 
     void SetNull()
@@ -102,6 +111,7 @@ public:
         CBlockHeader::SetNull();
         vtx.clear();
         fChecked = false;
+		vchBlockSig.clear();
     }
 
     CBlockHeader GetBlockHeader() const
@@ -115,6 +125,9 @@ public:
         block.nNonce         = nNonce;
         return block;
     }
+
+    bool IsProofOfStake() const;
+    bool IsProofOfWork() const;
 
     std::string ToString() const;
 };

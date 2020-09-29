@@ -58,10 +58,13 @@ public:
     virtual bool lock() = 0;
 
     //! Unlock wallet.
-    virtual bool unlock(const SecureString& wallet_passphrase) = 0;
+    virtual bool unlock(const SecureString& wallet_passphrase, bool stakingOnly = false) = 0;
 
     //! Return whether wallet is locked.
     virtual bool isLocked() = 0;
+    
+    //! Return whether wallet is locked for Staking only.
+    virtual bool isLockedForStaking() = 0;
 
     //! Change wallet passphrase.
     virtual bool changeWalletPassphrase(const SecureString& old_wallet_passphrase,
@@ -175,6 +178,8 @@ public:
     //! Get list of all wallet transactions.
     virtual std::vector<WalletTx> getWalletTxs() = 0;
 
+    virtual CAmount getStakeSplitThreshold() const = 0;
+
     //! Try to get updated status for a particular transaction, if possible without blocking.
     virtual bool tryGetTxStatus(const uint256& txid,
         WalletTxStatus& tx_status,
@@ -206,6 +211,8 @@ public:
 
     //! Return whether transaction output belongs to wallet.
     virtual isminetype txoutIsMine(const CTxOut& txout) = 0;
+
+    virtual bool txoutIsSpent(const uint256 &hash, unsigned int outputIndex) = 0;
 
     //! Return debit amount if transaction input belongs to wallet.
     virtual CAmount getDebit(const CTxIn& txin, isminefilter filter) = 0;
@@ -272,6 +279,8 @@ public:
     //! Register handler for watchonly changed messages.
     using WatchOnlyChangedFn = std::function<void(bool have_watch_only)>;
     virtual std::unique_ptr<Handler> handleWatchOnlyChanged(WatchOnlyChangedFn fn) = 0;
+
+    virtual bool startMasternode(std::string strService, std::string strKeyMasternode, std::string strTxHash, std::string strOutputIndex, std::string& strErrorRet) = 0;
 };
 
 //! Tracking object returned by CreateTransaction and passed to CommitTransaction.
@@ -349,6 +358,7 @@ struct WalletTxStatus
     int block_height;
     int blocks_to_maturity;
     int depth_in_main_chain;
+    int request_count;
     unsigned int time_received;
     uint32_t lock_time;
     bool is_final;
@@ -369,7 +379,7 @@ struct WalletTxOut
 
 //! Return implementation of Wallet interface. This function will be undefined
 //! in builds where ENABLE_WALLET is false.
-std::unique_ptr<Wallet> MakeWallet(const std::shared_ptr<CWallet>& wallet);
+std::unique_ptr<Wallet> MakeWallet(CWallet& wallet);
 
 } // namespace interfaces
 

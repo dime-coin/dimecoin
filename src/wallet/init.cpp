@@ -202,16 +202,16 @@ bool WalletInit::Verify() const
     // Keep track of each wallet absolute path to detect duplicates.
     std::set<fs::path> wallet_paths;
 
-    for (const auto& wallet_file : wallet_files) {
-        WalletLocation location(wallet_file);
+    for (const auto wallet_file : wallet_files) {
+        fs::path wallet_path = fs::absolute(wallet_file, GetWalletDir());
 
-        if (!wallet_paths.insert(location.GetPath()).second) {
+        if (!wallet_paths.insert(wallet_path).second) {
             return InitError(strprintf(_("Error loading wallet %s. Duplicate -wallet filename specified."), wallet_file));
         }
 
         std::string error_string;
         std::string warning_string;
-        bool verify_success = CWallet::Verify(location, salvage_wallet, error_string, warning_string);
+        bool verify_success = CWallet::Verify(wallet_file, salvage_wallet, error_string, warning_string);
         if (!error_string.empty()) InitError(error_string);
         if (!warning_string.empty()) InitWarning(warning_string);
         if (!verify_success) return false;
@@ -228,7 +228,7 @@ bool WalletInit::Open() const
     }
 
     for (const std::string& walletFile : gArgs.GetArgs("-wallet")) {
-        std::shared_ptr<CWallet> pwallet = CWallet::CreateWalletFromFile(WalletLocation(walletFile));
+        CWallet * const pwallet = CWallet::CreateWalletFromFile(walletFile, fs::absolute(walletFile, GetWalletDir()));
         if (!pwallet) {
             return false;
         }
@@ -240,8 +240,8 @@ bool WalletInit::Open() const
 
 void WalletInit::Start(CScheduler& scheduler) const
 {
-    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
-        pwallet->postInitProcess();
+    for (CWallet* pwallet : GetWallets()) {
+        pwallet->postInitProcess(scheduler);
     }
 
     // Run a thread to flush wallet periodically
@@ -250,25 +250,22 @@ void WalletInit::Start(CScheduler& scheduler) const
 
 void WalletInit::Flush() const
 {
-    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
+    for (CWallet* pwallet : GetWallets()) {
         pwallet->Flush(false);
     }
 }
 
 void WalletInit::Stop() const
 {
-    for (const std::shared_ptr<CWallet>& pwallet : GetWallets()) {
+    for (CWallet* pwallet : GetWallets()) {
         pwallet->Flush(true);
     }
 }
 
 void WalletInit::Close() const
 {
-    auto wallets = GetWallets();
-    while (!wallets.empty()) {
-        auto wallet = wallets.back();
-        wallets.pop_back();
-        RemoveWallet(wallet);
-        UnloadWallet(std::move(wallet));
+    for (CWallet* pwallet : GetWallets()) {
+        RemoveWallet(pwallet);
+        delete pwallet;
     }
 }
