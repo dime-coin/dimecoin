@@ -500,6 +500,7 @@ public:
 
         // block hash
         READWRITE(hash);
+
         // block header
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
@@ -511,6 +512,8 @@ public:
 
     uint256 GetBlockHash() const
     {
+	if (hash != uint256())
+	    return hash;
         CBlockHeader block;
         block.nVersion        = nVersion;
         block.hashPrevBlock   = hashPrev;
