@@ -53,9 +53,6 @@ private:
 public:
     CMasternodeSync() { Reset(); }
 
-
-    void SendGovernanceSyncRequest(CNode* pnode, CConnman& connman);
-
     bool IsFailed() { return nRequestedMasternodeAssets == MASTERNODE_SYNC_FAILED; }
     bool IsBlockchainSynced() { return nRequestedMasternodeAssets > MASTERNODE_SYNC_WAITING; }
     bool IsMasternodeListSynced() { return nRequestedMasternodeAssets > MASTERNODE_SYNC_LIST; }

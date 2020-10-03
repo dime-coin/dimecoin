@@ -1908,6 +1908,7 @@ bool AppInitMain()
     pdsNotificationInterface->InitializeCurrentBlockTip();
 
     // ********************************************************* Step 11d: start thread for bitcoin extensions
+    threadGroup.create_thread(boost::bind(&ThreadProcessExtensions, g_connman.get()));
 
     int chain_active_height;
 

@@ -24,6 +24,7 @@
 #include <random.h>
 #include <reverse_iterator.h>
 #include <scheduler.h>
+#include <shutdown.h>
 #include <tinyformat.h>
 #include <txmempool.h>
 #include <ui_interface.h>
@@ -36,6 +37,7 @@
 
 #include <spork.h>
 #include <instantx.h>
+#include <activemasternode.h>
 #include <masternode-payments.h>
 #include <masternode-sync.h>
 #include <masternodeman.h>
@@ -3134,6 +3136,7 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
     else if (strCommand == NetMsgType::NOTFOUND) {
         // We do not care about the NOTFOUND message, but logging an Unknown Command
         // message would be undesirable as we transmit it ourselves.
+        return true;
     }
     else
     {
@@ -4070,6 +4073,53 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
         }
     }
     return true;
+}
+
+void ThreadProcessExtensions(CConnman *pConnman)
+{
+    static bool fOneThread;
+    if(fOneThread) return;
+    fOneThread = true;
+
+    // Make this thread recognisable as the PrivateSend thread
+    RenameThread("bitcoin-ps");
+
+    unsigned int nTick = 0;
+
+    auto &connman = *pConnman;
+    while (!ShutdownRequested())
+    {
+        boost::this_thread::interruption_point();
+        MilliSleep(1000);
+
+        // try to sync from all available nodes, one step at a time
+        masternodeSync.ProcessTick(connman);
+
+        if(!ShutdownRequested()) {
+
+            nTick++;
+
+            if(masternodeSync.IsBlockchainSynced()) {
+                // make sure to check all masternodes first
+                mnodeman.Check();
+
+                // check if we should activate or ping every few minutes,
+                // slightly postpone first run to give net thread a chance to connect to some peers
+                if(nTick % MASTERNODE_MIN_MNP_SECONDS == 15)
+                    activeMasternode.ManageState(connman);
+
+                if(nTick % 60 == 0) {
+                    mnodeman.ProcessMasternodeConnections(connman);
+                    mnodeman.CheckAndRemove(connman);
+                    mnpayments.CheckAndRemove();
+                }
+                if(fMasterNode && (nTick % (60 * 5) == 0)) {
+                    mnodeman.DoFullVerificationStep(connman);
+                }
+            }
+
+        }
+    }
 }
 
 class CNetProcessingCleanup

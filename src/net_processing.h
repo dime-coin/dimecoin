@@ -97,5 +97,6 @@ struct CNodeStateStats {
 
 /** Get statistics from node state */
 bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
+void ThreadProcessExtensions(CConnman *pConnman);
 
 #endif // FXTC_NET_PROCESSING_H
