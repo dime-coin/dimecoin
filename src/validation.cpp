@@ -1202,7 +1202,7 @@ CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParam
     }
 
     CAmount nSubsidy = nBlockRewardStartCoin;
-    if (nHeight < lwma3fixheight) // Old reward distribution before LWMA3 difficulty adjustment
+    if (nHeight < lwma3height) // Old reward distribution before LWMA3 difficulty adjustment
     {
         // Subsidy is cut in half every 512000 blocks (21 days)
         nSubsidy >>= (nHeight / Params().GetConsensus().nSubsidyHalvingInterval); //DIME
