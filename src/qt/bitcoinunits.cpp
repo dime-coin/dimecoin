@@ -64,9 +64,9 @@ QString BitcoinUnits::description(int unit)
 {
     switch(unit)
     {
-    case DIME: return QString("Bitcoins");
-    case mDIME: return QString("Milli-Bitcoins (1 / 1" THIN_SP_UTF8 "000)");
-    case uDIME: return QString("Micro-Bitcoins (bits) (1 / 1" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
+    case DIME: return QString("Dimecoins");
+    case mDIME: return QString("Milli-Dimecoins (1 / 1" THIN_SP_UTF8 "000)");
+    case uDIME: return QString("Micro-Dimecoins (bits) (1 / 1" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
     case SAT: return QString("Satoshi (sat) (1 / 100" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
     default: return QString("???");
     }
@@ -76,11 +76,11 @@ qint64 BitcoinUnits::factor(int unit)
 {
     switch(unit)
     {
-    case DIME: return 100000000;
-    case mDIME: return 100000;
-    case uDIME: return 100;
+    case DIME: return 100000;
+    case mDIME: return 100;
+    case uDIME: return 1;
     case SAT: return 1;
-    default: return 100000000;
+    default: return 100000;
     }
 }
 
@@ -88,9 +88,9 @@ int BitcoinUnits::decimals(int unit)
 {
     switch(unit)
     {
-    case DIME: return 8;
-    case mDIME: return 5;
-    case uDIME: return 2;
+    case DIME: return 5;
+    case mDIME: return 2;
+    case uDIME: return 0;
     case SAT: return 0;
     default: return 0;
     }
