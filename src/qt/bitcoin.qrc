@@ -59,6 +59,21 @@
         <file alias="staking_active">res/icons/staking_active.png</file>
         <file alias="staking_inactive">res/icons/staking_inactive.png</file>
     </qresource>
+    <qresource prefix="/css">
+        <file alias="light">res/css/light.css</file>
+    </qresource>
+    <qresource prefix="/images">
+        <file alias="about">res/images/about.png</file>
+        <file alias="unchecked">res/images/unchecked.png</file>
+        <file alias="checked">res/images/checked.png</file>
+        <file alias="downArrow">res/images/downArrow.png</file>
+        <file alias="downArrow_small">res/images/downArrow_small.png</file>
+        <file alias="upArrow_small">res/images/upArrow_small.png</file>
+        <file alias="leftArrow_small">res/images/leftArrow_small.png</file>
+        <file alias="rightArrow_small">res/images/rightArrow_small.png</file>
+        <file alias="qtreeview_selected">res/images/qtreeview_selected.png</file>
+        <file alias="walletFrame_bg">res/images/walletFrame_bg.png</file>
+    </qresource>
     <qresource prefix="/movies">
         <file alias="spinner-000">res/movies/spinner-000.png</file>
         <file alias="spinner-001">res/movies/spinner-001.png</file>

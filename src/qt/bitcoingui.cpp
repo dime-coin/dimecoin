@@ -76,6 +76,8 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
     m_node(node),
     platformStyle(_platformStyle)
 {
+    this->setStyleSheet(GUIUtil::loadStyleSheet());
+
     QSettings settings;
     if (!restoreGeometry(settings.value("MainWindowGeometry").toByteArray())) {
         // Restore failed (perhaps missing setting), center the window
