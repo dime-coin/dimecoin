@@ -220,7 +220,8 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     obj.pushKV("currentblockweight", (uint64_t)nLastBlockWeight);
     obj.pushKV("currentblocktx",   (uint64_t)nLastBlockTx);
     UniValue diff(UniValue::VOBJ);
-    obj.push_back(Pair("difficulty", diff));
+    diff.pushKV("proof-of-work",(double)GetDifficulty(GetNextWorkRequired(tip,consensusParams,false)));
+    diff.pushKV("proof-of-stake",(double)GetDifficulty(GetNextWorkRequired(tip,consensusParams,true)));
     obj.pushKV("difficulty", diff);
     obj.pushKV("networkhashps",    getnetworkhashps(request));
     obj.pushKV("pooledtx",         (uint64_t)mempool.size());

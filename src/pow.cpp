@@ -19,7 +19,7 @@ const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfSta
     return pindex;
 }
 
-unsigned int GetNextWorkRequiredLegacy(const CBlockIndex* pindexLast, const CBlockHeader* pblock)
+unsigned int GetNextWorkRequiredLegacy(const CBlockIndex* pindexLast)
 {
     unsigned int nProofOfWorkLimit = UintToArith256(Params().GetConsensus().powLimit).GetCompact();
 
@@ -63,7 +63,7 @@ unsigned int GetNextWorkRequiredLegacy(const CBlockIndex* pindexLast, const CBlo
     return bnNew.GetCompact();
 }
 
-unsigned int Lwma3GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock)
+unsigned int Lwma3GetNextWorkRequired(const CBlockIndex* pindexLast)
 {
     const int64_t T = Params().GetConsensus().nPowTargetSpacing;
     const int64_t N = 90;
@@ -129,14 +129,58 @@ unsigned int Lwma3GetNextWorkRequired(const CBlockIndex* pindexLast, const CBloc
     return nextTarget.GetCompact();
 }
 
-unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock)
+unsigned int GetNextWorkRequiredDual(const CBlockIndex* pindexLast, const Consensus::Params& consensusParams, bool fProofOfStake)
 {
-    const int nHeight = pindexLast->nHeight + 1;
-    const int lwma3height = 3310000;
-    if (nHeight < lwma3height)
-        return GetNextWorkRequiredLegacy(pindexLast, pblock);
-    else
-        return Lwma3GetNextWorkRequired(pindexLast, pblock);
+    int64_t nTargetSpacing = 60;
+    int64_t nTargetTimespan = 150;
+    arith_uint256 bnTargetLimit;
+    bnTargetLimit = UintToArith256(consensusParams.powLimit);
+    if(fProofOfStake)
+        bnTargetLimit = UintToArith256(consensusParams.posLimit);
+
+    if (pindexLast == nullptr)
+        return bnTargetLimit.GetCompact();
+
+    const CBlockIndex* pindexPrev = GetLastBlockIndex(pindexLast, fProofOfStake);
+    if (pindexPrev->pprev == nullptr)
+        return bnTargetLimit.GetCompact();
+
+    const CBlockIndex* pindexPrevPrev = GetLastBlockIndex(pindexPrev->pprev, fProofOfStake);
+    if (pindexPrevPrev->pprev == nullptr)
+        return bnTargetLimit.GetCompact();
+
+    int64_t nActualSpacing = pindexPrev->GetBlockTime() - pindexPrevPrev->GetBlockTime();
+    if (nActualSpacing < 0)
+        nActualSpacing = nTargetSpacing;
+
+    // ppcoin: target change every block
+    // ppcoin: retarget with exponential moving toward target spacing
+    arith_uint256 bnNew;
+    bnNew.SetCompact(pindexPrev->nBits);
+
+    int64_t nInterval = nTargetTimespan / nTargetSpacing;
+    bnNew *= ((nInterval - 1) * nTargetSpacing + nActualSpacing + nActualSpacing);
+    bnNew /= ((nInterval + 1) * nTargetSpacing);
+
+    if (bnNew <= 0 || bnNew > bnTargetLimit)
+        bnNew = bnTargetLimit;
+
+    return bnNew.GetCompact();
+}
+
+unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& consensusParams, bool fProofOfStake)
+{
+    if (Params().NetworkIDString() == CBaseChainParams::MAIN) {
+        const int nHeight = pindexLast->nHeight + 1;
+        const int lwma3height = 3310000;
+        if (nHeight < lwma3height) {
+            return GetNextWorkRequiredLegacy(pindexLast);
+        } else {
+            return Lwma3GetNextWorkRequired(pindexLast);
+        }
+    } else {
+        return GetNextWorkRequiredDual(pindexLast, consensusParams, fProofOfStake);
+    }
 }
 
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params)

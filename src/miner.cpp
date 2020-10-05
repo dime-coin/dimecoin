@@ -174,7 +174,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     if(fProofOfStake) {
         assert(wallet);
         boost::this_thread::interruption_point();
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock);
+        pblock->nBits = GetNextWorkRequired(pindexPrev, Params().GetConsensus(), fProofOfStake);
         CMutableTransaction coinstakeTx;
         int64_t nSearchTime = pblock->nTime;
         bool fStakeFound = false;
@@ -244,7 +244,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
     if(!fProofOfStake)
         UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev);
-    pblock->nBits          = GetNextWorkRequired(pindexPrev, pblock);
+    pblock->nBits          = GetNextWorkRequired(pindexPrev, Params().GetConsensus(), fProofOfStake);
     pblock->nNonce         = 0;
     pblocktemplate->vTxSigOpsCost[0] = WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[0]);
 

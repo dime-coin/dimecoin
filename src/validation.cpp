@@ -1195,7 +1195,6 @@ CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParam
 {
     const int nHeight = nPrevHeight;
     const int lwma3height = 3310000;
-    const int lwma3fixheight = 3358350;
 
     if (nHeight == 0) {
         return nGenesisBlockRewardCoin;
@@ -1930,10 +1929,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!fJustCheck)
             view.SetBestBlock(pindex->GetBlockHash());
         return true;
-    }
-
-    if (block.IsProofOfWork() && (pindex->nHeight > Params().GetConsensus().nFirstPoSBlock)) {
-        return state.DoS(100, error("ConnectBlock() : PoW period ended"), REJECT_INVALID, "PoW-ended");
     }
 
     // Check that the block satisfies synchronized checkpoint
@@ -3544,9 +3539,9 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
     }
 
     // Check difficulty
-    if (block.nBits != GetNextWorkRequired(pindexPrev, &block))
+    if (block.nBits != GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake()))
         return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, strprintf("incorrect difficulty: block pow=%d bits=%08x calc=%08x",
-                  block.IsProofOfWork() ? "Y" : "N", block.nBits, GetNextWorkRequired(pindexPrev, &block)));
+                  block.IsProofOfWork() ? "Y" : "N", block.nBits, GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake())));
 
     // Start enforcing BIP113 (Median Time Past) using versionbits logic.
     int nLockTimeFlags = 0;

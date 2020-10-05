@@ -6,6 +6,7 @@
 #ifndef BITCOIN_POW_H
 #define BITCOIN_POW_H
 
+#include <chainparams.h>
 #include <consensus/params.h>
 
 #include <stdint.h>
@@ -15,9 +16,7 @@ class CBlockIndex;
 class uint256;
 
 const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfStake);
-unsigned int GetNextWorkRequiredLegacy(const CBlockIndex* pindexLast, const CBlockHeader* pblock);
-unsigned int Lwma3GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock);
-unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader* pblock);
+unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& consensusParams = Params().GetConsensus(), bool fProofOfStake = false);
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params);
 
 #endif // BITCOIN_POW_H
