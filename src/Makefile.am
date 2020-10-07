@@ -506,7 +506,7 @@ dimecoind_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 dimecoind_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-dimecoind_SOURCES += dimecoind-res.rc
+dimecoind_SOURCES += bitcoind-res.rc
 endif
 
 dimecoind_LDADD = \
@@ -532,7 +532,7 @@ dimecoin_cli_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 dimecoin_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-dimecoin_cli_SOURCES += dimecoin-cli-res.rc
+dimecoin_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
 dimecoin_cli_LDADD = \
@@ -551,7 +551,7 @@ dimecoin_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 dimecoin_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-dimecoin_tx_SOURCES += dimecoin-tx-res.rc
+dimecoin_tx_SOURCES += bitcoin-tx-res.rc
 endif
 
 dimecoin_tx_LDADD = \
