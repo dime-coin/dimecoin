@@ -169,7 +169,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     coinbaseTx.vin[0].prevout.SetNull();
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = scriptPubKeyIn;
-    CAmount blockReward = GetBlockSubsidy(pindexPrev->nHeight, Params().GetConsensus());
+    CAmount blockReward = GetBlockSubsidy(pindexPrev->nHeight + 1, Params().GetConsensus());
     std::vector<const CWalletTx*> vwtxPrev;
     if(fProofOfStake) {
         assert(wallet);
