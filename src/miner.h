@@ -33,6 +33,8 @@ struct CBlockTemplate
     std::vector<unsigned char> vchCoinbaseCommitment;
 };
 
+void setRecentMiningActivity();
+
 // Container for tracking updates to ancestor feerate as we include (parent)
 // transactions in a block
 struct CTxMemPoolModifiedEntry {

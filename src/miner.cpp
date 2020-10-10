@@ -46,7 +46,20 @@
 
 uint64_t nLastBlockTx = 0;
 uint64_t nLastBlockWeight = 0;
+int64_t nLastMiningActivityTime = 0;
 int64_t nLastCoinStakeSearchInterval = 0;
+
+void setRecentMiningActivity()
+{
+    nLastMiningActivityTime = GetAdjustedTime();
+}
+
+bool checkRecentMiningActivity()
+{
+    const int64_t minTimeout = 60;
+    int64_t sinceLast = GetAdjustedTime() - nLastMiningActivityTime;
+    return sinceLast < minTimeout;
+}
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
@@ -556,7 +569,7 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
             if(fProofOfStake)
             {
                 if (chainActive.Tip()->nHeight+1 < chainparams.GetConsensus().nFirstPoSBlock ||
-                    pwallet->IsLocked() || !masternodeSync.IsSynced())
+                    pwallet->IsLocked() || !masternodeSync.IsSynced() || checkRecentMiningActivity())
                 {
                     nLastCoinStakeSearchInterval = 0;
                     MilliSleep(5000);
