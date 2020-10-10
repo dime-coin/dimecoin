@@ -19,6 +19,7 @@
 #include <hash.h>
 #include <index/txindex.h>
 #include <init.h>
+#include <key_io.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -1231,9 +1232,21 @@ CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParam
     return nSubsidy;
 }
 
+CAmount GetFoundationPayment(int nHeight, CAmount blockValue)
+{
+    return blockValue * 0.10;
+}
+
+CScript GetFoundationScript()
+{
+    CTxDestination fpAddress = DecodeDestination(Params().GetConsensus().nFoundationPaymentAddress);
+    CScript payee = GetScriptForDestination(fpAddress);
+    return payee;
+}
+
 CAmount GetMasternodePayment(int nHeight, CAmount blockValue)
 {
-    return blockValue * 0.0;
+    return blockValue * 0.45;
 }
 
 bool IsInitialBlockDownload()

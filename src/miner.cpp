@@ -194,36 +194,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     }
     else
     {
-        if (nHeight <= Params().GetConsensus().nFirstPoSBlock) {
-		coinbaseTx.vout[0].nValue = nFees + blockReward;
-        } else {
-		// masternode payment
-		bool hasPayment = true;
-		CScript payee;
-		if (!mnpayments.GetBlockPayee(nHeight, payee)) {
-			int nCount = 0;
-			masternode_info_t mnInfo;
-			if(!mnodeman.GetNextMasternodeInQueueForPayment(pindexPrev->nHeight + 1, true, nCount, mnInfo)) {
-				payee = GetScriptForDestination(mnInfo.pubKeyCollateralAddress.GetID());
-			} else {
-				LogPrint(BCLog::MNPAYMENTS, "CreateNewBlock: Failed to detect masternode to pay\n");
-				hasPayment = false;
-			}
-		}
-		CAmount masternodePayment = GetMasternodePayment(nHeight, blockReward);
-		if (hasPayment) {
-			coinbaseTx.vout.resize(2);
-			coinbaseTx.vout[1].scriptPubKey = payee;
-			coinbaseTx.vout[1].nValue = masternodePayment;
-			coinbaseTx.vout[0].nValue = blockReward - masternodePayment;
-		}
-
-		CTxDestination address1;
-		ExtractDestination(payee, address1);
-		CBitcoinAddress address2(address1);
-		LogPrintf("CreateNewBlock::FillBlockPayee -- Masternode payment %lld to %s\n",
-			  masternodePayment, EncodeDestination(address1));
-         }
+	coinbaseTx.vout[0].nValue = nFees + blockReward;
     }
 
     int nPackagesSelected = 0;
@@ -531,7 +502,6 @@ void IncrementExtraNonce(CBlock *pblock, const CBlockIndex* pindexPrev, unsigned
 static bool ProcessBlockFound(const std::shared_ptr<const CBlock> &pblock, const CChainParams& chainparams)
 {
     LogPrintf("%s\n", pblock->ToString());
-    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0]->vout[0].nValue));
 
     // Found a solution
     {

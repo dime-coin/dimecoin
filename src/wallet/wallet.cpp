@@ -3369,6 +3369,22 @@ bool CWallet::GetKey(const CKeyID &address, CKey& keyOut) const
     return CCryptoKeyStore::GetKey(address, keyOut);
 }
 
+void InsertAndAdjustFoundationPayment(CMutableTransaction &tx, const CTxOut &txoutFoundationPayment)
+{
+    //! add it first
+    tx.vout.push_back(txoutFoundationPayment);
+
+    //! redundant but cant hurt
+    auto it = std::find(std::begin(tx.vout), std::end(tx.vout), txoutFoundationPayment);
+    if(it != std::end(tx.vout))
+    {
+        long foundationOutIndex = std::distance(std::begin(tx.vout), it);
+        auto foundationPayment = tx.vout[foundationOutIndex].nValue;
+        long i = tx.vout.size() - 3;
+        tx.vout[i].nValue -= foundationPayment; // last vout is foundation payment.
+    }
+}
+
 typedef std::vector<unsigned char> valtype;
 bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CAmount blockReward, CMutableTransaction &txNew, unsigned int &nTxNewTime, std::vector<const CWalletTx*> &vwtxPrev, bool fGenerateSegwit)
 {
@@ -3437,10 +3453,12 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CAm
     // Update coinbase transaction with additional info about masternode and governance payments,
     // get some info back to pass to getblocktemplate
     CTxOut txoutMasternode;
-    std::vector<CTxOut> voutSuperblock;
+    CTxOut txoutFoundationPayment;
     int nHeight = chainActive.Tip()->nHeight + 1;
-    FillBlockPayments(txNew, nHeight, blockReward, txoutMasternode, voutSuperblock);
+    txoutFoundationPayment = CTxOut(GetFoundationPayment(nHeight, blockReward), GetFoundationScript());
+    FillBlockPayments(txNew, nHeight, blockReward, txoutMasternode);
     AdjustMasternodePayment(txNew, txoutMasternode);
+    InsertAndAdjustFoundationPayment(txNew, txoutFoundationPayment);
     LogPrintf("CreateCoinStake -- nBlockHeight %d blockReward %lld txoutMasternode %s txNew %s", nHeight, blockReward, txoutMasternode.ToString(), txNew.ToString());
     nLastStakeSetUpdate = 0;
     return true;

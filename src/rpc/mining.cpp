@@ -13,6 +13,8 @@
 #include <init.h>
 #include <validation.h>
 #include <key_io.h>
+#include <masternode-payments.h>
+#include <masternodeman.h>
 #include <miner.h>
 #include <net.h>
 #include <policy/fees.h>
@@ -677,39 +679,48 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("bits", strprintf("%08x", pblock->nBits));
     result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // masternode payment//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    UniValue masternodeObj(UniValue::VOBJ);
-    if(pblock->txoutMasternode != CTxOut()) {
-        CTxDestination address1;
-        ExtractDestination(pblock->txoutMasternode.scriptPubKey, address1);
-        CBitcoinAddress address2(address1);
-        masternodeObj.push_back(Pair("payee", address2.ToString().c_str()));
-        masternodeObj.push_back(Pair("script", HexStr(pblock->txoutMasternode.scriptPubKey)));
-        masternodeObj.push_back(Pair("amount", pblock->txoutMasternode.nValue));
+    UniValue masternodeObj(UniValue::VARR);
+
+    int mnCount;
+    CScript mnScript;
+    CTxDestination mnAddress;
+    if (!mnpayments.GetBlockPayee(pindexPrev->nHeight + 1, mnScript)) {
+        masternode_info_t mnInfo;
+        if (!mnodeman.GetNextMasternodeInQueueForPayment(pindexPrev->nHeight + 1, true, mnCount, mnInfo))
+            mnScript = GetScriptForDestination(mnInfo.pubKeyCollateralAddress.GetID());
     }
-    result.push_back(Pair("masternode", masternodeObj));
-    result.push_back(Pair("masternode_payments_started", pindexPrev->nHeight + 1 > consensusParams.nFirstPoSBlock));
-    result.push_back(Pair("masternode_payments_enforced", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT)));
+
+    ExtractDestination(mnScript, mnAddress);
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("payee", EncodeDestination(mnAddress));
+    obj.pushKV("script", HexStr(mnScript));
+    obj.pushKV("amount", GetMasternodePayment(pindexPrev->nHeight + 1, pblock->vtx[0]->vout[0].nValue));
+    masternodeObj.push_back(obj);
+
+    result.pushKV("masternode", masternodeObj);
+    result.pushKV("masternode_payments_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock);
+    result.pushKV("masternode_payments_enforced", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT));
+
+    // foundation payment//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     UniValue superblockObjArray(UniValue::VARR);
-    if(pblock->voutSuperblock.size()) {
-        for (const auto& txout : pblock->voutSuperblock) {
-            UniValue entry(UniValue::VOBJ);
-            CTxDestination address1;
-            ExtractDestination(txout.scriptPubKey, address1);
-            CBitcoinAddress address2(address1);
-            entry.push_back(Pair("payee", address2.ToString().c_str()));
-            entry.push_back(Pair("script", HexStr(txout.scriptPubKey)));
-            entry.push_back(Pair("amount", txout.nValue));
-            superblockObjArray.push_back(entry);
-        }
-    }
-    result.push_back(Pair("superblock", superblockObjArray));
-    result.push_back(Pair("superblocks_started", pindexPrev->nHeight + 1 > consensusParams.nSuperblockStartBlock));
-    result.push_back(Pair("superblocks_enabled", sporkManager.IsSporkActive(Spork::SPORK_9_SUPERBLOCKS_ENABLED)));
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    CScript fpScript = GetFoundationScript();
+
+    UniValue entry(UniValue::VOBJ);
+    entry.pushKV("payee", Params().GetConsensus().nFoundationPaymentAddress);
+    entry.pushKV("script", HexStr(fpScript));
+    entry.pushKV("amount", GetFoundationPayment(pindexPrev->nHeight + 1, pblock->vtx[0]->vout[0].nValue));
+    superblockObjArray.push_back(entry);
+
+    result.pushKV("superblock", superblockObjArray);
+    result.pushKV("superblocks_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock);
+    result.pushKV("superblocks_enabled", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT));
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && fSupportsSegwit) {
         result.pushKV("default_witness_commitment", HexStr(pblocktemplate->vchCoinbaseCommitment.begin(), pblocktemplate->vchCoinbaseCommitment.end()));

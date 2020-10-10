@@ -61,6 +61,8 @@ struct Params {
     int nGovernanceMinQuorum;
     int nGovernanceFilterElements;
     int nMasternodeMinimumConfirmations;
+    int nMasternodePaymentsStartBlock;
+    std::string nFoundationPaymentAddress;
     /* Block hash that is excepted from BIP16 enforcement */
     uint256 BIP16Exception;
     /** Block height and hash at which BIP34 becomes active */
