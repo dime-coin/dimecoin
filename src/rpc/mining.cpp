@@ -15,6 +15,7 @@
 #include <key_io.h>
 #include <masternode-payments.h>
 #include <masternodeman.h>
+#include <masternode-sync.h>
 #include <miner.h>
 #include <net.h>
 #include <policy/fees.h>
@@ -452,6 +453,9 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     if (IsInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Bitcoin is downloading blocks...");
 
+    if (!masternodeSync.IsSynced())
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Bitcoin is downloading masternode data...");
+
     static unsigned int nTransactionsUpdatedLast;
 
     if (!lpval.isNull())
@@ -701,7 +705,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     masternodeObj.push_back(obj);
 
     result.pushKV("masternode", masternodeObj);
-    result.pushKV("masternode_payments_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock);
+    result.pushKV("masternode_payments_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock || IsTestnet());
     result.pushKV("masternode_payments_enforced", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT));
 
     // foundation payment//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -717,7 +721,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     superblockObjArray.push_back(entry);
 
     result.pushKV("superblock", superblockObjArray);
-    result.pushKV("superblocks_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock);
+    result.pushKV("superblocks_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock || IsTestnet());
     result.pushKV("superblocks_enabled", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT));
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

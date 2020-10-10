@@ -174,7 +174,7 @@ public:
     // Block (dis)connection on a given view:
     DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                      CCoinsViewCache& view, const CChainParams& chainparams, bool fJustCheck = false);
+                      CCoinsViewCache& view, const CChainParams& chainparams, bool fJustCheck = false, bool fCheckFoundation = true);
 
     // Block disconnection on our pcoinsTip:
     bool DisconnectTip(CValidationState& state, const CChainParams& chainparams, DisconnectedBlockTransactions *disconnectpool);
@@ -317,6 +317,11 @@ static void FindFilesToPruneManual(std::set<int>& setFilesToPrune, int nManualPr
 static void FindFilesToPrune(std::set<int>& setFilesToPrune, uint64_t nPruneAfterHeight);
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks = nullptr);
 static FILE* OpenUndoFile(const CDiskBlockPos &pos, bool fReadOnly = false);
+
+bool IsTestnet()
+{
+    return Params().NetworkIDString() == CBaseChainParams::TESTNET;
+}
 
 bool CheckFinalTx(const CTransaction &tx, int flags)
 {
@@ -1902,7 +1907,7 @@ static int64_t nBlocksTotal = 0;
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                               CCoinsViewCache& view, const CChainParams& chainparams, bool fJustCheck)
+                               CCoinsViewCache& view, const CChainParams& chainparams, bool fJustCheck, bool fCheckFoundation)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -1943,6 +1948,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             view.SetBestBlock(pindex->GetBlockHash());
         return true;
     }
+
+    // Clearly print the full block as received for debugging
+    LogPrintf("\n%s\n", block.ToString());
 
     // Check that the block satisfies synchronized checkpoint
     if (!IsInitialBlockDownload() && !CheckSyncCheckpoint(block.GetHash(), pindex->nHeight)) {
@@ -2199,6 +2207,26 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     if (!IsBlockPayeeValid(coinbaseTransaction, pindex->nHeight, expectedReward, pindex->nMint)) {
         return state.DoS(0, error("ConnectBlock(Bitcoin): couldn't find masternode or superblock payments"),
                          REJECT_INVALID, "bad-cb-payee");
+    }
+
+    //! ensure the foundation payment exists and hasnt been modified
+    if (fCheckFoundation && (IsTestnet() || pindex->nHeight > chainparams.GetConsensus().nMasternodePaymentsStartBlock)) {
+
+        bool haveFoundationPayment = false;
+        for (unsigned int foundationIndex = 0; foundationIndex < coinbaseTransaction->vout.size(); foundationIndex++) {
+           CAmount expectedFoundationAmount = GetFoundationPayment(pindex->nHeight, GetBlockSubsidy(pindex->nHeight, Params().GetConsensus()));
+           CAmount actualFoundationAmount = coinbaseTransaction->vout[foundationIndex].nValue;
+           bool correctAddress = coinbaseTransaction->vout[foundationIndex].scriptPubKey == GetFoundationScript();
+           bool correctAmount = actualFoundationAmount >= expectedFoundationAmount;
+           if (correctAddress && correctAmount) {
+               haveFoundationPayment = true;
+               break;
+           }
+        }
+
+        if (!haveFoundationPayment)
+            return state.DoS(0, error("ConnectBlock(Bitcoin): foundation address/amount has been modified, rejecting block"),
+                             REJECT_INVALID, "modified-foundation-payment");
     }
 
     // END Bitcoin
@@ -3948,7 +3976,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
     return true;
 }
 
-bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot)
+bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckFoundation)
 {
     AssertLockHeld(cs_main);
     if(pindexPrev && pindexPrev != chainActive.Tip())
@@ -3968,7 +3996,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, chainparams, true))
+    if (!g_chainstate.ConnectBlock(block, state, &indexDummy, viewNew, chainparams, true, fCheckFoundation))
         return false;
     assert(state.IsValid());
 
