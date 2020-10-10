@@ -1015,6 +1015,9 @@ static UniValue setgenerate(const JSONRPCRequest& request)
                 + HelpExampleRpc("setgenerate", "true, 1")
                 );
 
+    if (!IsTestnet())
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This is for testnet only, you will not find blocks this way");
+
     if (Params().MineBlocksOnDemand())
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Use the generate method instead of setgenerate on this network");
 
