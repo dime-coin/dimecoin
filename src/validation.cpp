@@ -1107,6 +1107,18 @@ static bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMes
     return true;
 }
 
+bool fullDiskChecks{false};
+
+void setFullDiskChecks(bool status)
+{
+    fullDiskChecks = status;
+}
+
+bool getFullDiskChecks()
+{
+    return fullDiskChecks;
+}
+
 bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus::Params& consensusParams)
 {
     block.SetNull();
@@ -1119,14 +1131,19 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
     // Read block
     try {
         filein >> block;
-    }
-    catch (const std::exception& e) {
+    } catch (const std::exception& e) {
         return error("%s: Deserialize or I/O error - %s at %s", __func__, e.what(), pos.ToString());
     }
 
     // Check the header
-    if (block.IsProofOfWork() && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
-        return error("ReadBlockFromDisk: Errors in block header at %s", pos.ToString());
+    if (getFullDiskChecks()) {
+        if (block.IsProofOfWork()) {
+            uint256 hashProofOfWork = block.GetHash();
+            if (!CheckProofOfWork(hashProofOfWork, block.nBits, consensusParams)) {
+                return error("ReadBlockFromDisk: Errors in block header (PoW) at %s", pos.ToString());
+            }
+        }
+    }
 
     return true;
 }
@@ -1274,6 +1291,7 @@ bool IsInitialBlockDownload()
     if (chainActive.Tip()->GetBlockTime() < (GetTime() - nMaxTipAge))
         return true;
     LogPrintf("Leaving InitialBlockDownload (latching to false)\n");
+    setFullDiskChecks(true);
     latchToFalse.store(true, std::memory_order_relaxed);
     return false;
 }
@@ -2210,7 +2228,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     //! ensure the foundation payment exists and hasnt been modified
-    if (fCheckFoundation && (IsTestnet() || pindex->nHeight > chainparams.GetConsensus().nMasternodePaymentsStartBlock)) {
+    if (fCheckFoundation && pindex->nHeight > chainparams.GetConsensus().nMasternodePaymentsStartBlock) {
 
         bool haveFoundationPayment = false;
         for (unsigned int foundationIndex = 0; foundationIndex < coinbaseTransaction->vout.size(); foundationIndex++) {

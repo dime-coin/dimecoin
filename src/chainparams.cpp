@@ -225,7 +225,7 @@ public:
         consensus.nPosTargetSpacing = consensus.nPowTargetSpacing;
         consensus.nPosTargetTimespan = consensus.nPowTargetTimespan;
         consensus.checkpointPubKey = "045af95d3e64f3166cef9fab4ce87f6a085055b7552bac891c2600f7a90b382053f88b0741282b02c763b1b3352de4dd98d8b32c4664686b6ba050e6c2f8ca0520";
-        consensus.nMasternodePaymentsStartBlock = std::numeric_limits<int>::max();
+        consensus.nMasternodePaymentsStartBlock = 2300;
         consensus.nMasternodeMinimumConfirmations = 15;
         consensus.nFoundationPaymentAddress = "7KXXXXXXXXXXXXXXXXXXXXXXXXXXYMjbje";
         consensus.nStakeMinAge = 10 * 60;
