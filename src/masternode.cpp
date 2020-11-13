@@ -143,7 +143,7 @@ CMasternode::CollateralStatus CMasternode::CheckCollateral(const COutPoint& outp
 
 void CMasternode::Check(bool fForce)
 {
-    LOCK2(cs_main, cs);
+    LOCK(cs);
 
     if(ShutdownRequested()) return;
 
@@ -157,6 +157,9 @@ void CMasternode::Check(bool fForce)
 
     int nHeight = 0;
     if(!fUnitTest) {
+        TRY_LOCK(cs_main, lockMain);
+        if(!lockMain) return;
+
         CollateralStatus err = CheckCollateral(vin.prevout);
         if (err == COLLATERAL_UTXO_NOT_FOUND) {
             nActiveState = MASTERNODE_OUTPOINT_SPENT;
@@ -257,24 +260,6 @@ void CMasternode::Check(bool fForce)
     }
 }
 
-bool CMasternode::IsEnabled() const
-{
-    return nActiveState == MASTERNODE_ENABLED || IsWatchdogExpired();
-}
-
-bool CMasternode::IsValidForPayment() const
-{
-    if(nActiveState == MASTERNODE_ENABLED) {
-        return true;
-    }
-    if(!sporkManager.IsSporkActive(Spork::SPORK_14_REQUIRE_SENTINEL_FLAG) &&
-            (nActiveState == MASTERNODE_WATCHDOG_EXPIRED)) {
-        return true;
-    }
-
-    return false;
-}
-
 bool CMasternode::IsInputAssociatedWithPubkey() const
 {
     CScript payee;
@@ -322,9 +307,8 @@ std::string CMasternode::StateToString(int nStateIn)
         case MASTERNODE_EXPIRED:                return "EXPIRED";
         case MASTERNODE_OUTPOINT_SPENT:         return "OUTPOINT_SPENT";
         case MASTERNODE_UPDATE_REQUIRED:        return "UPDATE_REQUIRED";
-        //case MASTERNODE_WATCHDOG_EXPIRED:       return "WATCHDOG_EXPIRED";
+        case MASTERNODE_WATCHDOG_EXPIRED:       return "WATCHDOG_EXPIRED";
         case MASTERNODE_NEW_START_REQUIRED:     return "NEW_START_REQUIRED";
-        case MASTERNODE_WATCHDOG_EXPIRED:       return "ENABLED";
         case MASTERNODE_POSE_BAN:               return "POSE_BAN";
         default:                                return "UNKNOWN";
     }
@@ -783,11 +767,8 @@ bool CMasternodePing::CheckAndUpdate(CMasternode* pmn, bool fFromNewBroadcast, i
     // don't ban by default
     nDos = 0;
 
-    {
-        LOCK(cs_main);
-        if (!SimpleCheck(nDos)) {
-            return false;
-        }
+    if (!SimpleCheck(nDos)) {
+        return false;
     }
 
     if (pmn == nullptr) {
@@ -801,7 +782,7 @@ bool CMasternodePing::CheckAndUpdate(CMasternode* pmn, bool fFromNewBroadcast, i
             return false;
         }
 
-        if (pmn->IsNewStartRequired()) {
+        if (pmn->IsExpired()) {
             LogPrint(BCLog::MASTERNODE, "CMasternodePing::CheckAndUpdate -- masternode is completely expired, new start is required, masternode=%s\n", vin.prevout.ToString());
             return false;
         }

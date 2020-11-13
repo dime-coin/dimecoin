@@ -212,6 +212,14 @@ void CMasternodeSync::ProcessTick(CConnman& connman)
 
         // NORMAL NETWORK MODE - TESTNET/MAINNET
         {
+            if(masternodeSync.IsSynced() && netfulfilledman.HasFulfilledRequest(pnode->addr, "full-sync")) {
+                // We already fully synced from this node recently,
+                // disconnect to free this connection slot for another peer.
+                pnode->fDisconnect = true;
+                LogPrintf("CMasternodeSync::ProcessTick -- disconnecting from recently synced peer %d\n", pnode->GetId());
+                continue;
+            }
+
             // SPORK : ALWAYS ASK FOR SPORKS AS WE SYNC
 
             if(!netfulfilledman.HasFulfilledRequest(pnode->addr, "spork-sync")) {

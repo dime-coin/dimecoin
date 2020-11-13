@@ -220,7 +220,7 @@ public:
         return nTimeToCheckAt - lastPing.sigTime < nSeconds;
     }
 
-    bool IsEnabled() const;
+    bool IsEnabled() const { return nActiveState == MASTERNODE_ENABLED; }
     bool IsPreEnabled() const { return nActiveState == MASTERNODE_PRE_ENABLED; }
     bool IsPoSeBanned() const { return nActiveState == MASTERNODE_POSE_BAN; }
     // NOTE: this one relies on nPoSeBanScore, not on nActiveState as everything else here
@@ -239,7 +239,14 @@ public:
                 nActiveStateIn == MASTERNODE_WATCHDOG_EXPIRED;
     }
 
-    bool IsValidForPayment() const;
+    bool IsValidForPayment() const
+    {
+        if(nActiveState == MASTERNODE_ENABLED) {
+            return true;
+        }
+
+        return false;
+    }
 
     /// Is the input associated with collateral public key? (and there is 1000 Bitcoin - checking if valid masternode)
     bool IsInputAssociatedWithPubkey() const;

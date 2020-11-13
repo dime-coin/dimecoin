@@ -214,8 +214,7 @@ void CMasternodeMan::CheckAndRemove(CConnman& connman)
             CMasternodeBroadcast mnb = CMasternodeBroadcast(it->second);
             uint256 hash = mnb.GetHash();
             // If collateral was spent ...
-            if (it->second.IsOutpointSpent() ||
-                it->second.IsExpired()) {
+            if (it->second.IsOutpointSpent()) {
                 LogPrint(BCLog::MASTERNODE, "CMasternodeMan::CheckAndRemove -- Removing Masternode: %s  addr=%s  %i now\n", it->second.GetStateString(), it->second.addr.ToString(), size() - 1);
 
                 // erase all of the broadcasts we've seen from this txin, ...
@@ -833,7 +832,7 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, const std::string& strCommand,
             UpdateWatchdogVoteTime(mnp.vin.prevout, mnp.sigTime);
 
         // too late, new MNANNOUNCE is required
-        if(pmn && pmn->IsNewStartRequired()) return;
+        if(pmn && pmn->IsExpired()) return;
 
         int nDos = 0;
         if(mnp.CheckAndUpdate(pmn, false, nDos, connman)) return;
@@ -861,7 +860,7 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, const std::string& strCommand,
 
         LogPrint(BCLog::MASTERNODE, "DSEG -- Masternode list, masternode=%s\n", vin.prevout.ToString());
 
-        LOCK(cs);
+        LOCK2(cs_main, cs);
 
         if(vin == CTxIn()) { //only should ask for this once
             //local network
@@ -1100,6 +1099,8 @@ bool CMasternodeMan::SendVerifyRequest(const CAddress& addr, const std::vector<C
 
 void CMasternodeMan::SendVerifyReply(CNode* pnode, CMasternodeVerification& mnv, CConnman& connman)
 {
+    AssertLockHeld(cs_main);
+
     // only masternodes can sign this, why would someone ask regular node?
     if(!fMasterNode) {
         // do not ban, malicious node might be using my IP
@@ -1140,6 +1141,8 @@ void CMasternodeMan::SendVerifyReply(CNode* pnode, CMasternodeVerification& mnv,
 
 void CMasternodeMan::ProcessVerifyReply(CNode* pnode, CMasternodeVerification& mnv)
 {
+    AssertLockHeld(cs_main);
+
     std::string strError;
 
     // did we even ask for it? if that's the case we should have matching fulfilled request
@@ -1249,6 +1252,8 @@ void CMasternodeMan::ProcessVerifyReply(CNode* pnode, CMasternodeVerification& m
 
 void CMasternodeMan::ProcessVerifyBroadcast(CNode* pnode, const CMasternodeVerification& mnv)
 {
+    AssertLockHeld(cs_main);
+
     std::string strError;
 
     if(mapSeenMasternodeVerification.find(mnv.GetHash()) != mapSeenMasternodeVerification.end()) {
@@ -1388,8 +1393,9 @@ void CMasternodeMan::UpdateMasternodeList(CMasternodeBroadcast mnb, CConnman& co
 
 bool CMasternodeMan::CheckMnbAndUpdateMasternodeList(CNode* pfrom, CMasternodeBroadcast mnb, int& nDos, CConnman& connman)
 {
+    LOCK(cs_main);
     {
-        LOCK2(cs_main, cs);
+        LOCK(cs);
         nDos = 0;
         LogPrint(BCLog::MASTERNODE, "CMasternodeMan::CheckMnbAndUpdateMasternodeList -- masternode=%s\n", mnb.vin.prevout.ToString());
 
@@ -1429,13 +1435,9 @@ bool CMasternodeMan::CheckMnbAndUpdateMasternodeList(CNode* pfrom, CMasternodeBr
 
         LogPrint(BCLog::MASTERNODE, "CMasternodeMan::CheckMnbAndUpdateMasternodeList -- masternode=%s new\n", mnb.vin.prevout.ToString());
 
-        {
-            // Need to lock cs_main here to ensure consistent locking order because the SimpleCheck call below locks cs_main
-//            LOCK(cs_main);
-            if(!mnb.SimpleCheck(nDos)) {
-                LogPrint(BCLog::MASTERNODE, "CMasternodeMan::CheckMnbAndUpdateMasternodeList -- SimpleCheck() failed, masternode=%s\n", mnb.vin.prevout.ToString());
-                return false;
-            }
+        if(!mnb.SimpleCheck(nDos)) {
+            LogPrint(BCLog::MASTERNODE, "CMasternodeMan::CheckMnbAndUpdateMasternodeList -- SimpleCheck() failed, masternode=%s\n", mnb.vin.prevout.ToString());
+            return false;
         }
 
         // search Masternode list
