@@ -262,15 +262,15 @@ public:
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
          */
-        pchMessageStart[0] = 0xfe;
-        pchMessageStart[1] = 0x5a;
-        pchMessageStart[2] = 0x30;
-        pchMessageStart[3] = 0xdd;
+        pchMessageStart[0] = 0xef;
+        pchMessageStart[1] = 0x5b;
+        pchMessageStart[2] = 0x20;
+        pchMessageStart[3] = 0xde;
         nDefaultPort = 21931;
         nPruneAfterHeight = 100000;
         nMaxReorganizationDepth = 100;
 
-        genesis = CreateGenesisBlock(1601928646, 2677735, 0x1e0fffff, 112, 1 * COIN);
+        genesis = CreateGenesisBlock(1605888000, 2172921, 0x1e0fffff, 112, 1 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,15);
