@@ -21,6 +21,7 @@
 
 struct MainSignalsInstance {
     boost::signals2::signal<void (const CBlockIndex *, const CBlockIndex *, bool fInitialDownload)> UpdatedBlockTip;
+    boost::signals2::signal<void (const CBlockIndex *, const CBlockIndex *, bool fInitialDownload)> SynchronousUpdatedBlockTip;
     boost::signals2::signal<void (const CTransactionRef &)> TransactionAddedToMempool;
     boost::signals2::signal<void (const std::shared_ptr<const CBlock> &, const CBlockIndex *pindex, const std::vector<CTransactionRef>&)> BlockConnected;
     boost::signals2::signal<void (const std::shared_ptr<const CBlock> &)> BlockDisconnected;
@@ -82,6 +83,7 @@ CMainSignals& GetMainSignals()
 
 void RegisterValidationInterface(CValidationInterface* pwalletIn) {
     g_signals.m_internals->UpdatedBlockTip.connect(boost::bind(&CValidationInterface::UpdatedBlockTip, pwalletIn, _1, _2, _3));
+    g_signals.m_internals->SynchronousUpdatedBlockTip.connect(boost::bind(&CValidationInterface::SynchronousUpdatedBlockTip, pwalletIn, _1, _2, _3));
     g_signals.m_internals->TransactionAddedToMempool.connect(boost::bind(&CValidationInterface::TransactionAddedToMempool, pwalletIn, _1));
     g_signals.m_internals->BlockConnected.connect(boost::bind(&CValidationInterface::BlockConnected, pwalletIn, _1, _2, _3));
     g_signals.m_internals->BlockDisconnected.connect(boost::bind(&CValidationInterface::BlockDisconnected, pwalletIn, _1));
@@ -106,6 +108,7 @@ void UnregisterValidationInterface(CValidationInterface* pwalletIn) {
     g_signals.m_internals->BlockDisconnected.disconnect(boost::bind(&CValidationInterface::BlockDisconnected, pwalletIn, _1));
     g_signals.m_internals->TransactionRemovedFromMempool.disconnect(boost::bind(&CValidationInterface::TransactionRemovedFromMempool, pwalletIn, _1));
     g_signals.m_internals->UpdatedBlockTip.disconnect(boost::bind(&CValidationInterface::UpdatedBlockTip, pwalletIn, _1, _2, _3));
+    g_signals.m_internals->SynchronousUpdatedBlockTip.disconnect(boost::bind(&CValidationInterface::SynchronousUpdatedBlockTip, pwalletIn, _1, _2, _3));
     g_signals.m_internals->NewPoWValidBlock.disconnect(boost::bind(&CValidationInterface::NewPoWValidBlock, pwalletIn, _1, _2));
     g_signals.m_internals->NotifyTransactionLock.disconnect(boost::bind(&CValidationInterface::NotifyTransactionLock, pwalletIn, _1));
     g_signals.m_internals->NotifyHeaderTip.disconnect(boost::bind(&CValidationInterface::NotifyHeaderTip, pwalletIn, _1, _2));
@@ -126,6 +129,7 @@ void UnregisterAllValidationInterfaces() {
     g_signals.m_internals->BlockDisconnected.disconnect_all_slots();
     g_signals.m_internals->TransactionRemovedFromMempool.disconnect_all_slots();
     g_signals.m_internals->UpdatedBlockTip.disconnect_all_slots();
+    g_signals.m_internals->SynchronousUpdatedBlockTip.disconnect_all_slots();
     g_signals.m_internals->NewPoWValidBlock.disconnect_all_slots();
     g_signals.m_internals->NotifyTransactionLock.disconnect_all_slots();
     g_signals.m_internals->NotifyHeaderTip.disconnect_all_slots();
@@ -162,6 +166,10 @@ void CMainSignals::UpdatedBlockTip(const CBlockIndex *pindexNew, const CBlockInd
     m_internals->m_schedulerClient.AddToProcessQueue([pindexNew, pindexFork, fInitialDownload, this] {
         m_internals->UpdatedBlockTip(pindexNew, pindexFork, fInitialDownload);
     });
+}
+
+void CMainSignals::SynchronousUpdatedBlockTip(const CBlockIndex *pindexNew, const CBlockIndex *pindexFork, bool fInitialDownload) {
+    m_internals->SynchronousUpdatedBlockTip(pindexNew, pindexFork, fInitialDownload);
 }
 
 void CMainSignals::TransactionAddedToMempool(const CTransactionRef &ptx) {
@@ -211,8 +219,7 @@ void CMainSignals::NotifyTransactionLock(const CTransactionRef &tx)
     m_internals->NotifyTransactionLock(tx);
 }
 
-void CMainSignals::NotifyHeaderTip(const CBlockIndex *pindexNew, bool fInitialDownload)
-{
+void CMainSignals::NotifyHeaderTip(const CBlockIndex *pindexNew, bool fInitialDownload) {
     m_internals->NotifyHeaderTip(pindexNew, fInitialDownload);
 }
 
