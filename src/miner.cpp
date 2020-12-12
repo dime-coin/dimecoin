@@ -49,6 +49,9 @@ uint64_t nLastBlockWeight = 0;
 int64_t nLastMiningActivityTime = 0;
 int64_t nLastCoinStakeSearchInterval = 0;
 
+//! forward declaration from wallet/wallet.cpp
+void InsertAndAdjustFoundationPayment(CMutableTransaction &tx, const CTxOut &txoutFoundationPayment);
+
 void setRecentMiningActivity()
 {
     nLastMiningActivityTime = GetAdjustedTime();
@@ -218,6 +221,15 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     }
 
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+    //! internal proof of work split (reward)
+    if (!fProofOfStake) {
+	CTxOut txoutMasternode;
+	CTxOut txoutFoundationPayment;
+	txoutFoundationPayment = CTxOut(GetFoundationPayment(nHeight, blockReward), GetFoundationScript());
+	FillBlockPayments(coinbaseTx, nHeight, blockReward, txoutMasternode);
+	AdjustMasternodePayment(coinbaseTx, txoutMasternode);
+	InsertAndAdjustFoundationPayment(coinbaseTx, txoutFoundationPayment);
+    }
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;
