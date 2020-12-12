@@ -231,7 +231,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
 	InsertAndAdjustFoundationPayment(coinbaseTx, txoutFoundationPayment);
     }
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
-    pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
+    if (fIncludeWitness)
+        pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, chainparams.GetConsensus());
     pblocktemplate->vTxFees[0] = -nFees;
 
     LogPrintf("CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
@@ -597,7 +598,11 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
             if(!pindexPrev) break;
 
             BlockAssembler assembler(chainparams);
-            auto pblocktemplate = assembler.CreateNewBlock(pwallet, coinbaseScript->reserveScript, fProofOfStake, true);
+            std::unique_ptr<CBlockTemplate> pblocktemplate;
+            {
+                LOCK2(cs_main, pwallet->cs_wallet);
+                pblocktemplate = assembler.CreateNewBlock(pwallet, coinbaseScript->reserveScript, fProofOfStake, true);
+            }
             if (!pblocktemplate.get()) {
                 LogPrintf("bitcoinminer -- Failed to find a coinstake\n");
                 MilliSleep(5000);
