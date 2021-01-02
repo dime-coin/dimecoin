@@ -777,6 +777,7 @@ public:
     CRollingBloomFilter addrKnown;
     bool fGetAddr;
     std::set<uint256> setKnown;
+    bool fSyncingWith;
     int64_t nNextAddrSend;
     int64_t nNextLocalAddrSend;
     uint256 hashCheckpointKnown;
@@ -795,6 +796,7 @@ public:
     std::vector<uint256> vInventoryBlockToSend;
     CCriticalSection cs_inventory;
     std::set<uint256> setAskFor;
+    std::list<CInv> listAskForBlocks;
     std::multimap<int64_t, CInv> mapAskFor;
     int64_t nNextInvSend;
     int64_t nNextInvSendDash;
@@ -952,6 +954,7 @@ public:
     }
 
     void AskFor(const CInv& inv);
+    void AskForBlock(const CInv& inv);
 
     void CloseSocketDisconnect();
 
