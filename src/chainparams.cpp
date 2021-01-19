@@ -270,7 +270,7 @@ public:
         nPruneAfterHeight = 100000;
         nMaxReorganizationDepth = 100;
 
-        genesis = CreateGenesisBlock(1605888000, 2172921, 0x1e0fffff, 112, 1 * COIN);
+        genesis = CreateGenesisBlock(1611000000, 519773, 0x1e0fffff, 112, 1 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,15);
