@@ -205,33 +205,6 @@ void CMasternodeMan::CheckAndRemove(CConnman& connman)
 
         Check();
 
-        // Remove duplicates from MN list
-        {
-            std::vector<std::string> seenAddresses;
-            seenAddresses.clear();
-            std::map<COutPoint, CMasternode>::iterator it2 = mapMasternodes.begin();
-            while (it2 != mapMasternodes.end()) {
-                auto mnInfo = it2->second.GetInfo();
-                auto mnAddr = mnInfo.addr.ToStringIPPort();
-                if (std::find(seenAddresses.begin(), seenAddresses.end(), mnAddr) != seenAddresses.end()) {
-                    LogPrintf("removing mnb %s\n", mnAddr);
-                    // get our perpetrators mnb..
-                    CMasternodeBroadcast mnb = CMasternodeBroadcast(it2->second);
-                    uint256 hash = mnb.GetHash();
-                    // and flush it from all our lists..
-                    mapSeenMasternodeBroadcast.erase(hash);
-                    mWeAskedForMasternodeListEntry.erase(it2->first);
-                    // and finally remove it from the list
-                    it2->second.FlagGovernanceItemsAsDirty();
-                    mapMasternodes.erase(it2++);
-                    fMasternodesRemoved = true;
-                    break;
-                } else {
-                    seenAddresses.push_back(mnAddr);
-                }
-            }
-        }
-
         // Remove spent masternodes, prepare structures and make requests to reasure the state of inactive ones
         rank_pair_vec_t vecMasternodeRanks;
         // ask for up to MNB_RECOVERY_MAX_ASK_ENTRIES masternode entries at a time
@@ -1066,6 +1039,8 @@ void CMasternodeMan::CheckSameAddr()
         std::sort(vSortedByAddr.begin(), vSortedByAddr.end(), CompareByAddr());
 
         for(CMasternode* pmn : vSortedByAddr) {
+            // check only (pre)enabled masternodes
+            if(!pmn->IsEnabled() && !pmn->IsPreEnabled()) continue;
             // initial step
             if(!pprevMasternode) {
                 pprevMasternode = pmn;
