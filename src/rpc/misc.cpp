@@ -207,8 +207,7 @@ static UniValue verifymessage(const JSONRPCRequest& request)
     ss << strMessage;
 
     CPubKey pubkey;
-    CPubKey::InputScriptType inputScriptType;
-    if (!pubkey.RecoverCompact(ss.GetHash(), vchSig, inputScriptType))
+    if (!pubkey.RecoverCompact(ss.GetHash(), vchSig))
         return false;
 
     return (pubkey.GetID() == *keyID);

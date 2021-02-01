@@ -255,12 +255,12 @@ bool CSporkMessage::Sign(std::string strSignKey)
         return false;
     }
 
-    if(!CMessageSigner::SignMessage(strMessage, vchSig, key, CPubKey::InputScriptType::SPENDP2PKH)) {
+    if(!CMessageSigner::SignMessage(strMessage, vchSig, key)) {
         LogPrintf("CSporkMessage::Sign -- SignMessage() failed\n");
         return false;
     }
 
-    if(!CMessageSigner::VerifyMessage(pubkey.GetID(), vchSig, strMessage, strError)) {
+    if(!CMessageSigner::VerifyMessage(pubkey, vchSig, strMessage, strError)) {
         LogPrintf("CSporkMessage::Sign -- VerifyMessage() failed, error: %s\n", strError);
         return false;
     }
@@ -275,7 +275,7 @@ bool CSporkMessage::CheckSignature()
     std::string strMessage = boost::lexical_cast<std::string>(nSporkID) + boost::lexical_cast<std::string>(nValue) + boost::lexical_cast<std::string>(nTimeSigned);
     CPubKey pubkey(ParseHex(Params().SporkPubKey()));
 
-    if(!CMessageSigner::VerifyMessage(pubkey.GetID(), vchSig, strMessage, strError)) {
+    if(!CMessageSigner::VerifyMessage(pubkey, vchSig, strMessage, strError)) {
         LogPrintf("%s failed, error: %s\n", __func__, strError);
         return false;
     }

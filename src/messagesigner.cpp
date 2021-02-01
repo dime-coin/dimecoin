@@ -10,75 +10,49 @@
 #include <utilstrencodings.h>
 
 bool CMessageSigner::GetKeysFromSecret(const std::string strSecret, CKey& keyRet, CPubKey& pubkeyRet)
-{   
-    CKey decodedKey = DecodeSecret(strSecret);
+{
+    keyRet = DecodeSecret(strSecret);
+    if (!keyRet.IsValid()) return false;
 
-    if(!decodedKey.IsValid())
-        return false;
-
-    keyRet = decodedKey;
-    pubkeyRet = decodedKey.GetPubKey();
+    pubkeyRet = keyRet.GetPubKey();
 
     return true;
 }
 
-bool CMessageSigner::SignMessage(const std::string strMessage, std::vector<unsigned char>& vchSigRet, const CKey &key, CPubKey::InputScriptType scriptType)
+bool CMessageSigner::SignMessage(const std::string strMessage, std::vector<unsigned char>& vchSigRet, const CKey key)
 {
     CHashWriter ss(SER_GETHASH, 0);
     ss << strMessageMagic;
     ss << strMessage;
 
-    return CHashSigner::SignHash(ss.GetHash(), key, scriptType, vchSigRet);
+    return CHashSigner::SignHash(ss.GetHash(), key, vchSigRet);
 }
 
-bool CMessageSigner::VerifyMessage(const CTxDestination &address, const std::vector<unsigned char>& vchSig, const std::string strMessage, std::string& strErrorRet)
+bool CMessageSigner::VerifyMessage(const CPubKey pubkey, const std::vector<unsigned char>& vchSig, const std::string strMessage, std::string& strErrorRet)
 {
     CHashWriter ss(SER_GETHASH, 0);
     ss << strMessageMagic;
     ss << strMessage;
 
-    return CHashSigner::VerifyHash(ss.GetHash(), address, vchSig, strErrorRet);
+    return CHashSigner::VerifyHash(ss.GetHash(), pubkey, vchSig, strErrorRet);
 }
 
-bool CHashSigner::SignHash(const uint256& hash, const CKey &key, CPubKey::InputScriptType scriptType, std::vector<unsigned char>& vchSigRet)
+bool CHashSigner::SignHash(const uint256& hash, const CKey key, std::vector<unsigned char>& vchSigRet)
 {
-    return key.SignCompact(hash, vchSigRet, scriptType);
+    return key.SignCompact(hash, vchSigRet);
 }
 
-bool CHashSigner::VerifyHash(const uint256& hash, const CTxDestination &address, const std::vector<unsigned char>& vchSig, std::string& strErrorRet)
+bool CHashSigner::VerifyHash(const uint256& hash, const CPubKey pubkey, const std::vector<unsigned char>& vchSig, std::string& strErrorRet)
 {
     CPubKey pubkeyFromSig;
-    CPubKey::InputScriptType inputScriptType;
-    if(!pubkeyFromSig.RecoverCompact(hash, vchSig, inputScriptType)) {
+    if(!pubkeyFromSig.RecoverCompact(hash, vchSig)) {
         strErrorRet = "Error recovering public key.";
         return false;
     }
 
-
-    auto GetDestForKey = [](const CKeyID &keyID, CPubKey::InputScriptType type) -> CTxDestination {
-        switch(type) {
-        case CPubKey::InputScriptType::SPENDP2PKH: return keyID;
-        case CPubKey::InputScriptType::SPENDP2SHWITNESS: return CScriptID(GetScriptForDestination(WitnessV0KeyHash(keyID)));
-        case CPubKey::InputScriptType::SPENDWITNESS: return WitnessV0KeyHash(keyID);
-        default:
-            break;
-        }
-
-        return CNoDestination();
-    };
-
-    CTxDestination recoveredAddress = GetDestForKey(pubkeyFromSig.GetID(), inputScriptType);
-
-    if(boost::get<CNoDestination>(&recoveredAddress))
-    {
-        strErrorRet = "Invalid inputScriptType";
-        return false;
-    }
-
-    // not all classes in CTxDestination support operator!= on some compilers
-    if(!(address == recoveredAddress)) {
-        strErrorRet = strprintf("Addresses don't match: address=%s, addressFromSig=%s, hash=%s, vchSig=%s",
-                    EncodeDestination(address), EncodeDestination(recoveredAddress), hash.ToString(),
+    if(pubkeyFromSig.GetID() != pubkey.GetID()) {
+        strErrorRet = strprintf("Keys don't match: pubkey=%s, pubkeyFromSig=%s, hash=%s, vchSig=%s",
+                    pubkey.GetID().ToString(), pubkeyFromSig.GetID().ToString(), hash.ToString(),
                     EncodeBase64(&vchSig[0], vchSig.size()));
         return false;
     }
