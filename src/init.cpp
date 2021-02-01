@@ -1778,6 +1778,9 @@ bool AppInitMain()
                         break;
                     }
 
+                    //! reset once on client init
+                    ResetBlockFailureFlags(tip);
+
                     if (!CVerifyDB().VerifyDB(chainparams, pcoinsdbview.get(), gArgs.GetArg("-checklevel", DEFAULT_CHECKLEVEL),
                                   gArgs.GetArg("-checkblocks", DEFAULT_CHECKBLOCKS))) {
                         strLoadError = _("Corrupted block database detected");

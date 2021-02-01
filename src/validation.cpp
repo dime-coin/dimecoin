@@ -3345,17 +3345,10 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
-    // Short circuit for early blocks
-    CBlockIndex* refBlock = nullptr;
-    refBlock = mapBlockIndex[block.hashPrevBlock];
-    if (refBlock != nullptr) {
-        int nHeight = refBlock->nHeight;
-        if (nHeight < 4000000)
-            return true;
-    }
+    bool isPoS = block.nNonce == 0;
 
     // Check proof of work matches claimed amount
-    if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
+    if (!isPoS && fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
         return state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
 
     return true;
