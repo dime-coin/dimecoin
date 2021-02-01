@@ -2946,7 +2946,6 @@ CNode::CNode(NodeId idIn, ServiceFlags nLocalServicesIn, int nMyStartingHeightIn
     nextSendTimeFeeFilter = 0;
     fPauseRecv = false;
     fPauseSend = false;
-    fSyncingWith = false;
     nProcessQueueSize = 0;
 
     for (const std::string &msg : getAllNetMessageTypes())
@@ -2968,13 +2967,6 @@ CNode::~CNode()
     LogPrint(BCLog::NET, "CNode::~CNode -- removed connection: peer=%d addr=%s nRefCount=%d fNetworkNode=%d fInbound=%d fMasternode=%d\n",
               id, addr.ToString(), GetRefCount(), fNetworkNode, fInbound, fMasternode);
     CloseSocket(hSocket);
-}
-
-void CNode::AskForBlock(const CInv& inv)
-{
-    if (listAskForBlocks.size() > MAPASKFOR_MAX_SZ)
-        return;
-    listAskForBlocks.emplace_back(inv);
 }
 
 void CNode::AskFor(const CInv& inv)
