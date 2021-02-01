@@ -58,8 +58,7 @@ public:
     {
         DIME,
         mDIME,
-        uDIME,
-        SAT
+        uDIME
     };
 
     enum SeparatorStyle

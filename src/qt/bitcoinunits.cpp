@@ -20,7 +20,6 @@ QList<BitcoinUnits::Unit> BitcoinUnits::availableUnits()
     unitlist.append(DIME);
     unitlist.append(mDIME);
     unitlist.append(uDIME);
-    unitlist.append(SAT);
     return unitlist;
 }
 
@@ -31,7 +30,6 @@ bool BitcoinUnits::valid(int unit)
     case DIME:
     case mDIME:
     case uDIME:
-    case SAT:
         return true;
     default:
         return false;
@@ -44,8 +42,7 @@ QString BitcoinUnits::longName(int unit)
     {
     case DIME: return QString("DIME");
     case mDIME: return QString("mDIME");
-    case uDIME: return QString::fromUtf8("µBTC (bits)");
-    case SAT: return QString("Satoshi (sat)");
+    case uDIME: return QString::fromUtf8("µBTC");
     default: return QString("???");
     }
 }
@@ -55,7 +52,6 @@ QString BitcoinUnits::shortName(int unit)
     switch(unit)
     {
     case uDIME: return QString::fromUtf8("bits");
-    case SAT: return QString("sat");
     default: return longName(unit);
     }
 }
@@ -66,8 +62,7 @@ QString BitcoinUnits::description(int unit)
     {
     case DIME: return QString("Dimecoins");
     case mDIME: return QString("Milli-Dimecoins (1 / 1" THIN_SP_UTF8 "000)");
-    case uDIME: return QString("Micro-Dimecoins (bits) (1 / 1" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
-    case SAT: return QString("Satoshi (sat) (1 / 100" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
+    case uDIME: return QString("Micro-Dimecoins (1 / 1" THIN_SP_UTF8 "000" THIN_SP_UTF8 "000)");
     default: return QString("???");
     }
 }
@@ -79,7 +74,6 @@ qint64 BitcoinUnits::factor(int unit)
     case DIME: return 100000;
     case mDIME: return 100;
     case uDIME: return 1;
-    case SAT: return 1;
     default: return 100000;
     }
 }
@@ -91,7 +85,6 @@ int BitcoinUnits::decimals(int unit)
     case DIME: return 5;
     case mDIME: return 2;
     case uDIME: return 0;
-    case SAT: return 0;
     default: return 0;
     }
 }
@@ -107,7 +100,9 @@ QString BitcoinUnits::format(int unit, const CAmount& nIn, bool fPlus, Separator
     int num_decimals = decimals(unit);
     qint64 n_abs = (n > 0 ? n : -n);
     qint64 quotient = n_abs / coin;
+    qint64 remainder = n_abs % coin;
     QString quotient_str = QString::number(quotient);
+    QString remainder_str = QString::number(remainder).rightJustified(num_decimals, '0');
 
     // Use SI-style thin space separators as these are locale independent and can't be
     // confused with the decimal marker.
@@ -121,14 +116,7 @@ QString BitcoinUnits::format(int unit, const CAmount& nIn, bool fPlus, Separator
         quotient_str.insert(0, '-');
     else if (fPlus && n > 0)
         quotient_str.insert(0, '+');
-
-    if (num_decimals > 0) {
-        qint64 remainder = n_abs % coin;
-        QString remainder_str = QString::number(remainder).rightJustified(num_decimals, '0');
-        return quotient_str + QString(".") + remainder_str;
-    } else {
-        return quotient_str;
-    }
+    return quotient_str + QString(".") + remainder_str;
 }
 
 
