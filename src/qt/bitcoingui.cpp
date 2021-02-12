@@ -1265,7 +1265,7 @@ void BitcoinGUI::setHDStatus(int hdEnabled)
 
 void BitcoinGUI::setStakingStatus()
 {
-    if (nLastCoinStakeSearchInterval) {
+    if (nLastCoinStakeSearchInterval && GetWallets().front()->MintableCoins()) {
         labelStakingIcon->show();
         labelStakingIcon->setPixmap(QIcon(QString(":/icons/staking_active")).pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
         labelStakingIcon->setToolTip(tr("Staking is active\n"));
