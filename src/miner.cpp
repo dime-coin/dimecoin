@@ -617,7 +617,7 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
                 LogPrintf("CPUMiner : proof-of-stake block found %s \n", pblock->GetHash().ToString().c_str());
 
                 if (!SignBlock(*pblock, *pwallet)) {
-                    LogPrintf("BitcoinMiner(): Signing new block failed \n");
+                    LogPrintf("DimecoinMiner(): Signing new block failed \n");
                     throw std::runtime_error(strprintf("%s: SignBlock failed", __func__));
                 }
 
@@ -687,12 +687,12 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
         }
         catch (const boost::thread_interrupted&)
         {
-            LogPrintf("BitcoinMiner -- terminated\n");
+            LogPrintf("DimecoinMiner -- terminated\n");
             throw;
         }
         catch (const std::runtime_error &e)
         {
-            LogPrintf("bitcoinminer -- runtime error: %s\n", e.what());
+            LogPrintf("dimecoinminer -- runtime error: %s\n", e.what());
         }
     }
 }
