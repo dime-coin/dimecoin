@@ -147,6 +147,8 @@ namespace {
     };
     std::map<uint256, std::pair<NodeId, std::list<QueuedBlock>::iterator> > mapBlocksInFlight GUARDED_BY(cs_main);
 
+    static std::map<uint256, std::shared_ptr<CBlock>> mapBlocksUnknownParent;
+
     /** Stack of nodes which we have set to announce using compact blocks */
     std::list<NodeId> lNodesAnnouncingHeaderAndIDs GUARDED_BY(cs_main);
 
@@ -2898,22 +2900,65 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         bool forceProcessing = false;
         const uint256 hash(pblock->GetHash());
+
+        auto it = mapBlockIndex.find(pblock->hashPrevBlock);
+        if (it != mapBlockIndex.end() && ((it->second->nStatus & BLOCK_HAVE_DATA) == 0))
         {
-            LOCK(cs_main);
-            // Also always process if we requested the block explicitly, as we may
-            // need it even though it is not a candidate for a new best tip.
-            forceProcessing |= MarkBlockAsReceived(hash);
-            // mapBlockSource is only used for sending reject messages and DoS scores,
-            // so the race between here and cs_main in ProcessNewBlock is fine.
-            mapBlockSource.emplace(hash, std::make_pair(pfrom->GetId(), true));
+            LogPrint(BCLog::NET, "Received block out of order: %s\n", pblock->GetHash().ToString());
+            if (mapBlocksInFlight.count(pblock->hashPrevBlock))
+            {
+                LOCK(cs_main);
+                mapBlocksUnknownParent.insert(std::make_pair(pblock->hashPrevBlock, pblock));
+                MarkBlockAsReceived(pblock->hashPrevBlock); // invalidate to send again.
+            }
         }
-        bool fNewBlock = false;
-        ProcessNewBlock(chainparams, pblock, forceProcessing, &fNewBlock);
-        if (fNewBlock) {
-            pfrom->nLastBlockTime = GetTime();
-        } else {
-            LOCK(cs_main);
-            mapBlockSource.erase(pblock->GetHash());
+        else
+        {
+            {
+                LOCK(cs_main);
+                // Also always process if we requested the block explicitly, as we may
+                // need it even though it is not a candidate for a new best tip.
+                forceProcessing |= MarkBlockAsReceived(hash);
+                // mapBlockSource is only used for sending reject messages and DoS scores,
+                // so the race between here and cs_main in ProcessNewBlock is fine.
+                mapBlockSource.emplace(hash, std::make_pair(pfrom->GetId(), true));
+            }
+
+            bool fNewBlock = false;
+            ProcessNewBlock(chainparams, pblock, forceProcessing, &fNewBlock);
+            if (fNewBlock)
+            {
+                pfrom->nLastBlockTime = GetTime();
+
+                std::deque<uint256> queue;
+                queue.push_back(hash);
+                while (!queue.empty())
+                {
+                    uint256 head = queue.front();
+                    queue.pop_front();
+                    auto it = mapBlocksUnknownParent.find(head);
+                    if (it != std::end(mapBlocksUnknownParent))
+                    {
+                        std::shared_ptr<CBlock> pblockrecursive = it->second;
+                        auto recursiveHash = pblockrecursive->GetHash();
+                        LogPrint(BCLog::NET, "%s: Processing out of order child %s of %s\n", __func__, recursiveHash.ToString(),
+                                 head.ToString());
+
+                        bool forceProcessing = false;
+                        {
+                            LOCK(cs_main);
+                            mapBlocksUnknownParent.erase(it);
+                            forceProcessing = MarkBlockAsReceived(recursiveHash);
+                        }
+                        ProcessNewBlock(chainparams, pblockrecursive, forceProcessing, &fNewBlock);
+                        queue.push_back(recursiveHash);
+                    }
+                }
+            }
+            else {
+                LOCK(cs_main);
+                mapBlockSource.erase(pblock->GetHash());
+            }
         }
         return true;
     }

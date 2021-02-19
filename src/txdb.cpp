@@ -270,6 +270,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
     // Load mapBlockIndex
     while (pcursor->Valid()) {
         boost::this_thread::interruption_point();
+        if (ShutdownRequested()) return false;
         std::pair<char, uint256> key;
         if (pcursor->GetKey(key) && key.first == DB_BLOCK_INDEX) {
             CDiskBlockIndex diskindex;
@@ -299,7 +300,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nStakeTime       = diskindex.nStakeTime;
                 pindexNew->hashProofOfStake = diskindex.hashProofOfStake;
 
-                if (!pindexNew->IsProofOfStake()) {
+                if (pindexNew->IsProofOfWork()) {
                     if (!CheckProofOfWork(pindexNew->GetBlockPoWHash(), pindexNew->nBits, consensusParams))
                         return error("%s: CheckProofOfWork failed: %s", __func__, pindexNew->ToString());
                 }

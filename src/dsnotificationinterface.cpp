@@ -40,6 +40,8 @@ void CDSNotificationInterface::UpdatedBlockTip(const CBlockIndex *pindexNew, con
     if (pindexNew == pindexFork) // blocks were disconnected without any new ones
         return;
 
+    masternodeSync.UpdatedBlockTip(pindexNew, fInitialDownload, connman);
+
     if (fInitialDownload)
         return;
 
