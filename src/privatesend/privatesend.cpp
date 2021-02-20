@@ -450,7 +450,7 @@ void CPrivateSend::SyncTransaction(const CTransaction& tx, const CBlock* pblock)
 //TODO: Rename/move to core
 void ThreadCheckPrivateSend(CConnman& connman)
 {
-    if(fLiteMode) return; // disable all Bitcoin specific functionality
+    if(fLiteMode) return; // disable all Dimecoin specific functionality
 
     static bool fOneThread;
     if(fOneThread) return;

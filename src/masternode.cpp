@@ -583,7 +583,7 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
         }
 
         if (err == COLLATERAL_INVALID_AMOUNT) {
-            LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Masternode UTXO should have 1000 Bitcoin, masternode=%s\n", vin.prevout.ToString());
+            LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Masternode UTXO should have 1000 Dimecoin, masternode=%s\n", vin.prevout.ToString());
             return false;
         }
 

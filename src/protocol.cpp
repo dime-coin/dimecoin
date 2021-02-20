@@ -43,7 +43,7 @@ const char *GETBLOCKTXN="getblocktxn";
 const char *BLOCKTXN="blocktxn";
 const char *CHECKPOINT="checkpoint";
 
-// Bitcoin message types
+// Dimecoin message types
 const char *TXLOCKREQUEST="ix";
 const char *TXLOCKVOTE="txlvote";
 const char *SPORK="spork";

@@ -598,15 +598,15 @@ fs::path static StartupShortcutPath()
 {
     std::string chain = gArgs.GetChainName();
     if (chain == CBaseChainParams::MAIN)
-        return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin.lnk";
+        return GetSpecialFolderPath(CSIDL_STARTUP) / "Dimecoin.lnk";
     if (chain == CBaseChainParams::TESTNET) // Remove this special case when CBaseChainParams::TESTNET = "testnet4"
-        return GetSpecialFolderPath(CSIDL_STARTUP) / "Bitcoin (testnet).lnk";
-    return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Bitcoin (%s).lnk", chain);
+        return GetSpecialFolderPath(CSIDL_STARTUP) / "Dimecoin (testnet).lnk";
+    return GetSpecialFolderPath(CSIDL_STARTUP) / strprintf("Dimecoin (%s).lnk", chain);
 }
 
 bool GetStartOnSystemStartup()
 {
-    // check for Bitcoin*.lnk
+    // check for Dimecoin*.lnk
     return fs::exists(StartupShortcutPath());
 }
 
@@ -741,9 +741,9 @@ bool SetStartOnSystemStartup(bool fAutoStart)
         optionFile << "[Desktop Entry]\n";
         optionFile << "Type=Application\n";
         if (chain == CBaseChainParams::MAIN)
-            optionFile << "Name=Bitcoin\n";
+            optionFile << "Name=Dimecoin\n";
         else
-            optionFile << strprintf("Name=Bitcoin (%s)\n", chain);
+            optionFile << strprintf("Name=Dimecoin (%s)\n", chain);
         optionFile << "Exec=" << pszExePath << strprintf(" -min -testnet=%d -regtest=%d\n", gArgs.GetBoolArg("-testnet", false), gArgs.GetBoolArg("-regtest", false));
         optionFile << "Terminal=false\n";
         optionFile << "Hidden=false\n";
@@ -902,8 +902,8 @@ QString formatServicesStr(quint64 mask)
             case NODE_XTHIN:
                 strList.append("XTHIN");
                 break;
-            // Bitcoin normally checks 8 bits but due to ACP using a bit in the experimental range as designated
-            // by Bitcoin, Feathercoin has extended the check to 25 bits which now includes the previously exluded
+            // Dimecoin normally checks 8 bits but due to ACP using a bit in the experimental range as designated
+            // by Dimecoin, Feathercoin has extended the check to 25 bits which now includes the previously exluded
             // NODE_NETWORK_LIMITED using bit 10 which shows as UNKNOWN unless handled here.
             case NODE_NETWORK_LIMITED:
                 break;

@@ -85,7 +85,7 @@ const int64_t nStartupTime = GetTime();
 const char * const BITCOIN_CONF_FILENAME = "dimecoin.conf";
 const char * const BITCOIN_PID_FILENAME = "dimecoind.pid";
 
-//Bitcoin only features
+//Dimecoin only features
 bool fMasterNode = false;
 bool fLiteMode = false;
 bool fMerchantNode = false;

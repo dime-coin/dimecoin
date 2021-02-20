@@ -43,7 +43,7 @@
 #include <masternodeman.h>
 
 #if defined(NDEBUG)
-# error "Bitcoin cannot be compiled without assertions."
+# error "Dimecoin cannot be compiled without assertions."
 #endif
 
 /** Expiration time for orphan transactions in seconds */
@@ -1338,7 +1338,7 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
 
           LogPrint(BCLog::NET, "ProcessGetData -- inv = %s\n", inv.ToString());
 
-          // Process Bitcoin messages by original Bitcoin Core processor
+          // Process Dimecoin messages by original Dimecoin Core processor
           if (!(inv.type == MSG_TXLOCK_REQUEST || inv.type == MSG_TXLOCK_VOTE || inv.type == MSG_SPORK ||
               inv.type == MSG_MASTERNODE_PAYMENT_VOTE || inv.type == MSG_MASTERNODE_PAYMENT_BLOCK || inv.type == MSG_MASTERNODE_ANNOUNCE ||
               inv.type == MSG_MASTERNODE_PING || inv.type == MSG_DSTX || inv.type == MSG_GOVERNANCE_OBJECT ||
