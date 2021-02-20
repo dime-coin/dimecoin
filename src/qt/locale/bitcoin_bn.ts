@@ -36,7 +36,7 @@
     <name>BanTableModel</name>
     </context>
 <context>
-    <name>BitcoinGUI</name>
+    <name>DimecoinGUI</name>
     <message>
         <source>Warning</source>
         <translation>সতর্কতা</translation>
@@ -158,7 +158,7 @@
     <name>WalletView</name>
     </context>
 <context>
-    <name>bitcoin-core</name>
+    <name>dimecoin-core</name>
     <message>
         <source>Do you want to rebuild the block database now?</source>
         <translation>আপনি কি পুনরায় ব্লক ডাটাবেইজ এখনই তৈরি করতে চান?</translation>

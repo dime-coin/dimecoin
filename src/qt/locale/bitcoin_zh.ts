@@ -66,11 +66,11 @@
         <translation>接收地址</translation>
     </message>
     <message>
-        <source>These are your Bitcoin addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
+        <source>These are your Dimecoin addresses for sending payments. Always check the amount and the receiving address before sending coins.</source>
         <translation>这些是你的比特币支付地址。在发送之前，一定要核对金额和接收地址。</translation>
     </message>
     <message>
-        <source>These are your Bitcoin addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
+        <source>These are your Dimecoin addresses for receiving payments. It is recommended to use a new receiving address for each transaction.</source>
         <translation>这些是您的比特币接收地址。建议每个交易使用一个新的接收地址。</translation>
     </message>
     <message>
@@ -236,7 +236,7 @@
     </message>
 </context>
 <context>
-    <name>BitcoinGUI</name>
+    <name>DimecoinGUI</name>
     <message>
         <source>Sign &amp;message...</source>
         <translation>签名 &amp;消息...</translation>
@@ -338,7 +338,7 @@
         <translation>启用代理:%1</translation>
     </message>
     <message>
-        <source>Send coins to a Bitcoin address</source>
+        <source>Send coins to a Dimecoin address</source>
         <translation>发送比特币到一个比特币地址</translation>
     </message>
     <message>
@@ -362,7 +362,7 @@
         <translation>&amp;验证消息...</translation>
     </message>
     <message>
-        <source>Bitcoin</source>
+        <source>Dimecoin</source>
         <translation>比特币</translation>
     </message>
     <message>
@@ -386,11 +386,11 @@
         <translation>加密您的钱包私钥</translation>
     </message>
     <message>
-        <source>Sign messages with your Bitcoin addresses to prove you own them</source>
+        <source>Sign messages with your Dimecoin addresses to prove you own them</source>
         <translation>用您的比特币地址签署信息，以证明拥有它们</translation>
     </message>
     <message>
-        <source>Verify messages to ensure they were signed with specified Bitcoin addresses</source>
+        <source>Verify messages to ensure they were signed with specified Dimecoin addresses</source>
         <translation>验证消息，确保它们是用指定的比特币地址签名的</translation>
     </message>
     <message>
@@ -410,7 +410,7 @@
         <translation>标签工具栏</translation>
     </message>
     <message>
-        <source>Request payments (generates QR codes and bitcoin: URIs)</source>
+        <source>Request payments (generates QR codes and dimecoin: URIs)</source>
         <translation>请求支付(生成二维码和比特币链接)</translation>
     </message>
     <message>
@@ -422,7 +422,7 @@
         <translation>显示使用接收的地址或标签的列表</translation>
     </message>
     <message>
-        <source>Open a bitcoin: URI or payment request</source>
+        <source>Open a dimecoin: URI or payment request</source>
         <translation>打开比特币: URI 或者支付请求</translation>
     </message>
     <message>
@@ -466,8 +466,8 @@
         <translation>最新的</translation>
     </message>
     <message>
-        <source>Show the %1 help message to get a list with possible Bitcoin command-line options</source>
-        <translation>显示%1帮助消息以获得包含包含Bitcoin命令行选项的列表</translation>
+        <source>Show the %1 help message to get a list with possible Dimecoin command-line options</source>
+        <translation>显示%1帮助消息以获得包含包含Dimecoin命令行选项的列表</translation>
     </message>
     <message>
         <source>%1 client</source>
@@ -538,7 +538,7 @@
         <translation>钱包是&lt;b&gt;加密的&lt;/b&gt;，目前&lt;b&gt;已锁定&lt;/b&gt;</translation>
     </message>
     <message>
-        <source>A fatal error occurred. Bitcoin can no longer continue safely and will quit.</source>
+        <source>A fatal error occurred. Dimecoin can no longer continue safely and will quit.</source>
         <translation>发生了致命错误。比特币无法继续安全运行，将退出。</translation>
     </message>
 </context>
@@ -710,7 +710,7 @@
         <translation>编辑发送地址</translation>
     </message>
     <message>
-        <source>The entered address "%1" is not a valid Bitcoin address.</source>
+        <source>The entered address "%1" is not a valid Dimecoin address.</source>
         <translation>输入的地址"%1"不是有效的比特币地址。</translation>
     </message>
     <message>
@@ -791,7 +791,7 @@
         <translation>使用自定数据目录</translation>
     </message>
     <message>
-        <source>Bitcoin</source>
+        <source>Dimecoin</source>
         <translation>比特币</translation>
     </message>
     <message>
@@ -1184,7 +1184,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 satoshis p
         <translation>仅支付全额的%1</translation>
     </message>
     <message>
-        <source>Warning: Invalid Bitcoin address</source>
+        <source>Warning: Invalid Dimecoin address</source>
         <translation>警告：比特币地址无效</translation>
     </message>
     <message>
@@ -1211,11 +1211,11 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 satoshis p
         <translation>这是一个标准的付款方式。</translation>
     </message>
     <message>
-        <source>The Bitcoin address to send the payment to</source>
+        <source>The Dimecoin address to send the payment to</source>
         <translation>支付到的比特币地址</translation>
     </message>
     <message>
-        <source>The fee will be deducted from the amount being sent. The recipient will receive less bitcoins than you enter in the amount field. If multiple recipients are selected, the fee is split equally.</source>
+        <source>The fee will be deducted from the amount being sent. The recipient will receive less dimecoins than you enter in the amount field. If multiple recipients are selected, the fee is split equally.</source>
         <translation>手续费将从发出的总额中扣除。接受者收到的比特币将少于你输入的金额字段。如果选择了多个接受者，手续费将平均分配。</translation>
     </message>
     <message>
@@ -1227,7 +1227,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 satoshis p
         <translation>输入此地址的标签，将其添加到使用的地址列表中</translation>
     </message>
     <message>
-        <source>A message that was attached to the bitcoin: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Bitcoin network.</source>
+        <source>A message that was attached to the dimecoin: URI which will be stored with the transaction for your reference. Note: This message will not be sent over the Dimecoin network.</source>
         <translation>附在比特币上的消息:URI将与交易一起存储，供参考。注意：此信息不会通过比特币网络发送。</translation>
     </message>
     <message>
@@ -1351,7 +1351,7 @@ Note:  Since the fee is calculated on a per-byte basis, a fee of "100 satoshis p
     </message>
     </context>
 <context>
-    <name>bitcoin-core</name>
+    <name>dimecoin-core</name>
     <message>
         <source>Information</source>
         <translation>消息</translation>

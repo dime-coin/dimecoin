@@ -149,10 +149,10 @@
     </message>
 </context>
 <context>
-    <name>BitcoinGUI</name>
+    <name>DimecoinGUI</name>
     <message>
-        <source>Send coins to a Bitcoin address</source>
-        <translation>ផ្ញើកាក់ទៅកាន់ អាសយដ្ឋាន Bitcoin មួយ</translation>
+        <source>Send coins to a Dimecoin address</source>
+        <translation>ផ្ញើកាក់ទៅកាន់ អាសយដ្ឋាន Dimecoin មួយ</translation>
     </message>
     <message>
         <source>Wallet</source>
@@ -315,6 +315,6 @@
     </message>
     </context>
 <context>
-    <name>bitcoin-core</name>
+    <name>dimecoin-core</name>
     </context>
 </TS>
