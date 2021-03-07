@@ -208,14 +208,7 @@ public:
         vSeeds.push_back(CDNSSeedData("node1.dimecoinnetwork.com", "node1.dimecoinnetwork.com"));         //Primary node
         vSeeds.push_back(CDNSSeedData("node2.dimecoinnetwork.com", "node2.dimecoinnetwork.com"));         //Secondary node
         vSeeds.push_back(CDNSSeedData("dime-pool.dimecoinnetwork.com", "dime-pool.dimecoinnetwork.com")); //dime-pool.com node 
- 
-/* used if using -std=c++11
-        base58Prefixes[PUBKEY_ADDRESS] = {15};
-        base58Prefixes[SCRIPT_ADDRESS] = {9};
-        base58Prefixes[SECRET_KEY] =     {143};
-        base58Prefixes[EXT_PUBLIC_KEY] = {0x04,0x88,0xB2,0x1E};
-        base58Prefixes[EXT_SECRET_KEY] = {0x04,0x88,0xAD,0xE4};
-*/
+
         base58Prefixes[PUBKEY_ADDRESS] = {15};
         base58Prefixes[SCRIPT_ADDRESS] = {9};
         base58Prefixes[SECRET_KEY] =     {143};
