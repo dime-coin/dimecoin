@@ -209,11 +209,19 @@ public:
         vSeeds.push_back(CDNSSeedData("node2.dimecoinnetwork.com", "node2.dimecoinnetwork.com"));         //Secondary node
         vSeeds.push_back(CDNSSeedData("dime-pool.dimecoinnetwork.com", "dime-pool.dimecoinnetwork.com")); //dime-pool.com node 
 
+    #if __cplusplus > 199711L
         base58Prefixes[PUBKEY_ADDRESS] = {15};
         base58Prefixes[SCRIPT_ADDRESS] = {9};
         base58Prefixes[SECRET_KEY] =     {143};
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04,0x88,0xB2,0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04,0x88,0xAD,0xE4};
+    #else
+        base58Prefixes[PUBKEY_ADDRESS] = list_of(15);
+        base58Prefixes[SCRIPT_ADDRESS] = list_of(9);
+        base58Prefixes[SECRET_KEY] =     list_of(143);
+        base58Prefixes[EXT_PUBLIC_KEY] = list_of(0x04)(0x88)(0xB2)(0x1E);
+        base58Prefixes[EXT_SECRET_KEY] = list_of(0x04)(0x88)(0xAD)(0xE4);
+    #endif
 
         convertSeed6(vFixedSeeds, pnSeed6_main, ARRAYLEN(pnSeed6_main));
 
@@ -293,11 +301,19 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
 
+    #if __cplusplus > 199711L
         base58Prefixes[PUBKEY_ADDRESS] = {119};
         base58Prefixes[SCRIPT_ADDRESS] = {199};
         base58Prefixes[SECRET_KEY] =     {247};
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04,0x35,0x87,0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04,0x35,0x83,0x94};
+    #else
+        base58Prefixes[PUBKEY_ADDRESS] = list_of(119);
+        base58Prefixes[SCRIPT_ADDRESS] = list_of(199);
+        base58Prefixes[SECRET_KEY] =     list_of(247);
+        base58Prefixes[EXT_PUBLIC_KEY] = list_of(0x04)(0x35)(0x87)(0xCF);
+        base58Prefixes[EXT_SECRET_KEY] = list_of(0x04)(0x35)(0x83)(0x94);
+    #endif
 
         convertSeed6(vFixedSeeds, pnSeed6_test, ARRAYLEN(pnSeed6_test));
 
