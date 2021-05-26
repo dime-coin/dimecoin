@@ -1,35 +1,54 @@
-Bitcoin Core integration/staging tree
+Dimecoin Core integration/staging tree
 =====================================
 
-[![Build Status](https://travis-ci.org/bitcoin/bitcoin.svg?branch=master)](https://travis-ci.org/bitcoin/bitcoin)
+https://dimecoinnetwork.com
 
-https://bitcoincore.org
+Welcome to the Dimecoin repository.  
 
-What is Bitcoin?
+What is Dimecoin?
 ----------------
 
-Bitcoin is an experimental digital currency that enables instant payments to
-anyone, anywhere in the world. Bitcoin uses peer-to-peer technology to operate
+Established in December of 2013, Dimecoin is a decentralized, community focused, and self-funded project. 
+
+Dimecoin is an experimental digital currency that enables instant payments to
+anyone, anywhere in the world. Dimecoin uses peer-to-peer technology to operate
 with no central authority: managing transactions and issuing money are carried
-out collectively by the network. Bitcoin Core is the name of open source
+out collectively by the network. Dimecoin Core is the name of open source
 software which enables the use of this currency.
 
 For more information, as well as an immediately useable, binary version of
-the Bitcoin Core software, see https://bitcoincore.org/en/download/, or read the
-[original whitepaper](https://bitcoincore.org/bitcoin.pdf).
+the Dimecoin Core software, see https://dimecoinnetwork.com/.
+
+Dimecoin Specifications:
+-------
+
+| Blockchain Details    |                   |
+------------------------|--------------------
+Creation Date           | December 23rd, 2013
+Proof Type              | Hybrid Proof of Stake (PoS) / Proof of Work (PoW) with Masternodes 
+Algo                    | Quark
+Block Time              | 64 seconds
+Block Reward / Fees     | 15,400 DIME awarded per block. 45% to miners/stakers 45% to masternodes 10% to foundation for development. Fee: 0.0001 DIME / mb
+Difficulty              | Adjusted per block
+Staking Requirement     | 100,000 DIME
+Staking Maturity        | 450 Confirmations
+Masternode Collateral   | 500,000,000 DIME
+Circulation             | [View on explorer](https://chainz.cryptoid.info/dimecoin/)
+Max Supply              | No maximum supply, block reward set to reduce 8% annually. 
+
 
 License
 -------
 
-Bitcoin Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
+Dimecoin Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
 information or see https://opensource.org/licenses/MIT.
 
 Development Process
 -------------------
 
 The `master` branch is regularly built and tested, but is not guaranteed to be
-completely stable. [Tags](https://github.com/bitcoin/bitcoin/tags) are created
-regularly to indicate new official, stable release versions of Bitcoin Core.
+completely stable. [Releases](https://github.com/dime-coin/dimecoin/releases) are created
+regularly to indicate new official, stable release versions of Dimecoin Core.
 
 The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -63,14 +82,8 @@ not straightforward.
 
 Translations
 ------------
+We only accept translation fixes that are submitted through [Bitcoin Core's Transifex](https://www.transifex.com/projects/p/bitcoin/) page. Translations are converted to Dimecoin periodically.
 
-Changes to translations as well as new translations can be submitted to
-[Bitcoin Core's Transifex page](https://www.transifex.com/projects/p/bitcoin/).
+Translations are periodically pulled from Transifex and merged into the git repository. See the translation process for details on how this works.
 
-Translations are periodically pulled from Transifex and merged into the git repository. See the
-[translation process](doc/translation_process.md) for details on how this works.
-
-**Important**: We do not accept translation changes as GitHub pull requests because the next
-pull from Transifex would automatically overwrite them again.
-
-Translators should also subscribe to the [mailing list](https://groups.google.com/forum/#!forum/bitcoin-translators).
+Important: We do not accept translation changes as GitHub pull requests because the next pull from Transifex would automatically overwrite them again.
