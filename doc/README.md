@@ -30,7 +30,7 @@ Drag Dimecoin Core to your applications folder, and then run Dimecoin Core.
 
 * See the documentation at the [Dimecoin Database](https://dimecoinnetwork.com/docs)
 for help and more information.
-* Ask for help in [Telegram Support](http://t.me/dimeofficialsupport) on Telegram. I
+* Ask for help in [Telegram Support](http://t.me/dimeofficialsupport) on Telegram.
 * Ask for help via [Email](mailto:support@dimecoinnetwork.com)
 
 Building
