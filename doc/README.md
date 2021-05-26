@@ -20,7 +20,7 @@ Unpack the files into a directory and run:
 
 ### Windows
 
-Unpack the files into a directory, and then run dimecoin-qt.exe.
+Unpack the files into a directory, and then run dimecoin-qt.exe
 
 ### macOS
 
