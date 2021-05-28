@@ -705,9 +705,9 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     obj.pushKV("amount", GetMasternodePayment(pindexPrev->nHeight + 1, pblock->vtx[0]->vout[0].nValue));
     masternodeObj.push_back(obj);
 
-    result.pushKV("masternode", masternodeObj);
-    result.pushKV("masternode_payments_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock || IsTestnet());
-    result.pushKV("masternode_payments_enforced", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT));
+    result.push_back(Pair("masternode", masternodeObj));
+    result.push_back(Pair("masternode_payments_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock || IsTestnet()));
+    result.push_back(Pair("masternode_payments_enforced", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT) || IsTestnet()));
 
     // foundation payment//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -721,9 +721,9 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     entry.pushKV("amount", GetFoundationPayment(pindexPrev->nHeight + 1, pblock->vtx[0]->vout[0].nValue));
     superblockObjArray.push_back(entry);
 
-    result.pushKV("superblock", superblockObjArray);
-    result.pushKV("superblocks_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock || IsTestnet());
-    result.pushKV("superblocks_enabled", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT));
+    result.push_back(Pair("superblock", superblockObjArray));
+    result.push_back(Pair("superblocks_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock || IsTestnet()));
+    result.push_back(Pair("superblocks_enabled", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT) || IsTestnet()));
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
