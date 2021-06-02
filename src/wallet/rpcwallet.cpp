@@ -3751,18 +3751,6 @@ UniValue rescanblockchain(const JSONRPCRequest& request)
         }
     }
 
-    // We can't rescan beyond non-pruned blocks, stop and throw an error
-    if (fPruneMode) {
-        LOCK(cs_main);
-        CBlockIndex *block = pindexStop ? pindexStop : pChainTip;
-        while (block && block->nHeight >= pindexStart->nHeight) {
-            if (!(block->nStatus & BLOCK_HAVE_DATA)) {
-                throw JSONRPCError(RPC_MISC_ERROR, "Can't rescan beyond pruned data. Use RPC call getblockchaininfo to determine your pruned height.");
-            }
-            block = block->pprev;
-        }
-    }
-
     CBlockIndex *stopBlock = pwallet->ScanForWalletTransactions(pindexStart, pindexStop, reserver, true);
     if (!stopBlock) {
         if (pwallet->IsAbortingRescan()) {
