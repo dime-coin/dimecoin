@@ -572,17 +572,10 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
     if (!CheckTransaction(tx, state))
         return false; // state filled in by CheckTransaction
 
-    // Coinbase is only valid in a block, not as a loose transaction
-    if (tx.IsCoinBase())
-        return state.DoS(100, false, REJECT_INVALID, "coinbase");
-
-    //Coinstake is also only valid in a block, not as a loose transaction
-    if (tx.IsCoinStake()) {
-        if (fReindex)
-            return false;
-        return state.DoS(100, error("AcceptToMemoryPoolWorker: coinstake as individual tx"),
-                         REJECT_INVALID, "coinstake");
-    }
+    // Coinbase/stake is only valid in a block, not as a loose transaction
+    // * note: no point banning here, as we'll ban the poor sod who simply relayed this
+    if (tx.IsCoinBase() || tx.IsCoinStake())
+        return false;
 
     // Reject transactions with witness before segregated witness activates (override with -prematurewitness)
     bool witnessEnabled = IsWitnessEnabled(chainActive.Tip(), chainparams.GetConsensus());
