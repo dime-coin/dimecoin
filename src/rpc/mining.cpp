@@ -709,24 +709,6 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.push_back(Pair("masternode_payments_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock || IsTestnet()));
     result.push_back(Pair("masternode_payments_enforced", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT) || IsTestnet()));
 
-    // foundation payment//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    UniValue superblockObjArray(UniValue::VARR);
-
-    CScript fpScript = GetFoundationScript();
-
-    UniValue entry(UniValue::VOBJ);
-    entry.pushKV("payee", Params().GetConsensus().nFoundationPaymentAddress);
-    entry.pushKV("script", HexStr(fpScript));
-    entry.pushKV("amount", GetFoundationPayment(pindexPrev->nHeight + 1, pblock->vtx[0]->vout[0].nValue));
-    superblockObjArray.push_back(entry);
-
-    result.push_back(Pair("superblock", superblockObjArray));
-    result.push_back(Pair("superblocks_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock || IsTestnet()));
-    result.push_back(Pair("superblocks_enabled", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT) || IsTestnet()));
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && fSupportsSegwit) {
         result.pushKV("default_witness_commitment", HexStr(pblocktemplate->vchCoinbaseCommitment.begin(), pblocktemplate->vchCoinbaseCommitment.end()));
     }

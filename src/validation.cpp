@@ -2236,7 +2236,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     //! ensure the foundation payment exists and hasnt been modified
-    if (fCheckFoundation && pindex->nHeight > chainparams.GetConsensus().nMasternodePaymentsStartBlock) {
+    if (fCheckFoundation && block.IsProofOfStake() && (pindex->nHeight > chainparams.GetConsensus().nMasternodePaymentsStartBlock)) {
 
         bool haveFoundationPayment = false;
         for (unsigned int foundationIndex = 0; foundationIndex < coinbaseTransaction->vout.size(); foundationIndex++) {
