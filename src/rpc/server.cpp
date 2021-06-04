@@ -104,16 +104,18 @@ void RPCTypeCheckObj(const UniValue& o,
     }
 }
 
+static inline int64_t roundint64(double d)
+{
+    return (int64_t)(d > 0 ? d + 0.5 : d - 0.5);
+}
+
 CAmount AmountFromValue(const UniValue& value)
 {
-    if (!value.isNum() && !value.isStr())
-        throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
-    CAmount amount;
-    if (!ParseFixedPoint(value.getValStr(), 8, &amount))
+    double dAmount = value.get_real();
+    CAmount nAmount = roundint64(dAmount * COIN);
+    if (!MoneyRange(nAmount))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-    if (!MoneyRange(amount))
-        throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
-    return amount;
+    return nAmount;
 }
 
 uint256 ParseHashV(const UniValue& v, std::string strName)
