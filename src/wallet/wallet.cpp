@@ -3411,15 +3411,10 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CAm
     }
 
     if (setStakeCoins.empty())
-        return error("CreateCoinStake() : No Coins to stake");
-
-    CScript scriptPubKeyKernel;
-
-    //prevent staking a time that won't be accepted
-    if (GetAdjustedTime() <= chainActive.Tip()->nTime)
-        MilliSleep(10000);
+        return false;
 
     bool fKernelFound = false;
+    CScript scriptPubKeyKernel;
     for(const std::pair<const CWalletTx*, unsigned int> &pcoin : setStakeCoins)
     {
         //make sure that enough time has elapsed between
@@ -3428,13 +3423,15 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CAm
         if (it != mapBlockIndex.end())
             pindex = it->second;
         else {
-            LogPrintf("failed to find block index ");
+            LogPrintf("failed to find block index\n");
             continue;
         }
+
         // Read block header
         CBlockHeader block = pindex->GetBlockHeader();
         COutPoint prevoutStake = COutPoint(pcoin.first->GetHash(), pcoin.second);
         nTxNewTime = GetAdjustedTime();
+
         //iterates each utxo inside of CheckStakeKernelHash()
         CScript kernelScript;
         auto stakeScript = pcoin.first->tx->vout[pcoin.second].scriptPubKey;

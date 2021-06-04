@@ -1957,7 +1957,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     // Clearly print the full block as received for debugging
-    LogPrintf("\n%s\n", block.ToString());
+    // LogPrintf("\n%s\n", block.ToString());
 
     // Check that the block satisfies synchronized checkpoint
     if (!IsInitialBlockDownload() && !CheckSyncCheckpoint(block.GetHash(), pindex->nHeight)) {
