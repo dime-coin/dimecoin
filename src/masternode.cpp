@@ -562,7 +562,7 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
     }
 
     if (!CheckSignature(nDos)) {
-        LogPrintf("CMasternodeBroadcast::CheckOutpoint -- CheckSignature() failed, masternode=%s\n", vin.prevout.ToString());
+        LogPrintf("CMasternodeBroadcast::CheckOutpoint -- CheckSignature() failed, masternode=%s\n", vin.prevout.ToStringShort());
         return false;
     }
 
@@ -570,7 +570,7 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
         TRY_LOCK(cs_main, lockMain);
         if(!lockMain) {
             // not mnb fault, let it to be checked again later
-            LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Failed to aquire lock, addr=%s", addr.ToString());
+            LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Failed to aquire lock, addr=%s\n", addr.ToString());
             mnodeman.mapSeenMasternodeBroadcast.erase(GetHash());
             return false;
         }
@@ -578,18 +578,18 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
         int nHeight;
         CollateralStatus err = CheckCollateral(vin.prevout, nHeight);
         if (err == COLLATERAL_UTXO_NOT_FOUND) {
-            LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Failed to find Masternode UTXO, masternode=%s\n", vin.prevout.ToString());
+            LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Failed to find Masternode UTXO, masternode=%s\n", vin.prevout.ToStringShort());
             return false;
         }
 
         if (err == COLLATERAL_INVALID_AMOUNT) {
-            LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Masternode UTXO should have 1000 Dimecoin, masternode=%s\n", vin.prevout.ToString());
+            LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Masternode UTXO should have masternode collateral, masternode=%s\n", vin.prevout.ToStringShort());
             return false;
         }
 
         if(chainActive.Height() - nHeight + 1 < Params().GetConsensus().nMasternodeMinimumConfirmations) {
             LogPrintf("CMasternodeBroadcast::CheckOutpoint -- Masternode UTXO must have at least %d confirmations, masternode=%s\n",
-                    Params().GetConsensus().nMasternodeMinimumConfirmations, vin.prevout.ToString());
+                    Params().GetConsensus().nMasternodeMinimumConfirmations, vin.prevout.ToStringShort());
             // maybe we miss few blocks, let this mnb to be checked again later
             mnodeman.mapSeenMasternodeBroadcast.erase(GetHash());
             return false;
@@ -609,19 +609,19 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
     }
 
     // verify that sig time is legit in past
-    // should be at least not earlier than block when collateral has nMasternodeMinimumConfirmations
+    // should be at least not earlier than block when masternode collateral tx got nMasternodeMinimumConfirmations
     uint256 hashBlock = uint256();
     CTransactionRef tx2;
-    GetTransaction(vin.prevout.hash, tx2, Params().GetConsensus(), hashBlock, true);
+    GetTransaction(vin.prevout.hash, tx2, Params().GetConsensus(), hashBlock);
     {
         LOCK(cs_main);
         BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
         if (mi != mapBlockIndex.end() && (*mi).second) {
-            CBlockIndex* pMNIndex = (*mi).second;
+            CBlockIndex* pMNIndex = (*mi).second; // block for masternode collateral tx -> 1 confirmation
             CBlockIndex* pConfIndex = chainActive[pMNIndex->nHeight + Params().GetConsensus().nMasternodeMinimumConfirmations - 1]; // block where tx got nMasternodeMinimumConfirmations
             if(pConfIndex->GetBlockTime() > sigTime) {
                 LogPrintf("CMasternodeBroadcast::CheckOutpoint -- Bad sigTime %d (%d conf block is at %d) for Masternode %s %s\n",
-                          sigTime, Params().GetConsensus().nMasternodeMinimumConfirmations, pConfIndex->GetBlockTime(), vin.prevout.ToString(), addr.ToString());
+                          sigTime, Params().GetConsensus().nMasternodeMinimumConfirmations, pConfIndex->GetBlockTime(), vin.prevout.ToStringShort(), addr.ToString());
                 return false;
             }
         }

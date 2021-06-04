@@ -488,7 +488,7 @@ bool CMasternodeMan::GetMasternodeInfo(const COutPoint& outpoint, masternode_inf
 bool CMasternodeMan::GetMasternodeInfo(const CPubKey& pubKeyMasternode, masternode_info_t& mnInfoRet)
 {
     LOCK(cs);
-    for (auto& mnpair : mapMasternodes) {
+    for (const auto& mnpair : mapMasternodes) {
         if (mnpair.second.pubKeyMasternode == pubKeyMasternode) {
             mnInfoRet = mnpair.second.GetInfo();
             return true;
@@ -500,7 +500,7 @@ bool CMasternodeMan::GetMasternodeInfo(const CPubKey& pubKeyMasternode, masterno
 bool CMasternodeMan::GetMasternodeInfo(const CScript& payee, masternode_info_t& mnInfoRet)
 {
     LOCK(cs);
-    for (auto& mnpair : mapMasternodes) {
+    for (const auto& mnpair : mapMasternodes) {
         CScript scriptCollateralAddress = GetScriptForDestination(mnpair.second.pubKeyCollateralAddress.GetID());
         if (scriptCollateralAddress == payee) {
             mnInfoRet = mnpair.second.GetInfo();
@@ -613,8 +613,8 @@ masternode_info_t CMasternodeMan::FindRandomNotInVec(const std::vector<COutPoint
     if(nCountNotExcluded < 1) return masternode_info_t();
 
     // fill a vector of pointers
-    std::vector<CMasternode*> vpMasternodesShuffled;
-    for (auto& mnpair : mapMasternodes) {
+    std::vector<const CMasternode*> vpMasternodesShuffled;
+    for (const auto& mnpair : mapMasternodes) {
         vpMasternodesShuffled.push_back(&mnpair.second);
     }
 
@@ -624,7 +624,7 @@ masternode_info_t CMasternodeMan::FindRandomNotInVec(const std::vector<COutPoint
     bool fExclude;
 
     // loop through
-    for(CMasternode* pmn : vpMasternodesShuffled) {
+    for(const auto* pmn : vpMasternodesShuffled) {
         if(pmn->nProtocolVersion < nProtocolVersion || !pmn->IsEnabled()) continue;
         fExclude = false;
         for(const COutPoint &outpointToExclude : vecToExclude) {
@@ -733,13 +733,7 @@ void CMasternodeMan::ProcessMasternodeConnections(CConnman& connman)
     if(Params().NetworkIDString() == CBaseChainParams::REGTEST) return;
 
     connman.ForEachNode([](CNode* pnode) {
-#ifdef ENABLE_WALLET
-#if 0
-#endif
-        if(pnode->fMasternode /*&& !privateSendClient.IsMixingMasternode(pnode)*/) {
-#else
         if(pnode->fMasternode) {
-#endif // ENABLE_WALLET
             LogPrintf("Closing Masternode connection: peer=%d, addr=%s\n", pnode->GetId(), pnode->addr.ToString());
             pnode->fDisconnect = true;
         }
@@ -773,7 +767,6 @@ std::pair<CService, std::set<uint256> > CMasternodeMan::PopScheduledMnbRequestCo
     return std::make_pair(pairFront.first, setResult);
 }
 
-
 void CMasternodeMan::ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStream& vRecv, CConnman& connman)
 {
     if(fLiteMode) return; // disable all Dimecoin specific functionality
@@ -795,6 +788,7 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, const std::string& strCommand,
             // use announced Masternode as a peer
             connman.AddNewAddresses({CAddress(mnb.addr, NODE_NETWORK)}, pfrom->addr, 2*60*60);
         } else if(nDos > 0) {
+            LOCK(cs_main);
             Misbehaving(pfrom->GetId(), nDos);
         }
 
@@ -825,9 +819,6 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, const std::string& strCommand,
         // see if we have this Masternode
         CMasternode* pmn = Find(mnp.vin.prevout);
 
-        // if masternode uses sentinel ping instead of watchdog
-        // we shoud update nTimeLastWatchdogVote here if sentinel
-        // ping flag is actual
         if(pmn && mnp.fSentinelIsCurrent)
             UpdateWatchdogVoteTime(mnp.vin.prevout, mnp.sigTime);
 
@@ -908,8 +899,6 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, const std::string& strCommand,
             LogPrint(BCLog::MASTERNODE, "DSEG -- Sent %d Masternode invs to peer %d\n", nInvCount, pfrom->GetId());
             return;
         }
-        // smth weird happen - someone asked us for vin we have no idea about?
-        LogPrint(BCLog::MASTERNODE, "DSEG -- No invs sent to peer %d\n", pfrom->GetId());
 
     } else if (strCommand == NetMsgType::MNVERIFY) { // Masternode Verify
 
@@ -960,13 +949,13 @@ void CMasternodeMan::DoFullVerificationStep(CConnman& connman)
     while(it != vecMasternodeRanks.end()) {
         if(it->first > MAX_POSE_RANK) {
             LogPrint(BCLog::MASTERNODE, "CMasternodeMan::DoFullVerificationStep -- Must be in top %d to send verify request\n",
-                     (int)MAX_POSE_RANK);
+                        (int)MAX_POSE_RANK);
             return;
         }
         if(it->second.vin.prevout == activeMasternode.outpoint) {
             nMyRank = it->first;
             LogPrint(BCLog::MASTERNODE, "CMasternodeMan::DoFullVerificationStep -- Found self at rank %d/%d, verifying up to %d masternodes\n",
-                     nMyRank, nRanksTotal, (int)MAX_POSE_CONNECTIONS);
+                        nMyRank, nRanksTotal, (int)MAX_POSE_CONNECTIONS);
             break;
         }
         ++it;
@@ -991,17 +980,17 @@ void CMasternodeMan::DoFullVerificationStep(CConnman& connman)
     while(it != vecMasternodeRanks.end()) {
         if(it->second.IsPoSeVerified() || it->second.IsPoSeBanned()) {
             LogPrint(BCLog::MASTERNODE, "CMasternodeMan::DoFullVerificationStep -- Already %s%s%s masternode %s address %s, skipping...\n",
-                     it->second.IsPoSeVerified() ? "verified" : "",
-                     it->second.IsPoSeVerified() && it->second.IsPoSeBanned() ? " and " : "",
-                     it->second.IsPoSeBanned() ? "banned" : "",
-                     it->second.vin.prevout.ToString(), it->second.addr.ToString());
+                        it->second.IsPoSeVerified() ? "verified" : "",
+                        it->second.IsPoSeVerified() && it->second.IsPoSeBanned() ? " and " : "",
+                        it->second.IsPoSeBanned() ? "banned" : "",
+                        it->second.vin.prevout.ToStringShort(), it->second.addr.ToString());
             nOffset += MAX_POSE_CONNECTIONS;
             if(nOffset >= (int)vecMasternodeRanks.size()) break;
             it += MAX_POSE_CONNECTIONS;
             continue;
         }
         LogPrint(BCLog::MASTERNODE, "CMasternodeMan::DoFullVerificationStep -- Verifying masternode %s rank %d/%d address %s\n",
-                 it->second.vin.prevout.ToString(), it->first, nRanksTotal, it->second.addr.ToString());
+                    it->second.vin.prevout.ToStringShort(), it->first, nRanksTotal, it->second.addr.ToString());
         if(SendVerifyRequest(CAddress(it->second.addr, NODE_NETWORK), vSortedByAddr, connman)) {
             nCount++;
             if(nCount >= MAX_POSE_CONNECTIONS) break;
@@ -1038,7 +1027,7 @@ void CMasternodeMan::CheckSameAddr()
 
         std::sort(vSortedByAddr.begin(), vSortedByAddr.end(), CompareByAddr());
 
-        for(CMasternode* pmn : vSortedByAddr) {
+        for (const auto& pmn : vSortedByAddr) {
             // check only (pre)enabled masternodes
             if(!pmn->IsEnabled() && !pmn->IsPreEnabled()) continue;
             // initial step
