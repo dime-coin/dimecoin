@@ -305,6 +305,9 @@ void MasternodeList::updateNodeList()
             if (!strToFilter.contains(strCurrentFilter)) continue;
         }
 
+        //! dont even bother displaying it
+        if (mn.GetStatus() == "POSE_BAN") continue;
+
         ui->tableWidgetMasternodes->insertRow(0);
         ui->tableWidgetMasternodes->setItem(0, 0, addressItem);
         ui->tableWidgetMasternodes->setItem(0, 1, protocolItem);

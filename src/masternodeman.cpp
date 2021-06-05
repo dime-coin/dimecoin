@@ -210,6 +210,45 @@ void CMasternodeMan::CheckAndRemove(CConnman& connman)
         // ask for up to MNB_RECOVERY_MAX_ASK_ENTRIES masternode entries at a time
         int nAskForMnbRecovery = MNB_RECOVERY_MAX_ASK_ENTRIES;
         std::map<COutPoint, CMasternode>::iterator it = mapMasternodes.begin();
+
+        //! note the duplicates (collateral oldest stays)
+        std::vector<CMasternode> toBan;
+        for (const auto &mn : mapMasternodes) {
+            CService mnAddress = mn.second.addr;
+            uint32_t mnCollateralAge = GetUTXOConfirmations(mn.second.vin.prevout);
+            for (const auto &mn2 : mapMasternodes) {
+                //! skip if we're comparing the exact same mn
+                if (mn == mn2) continue;
+                CService mnAddress2 = mn2.second.addr;
+                if (mnAddress == mnAddress2) {
+                    uint32_t mnCollateralAge2 = GetUTXOConfirmations(mn2.second.vin.prevout);
+                    //! we've a match, find out who is oldest
+                    if (mnCollateralAge > mnCollateralAge2) {
+                        toBan.push_back(mn2.second);
+                        continue;
+                    } else {
+                        toBan.push_back(mn.second);
+                        continue;
+                    }
+                }
+            }
+        }
+
+        //! ban the ones which arent supposed to be there
+        auto it2 = mapMasternodes.begin();
+        while (it2 != mapMasternodes.end()) {
+            for (int i=0; i<toBan.size(); i++) {
+                if (it2->second == toBan.at(i)) {
+                    if (it2->second.GetStatus() != "POSE_BAN") {
+                        LogPrintf("banning masternode vin %s\n", it2->second.vin.ToString());
+                    }
+                    it2->second.IncreasePoSeBanScore();
+                    continue;
+                }
+            }
+            it2++;
+        }
+
         while (it != mapMasternodes.end()) {
             CMasternodeBroadcast mnb = CMasternodeBroadcast(it->second);
             uint256 hash = mnb.GetHash();
