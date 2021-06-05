@@ -5,7 +5,7 @@
 #include <governance/governance-validators.h>
 
 #include <key_io.h>
-#include <utilstrencodings.h>
+#include <util/strencodings.h>
 
 #include <algorithm>
 

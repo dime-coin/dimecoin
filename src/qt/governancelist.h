@@ -4,7 +4,7 @@
 #include "primitives/transaction.h"
 #include "platformstyle.h"
 #include "sync.h"
-#include "util.h"
+#include <util/system.h>
 #include <governance/governance.h>
 
 #include <QMenu>

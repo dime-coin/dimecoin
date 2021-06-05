@@ -10,7 +10,7 @@
 #include <messagesigner.h>
 #include <netfulfilledman.h>
 #include <spork.h>
-#include <util.h>
+#include <util/system.h>
 #include <netmessagemaker.h>
 #include <script/standard.h>
 #include <key_io.h>

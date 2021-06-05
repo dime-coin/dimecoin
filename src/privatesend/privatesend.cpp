@@ -14,8 +14,8 @@
 #include <messagesigner.h>
 #include <script/sign.h>
 #include <txmempool.h>
-#include <util.h>
-#include <utilmoneystr.h>
+#include <util/system.h>
+#include <util/moneystr.h>
 #include <netmessagemaker.h>
 
 #include <boost/range/adaptors.hpp>

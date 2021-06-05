@@ -10,7 +10,7 @@
 #include <governance/governance.h>
 #include <key.h>
 #include <script/standard.h>
-#include <util.h>
+#include <util/system.h>
 
 #include <boost/shared_ptr.hpp>
 

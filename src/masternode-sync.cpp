@@ -13,7 +13,7 @@
 #include <netfulfilledman.h>
 #include <spork.h>
 #include <ui_interface.h>
-#include <util.h>
+#include <util/system.h>
 #include <netmessagemaker.h>
 
 class CMasternodeSync;

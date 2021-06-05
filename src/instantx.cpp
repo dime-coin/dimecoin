@@ -14,7 +14,7 @@
 #include <spork.h>
 #include <sync.h>
 #include <txmempool.h>
-#include <util.h>
+#include <util/system.h>
 #include <warnings.h>
 #include <consensus/validation.h>
 #include <validationinterface.h>

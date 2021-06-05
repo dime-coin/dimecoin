@@ -12,8 +12,8 @@
 #include <rpc/server.h>
 #include <rpc/util.h>
 #include <timedata.h>
-#include <util.h>
-#include <utilstrencodings.h>
+#include <util/system.h>
+#include <util/strencodings.h>
 #include <spork.h>
 #include <netmessagemaker.h>
 #ifdef ENABLE_WALLET

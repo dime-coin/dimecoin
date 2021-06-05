@@ -11,8 +11,8 @@
 #include <masternodeman.h>
 #include <script/interpreter.h>
 #include <txmempool.h>
-#include <util.h>
-#include <utilmoneystr.h>
+#include <util/system.h>
+#include <util/moneystr.h>
 #include <netmessagemaker.h>
 
 CPrivateSendServer privateSendServer;

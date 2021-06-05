@@ -7,7 +7,7 @@
 #include <masternode-sync.h>
 #include <masternodeman.h>
 #include <messagesigner.h>
-#include <util.h>
+#include <util/system.h>
 
 #include <boost/lexical_cast.hpp>
 

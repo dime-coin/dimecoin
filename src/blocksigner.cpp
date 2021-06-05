@@ -1,9 +1,9 @@
 #include <blocksigner.h>
 #include <keystore.h>
 #include <primitives/block.h>
-#include <utilstrencodings.h>
+#include <util/strencodings.h>
 #include <messagesigner.h>
-#include <util.h>
+#include <util/system.h>
 
 typedef std::vector<uint8_t> valtype;
 

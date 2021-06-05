@@ -10,12 +10,12 @@
 #include <kernel.h>
 #include <script/interpreter.h>
 #include <timedata.h>
-#include <util.h>
+#include <util/system.h>
 #include <wallet/wallet.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <init.h>
-#include <utiltime.h>
+#include <util/time.h>
 
 #include <numeric>
 

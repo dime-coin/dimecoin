@@ -7,9 +7,9 @@
 #include <consensus/merkle.h>
 
 #include <tinyformat.h>
-#include <utilstrencodings.h>
+#include <util/strencodings.h>
 #include <arith_uint256.h>
-#include <util.h>
+#include <util/system.h>
 #include <assert.h>
 
 #include <chainparamsseeds.h>

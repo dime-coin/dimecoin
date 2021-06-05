@@ -13,7 +13,7 @@
 #include <messagesigner.h>
 #include <script/standard.h>
 #include <shutdown.h>
-#include <util.h>
+#include <util/system.h>
 #ifdef ENABLE_WALLET
 #include <wallet/wallet.h>
 #endif // ENABLE_WALLET

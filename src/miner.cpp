@@ -27,8 +27,8 @@
 #include <script/standard.h>
 #include <spork.h>
 #include <timedata.h>
-#include <util.h>
-#include <utilmoneystr.h>
+#include <util/system.h>
+#include <util/moneystr.h>
 #include <validationinterface.h>
 #include <wallet/wallet.h>
 #include <blocksigner.h>

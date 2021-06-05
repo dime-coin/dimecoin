@@ -15,8 +15,8 @@
 #include <wallet/wallet.h>
 #endif // ENABLE_WALLET
 #include <rpc/server.h>
-#include <util.h>
-#include <utilmoneystr.h>
+#include <util/system.h>
+#include <util/moneystr.h>
 #include <key_io.h>
 #include <wallet/coincontrol.h>
 
