@@ -1408,7 +1408,7 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
-    if (!tx.IsCoinBase()) {
+    if (!tx.IsCoinBase() && !tx.IsCoinStake()) {
         txundo.vprevout.reserve(tx.vin.size());
         for (const CTxIn &txin : tx.vin) {
             txundo.vprevout.emplace_back();
@@ -1480,7 +1480,10 @@ void ReprocessBlocks(int nBlocks)
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks)
 {
-    if (!tx.IsCoinBase())
+    if (tx.IsCoinBase() || tx.IsCoinStake()) {
+        return true;
+    }
+
     {
         if (pvChecks)
             pvChecks->reserve(tx.vin.size());
@@ -1665,6 +1668,7 @@ int ApplyTxInUndo(Coin&& undo, CCoinsViewCache& view, const COutPoint& out)
         if (!alternate.IsSpent()) {
             undo.nHeight = alternate.nHeight;
             undo.fCoinBase = alternate.fCoinBase;
+            undo.fCoinStake = alternate.fCoinStake;
         } else {
             return DISCONNECT_FAILED; // adding output for transaction without known metadata
         }
@@ -1700,6 +1704,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         const CTransaction &tx = *(block.vtx[i]);
         uint256 hash = tx.GetHash();
         bool is_coinbase = tx.IsCoinBase();
+        bool is_coinstake = tx.IsCoinStake();
 
         // Check that all outputs are available and match the outputs in the block itself
         // exactly.
@@ -1708,19 +1713,14 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
                 COutPoint out(hash, o);
                 Coin coin;
                 bool is_spent = view.SpendCoin(out, &coin);
-                if (!is_spent || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || is_coinbase != coin.fCoinBase) {
-                    LogPrintf("(%d, %d) %d (%s, %s) == %d, (%d, %d) == %d, (%d, %d) == %d\n",
-                              i, o, is_spent, tx.vout[o].ToString(), coin.out.ToString(), tx.vout[o] != coin.out,
-                              pindex->nHeight, coin.nHeight, pindex->nHeight != coin.nHeight,
-                              is_coinbase, coin.fCoinBase, is_coinbase != coin.fCoinBase);
-
+                if (!is_spent || tx.vout[o] != coin.out || pindex->nHeight != coin.nHeight || is_coinbase != coin.fCoinBase || is_coinstake != coin.fCoinStake) {
                     fClean = false; // transaction output mismatch
                 }
             }
         }
 
         // restore inputs
-        if (i > 0) {
+        if (i > 0 && !tx.IsCoinStake()) { // not coinbases
             CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
                 error("DisconnectBlock(): transaction and undo data inconsistent");
@@ -2119,7 +2119,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         nInputs += tx.vin.size();
 
-        if (!tx.IsCoinBase())
+        if (!tx.IsCoinBase() && !tx.IsCoinStake())
         {
             CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
@@ -2172,7 +2172,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         nValueOut += tx.GetValueOut();
 
         CTxUndo undoDummy;
-        if (i > 0) {
+        if (i > 0 && !tx.IsCoinStake()) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
