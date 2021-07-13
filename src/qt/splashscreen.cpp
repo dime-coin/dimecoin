@@ -38,7 +38,7 @@ SplashScreen::SplashScreen(interfaces::Node& node, Qt::WindowFlags f, const Netw
     QString font = QApplication::font().toString();
 
     // define text to place
-    QString copyrightText = QChar(0xA9) + QString("2020") + QString(tr(" Dimecoin Network LLC"));
+    QString copyrightText = QChar(0xA9) + QString("2021") + QString(tr(" Dimecoin Network LLC"));
     QString titleAddText = networkStyle->getTitleAddText();
 
     // create a bitmap according to device pixelratio
