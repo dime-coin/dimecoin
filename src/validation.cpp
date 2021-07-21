@@ -1694,7 +1694,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         return DISCONNECT_FAILED;
     }
 
-    if (blockUndo.vtxundo.size() + 1 != block.vtx.size()) {
+    unsigned int nSizeCheck = blockUndo.vtxundo.size() + 1;
+    if (block.IsProofOfStake())
+        nSizeCheck++;
+    if (nSizeCheck != block.vtx.size()) {
         error("DisconnectBlock(): block and undo data inconsistent");
         return DISCONNECT_FAILED;
     }
@@ -1721,7 +1724,10 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
         // restore inputs
         if (i > 0 && !tx.IsCoinStake()) { // not coinbases
-            CTxUndo &txundo = blockUndo.vtxundo[i-1];
+            int nOffSet = 1;
+            if (pindex->IsProofOfStake())
+                nOffSet = 2;
+            CTxUndo &txundo = blockUndo.vtxundo[i-nOffSet];
             if (txundo.vprevout.size() != tx.vin.size()) {
                 error("DisconnectBlock(): transaction and undo data inconsistent");
                 return DISCONNECT_FAILED;
