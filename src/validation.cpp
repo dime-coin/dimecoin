@@ -1203,10 +1203,33 @@ static const int64_t nGenesisBlockRewardCoin = 1 * COIN;
 static const int64_t nBlockRewardStartCoin = 1024 * COIN; //DIME
 static const int64_t nBlockRewardMinimumCoin = 1 * COIN;
 
+CAmount decayBlockReward(int nowHeight, const Consensus::Params& params)
+{
+   CAmount nSubsidy = 15400 * COIN;
+   const double dailyDecay = 0.99978;
+   const int blocksDaily = 86400 / params.nPosTargetSpacing;
+
+   //! lets er.. recurse
+   int blocksPassed = nowHeight - params.nFirstPoSBlock;
+   while (blocksPassed > 0) {
+      blocksPassed -= blocksDaily;
+      if (blocksPassed > 0) {
+          nSubsidy *= dailyDecay;
+      }
+   }
+
+   return std::floor((nSubsidy / COIN) * COIN);
+}
+
 CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParams, bool fSuperblockPartOnly)
 {
     const int nHeight = nPrevHeight;
     const int lwma3height = 3310000;
+
+    //! shortcut to get to above
+    if (nHeight >= consensusParams.nFirstPoSBlock) {
+        return decayBlockReward(nHeight, consensusParams);
+    }
 
     if (nHeight == 0) {
         return nGenesisBlockRewardCoin;
