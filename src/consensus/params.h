@@ -6,6 +6,7 @@
 #ifndef BITCOIN_CONSENSUS_PARAMS_H
 #define BITCOIN_CONSENSUS_PARAMS_H
 
+#include <amount.h>
 #include <uint256.h>
 #include <limits>
 #include <map>
@@ -98,6 +99,8 @@ struct Params {
     int nStakeMaxAge;
     int64_t nModifierInterval;
     int nCoinbaseMaturity;
+    CAmount nStakeMinAmount;
+    int nStakeMinDepth;
     std::string checkpointPubKey;
 };
 } // namespace Consensus

@@ -36,6 +36,8 @@ bool CheckStakeKernelHash(unsigned int nBits, const CBlock& blockFrom, unsigned 
 // wrapper for checkstakekernelhash (bitcoin routine) for traditional method
 bool CheckStake(unsigned int nBits, const CBlock blockFrom, const CTransaction txPrev, const COutPoint prevout, unsigned int& nTimeTx, unsigned int nHashDrift, bool fCheck, uint256& hashProofOfStake, bool fPrintProofOfStake);
 
+void getStakeInputConfirms(const uint256& txHash, int& confirms, const Consensus::Params& params);
+
 // Check kernel hash target and coinstake signature
 // Sets hashProofOfStake on success return
 bool CheckProofOfStake(const CBlock &block, uint256& hashProofOfStake);

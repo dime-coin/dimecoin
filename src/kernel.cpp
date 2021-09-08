@@ -339,6 +339,27 @@ bool CheckKernelScript(CScript scriptVin, CScript scriptVout)
     return extractKeyID(scriptVin) == extractKeyID(scriptVout);
 }
 
+void getStakeInputConfirms(const uint256& txHash, int& confirms, const Consensus::Params& params)
+{
+    uint256 hashBlock{};
+    CTransactionRef stakeInput{};
+
+    if (!GetTransaction(txHash, stakeInput, params, hashBlock)) {
+        confirms = 0;
+    } else if (hashBlock.IsNull()) {
+        confirms = 0;
+    } else {
+        LOCK(cs_main);
+        confirms = chainActive.Tip()->nHeight - \
+                   LookupBlockIndex(hashBlock)->nHeight;
+    }
+
+    //! in case we cop something crazy
+    if (confirms < 0 || confirms > std::numeric_limits<int>::max()) {
+        confirms = 0;
+    }
+}
+
 // Check kernel hash target and coinstake signature
 bool CheckProofOfStake(const CBlock &block, uint256& hashProofOfStake)
 {
@@ -353,9 +374,9 @@ bool CheckProofOfStake(const CBlock &block, uint256& hashProofOfStake)
     uint256 hashBlock;
     CTransactionRef txPrev;
 
-    const auto &cons = Params().GetConsensus();
+    const auto &params = Params().GetConsensus();
 
-    if (!GetTransaction(txin.prevout.hash, txPrev, cons, hashBlock, true))
+    if (!GetTransaction(txin.prevout.hash, txPrev, params, hashBlock))
         return error("CheckProofOfStake() : INFO: read txPrev failed");
 
     CTxOut prevTxOut = txPrev->vout[txin.prevout.n];
@@ -366,9 +387,22 @@ bool CheckProofOfStake(const CBlock &block, uint256& hashProofOfStake)
     else
         return error("CheckProofOfStake() : read block failed");
 
+    // discard stakes generated from small inputs
+    CAmount nValueIn = txPrev->vout[txin.prevout.n].nValue;
+    if (nValueIn < params.nStakeMinAmount) {
+        return error("CheckStakeKernelHash() : min amount violation");
+    }
+
+    // discard stakes generated from inputs without sufficient confirms
+    int confirms;
+    getStakeInputConfirms(txin.prevout.hash, confirms, params);
+    if (confirms < params.nStakeMinDepth) {
+        return error("CheckStakeKernelHash() : min depth violation");
+    }
+
     // Read block header
     CBlock blockprev;
-    if (!ReadBlockFromDisk(blockprev, pindex->GetBlockPos(), cons))
+    if (!ReadBlockFromDisk(blockprev, pindex->GetBlockPos(), params))
         return error("CheckProofOfStake(): INFO: failed to find block");
 
     if(!CheckKernelScript(prevTxOut.scriptPubKey, tx->vout[1].scriptPubKey))
