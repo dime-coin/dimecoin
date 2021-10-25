@@ -3309,7 +3309,24 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
+    static int lastHeight;
+
     bool isPoS = block.nNonce == 0;
+
+    // Make sure headers form valid chain
+    if (block.nTime == 1387807823 ||  /* mainnet genesis */
+        block.nTime == 1611000000)    /* testnet genesis */
+        return true;
+
+    CBlockIndex *pindex = mapBlockIndex[block.hashPrevBlock];
+    if (!pindex)
+        return state.DoS(0, false, REJECT_INVALID, "prev-header", false, "non-continous headers");
+
+    if (pindex->nHeight < lastHeight)
+        return true;
+
+    lastHeight = pindex->nHeight;
+    LogPrintf("blkheader @ height %d\n", lastHeight);
 
     // Check proof of work matches claimed amount
     if (!isPoS && fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
