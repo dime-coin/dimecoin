@@ -4111,6 +4111,21 @@ void ThreadProcessExtensions(CConnman *pConnman)
     // Make this thread recognisable as the PrivateSend thread
     RenameThread("bitcoin-ps");
 
+    //! dont try mnsync until ibd done
+    while (!ShutdownRequested())
+    {
+        boost::this_thread::interruption_point();
+        MilliSleep(1000);
+
+        if(!IsInitialBlockDownload()) {
+           break;
+        }
+
+        if(ShutdownRequested()) {
+           return;
+        }
+    }
+
     unsigned int nTick = 0;
 
     auto &connman = *pConnman;
