@@ -511,6 +511,69 @@ UniValue getstakingstatus(const JSONRPCRequest& request)
     return obj;
 }
 
+// peercoin: make a public-private key pair
+UniValue makekeypair(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() > 1)
+        throw std::runtime_error(
+            "makekeypair [prefix]\n"
+            "Make a public/private key pair.\n"
+            "[prefix] is optional preferred prefix for the public key.\n");
+
+    std::string strPrefix = "";
+    if (request.params.size() > 0)
+        strPrefix = request.params[0].get_str();
+
+    CKey key;
+    int nCount = 0;
+    do
+    {
+        key.MakeNewKey(false);
+        nCount++;
+    } while (nCount < 10000 && strPrefix != HexStr(key.GetPubKey()).substr(0, strPrefix.size()));
+
+    if (strPrefix != HexStr(key.GetPubKey()).substr(0, strPrefix.size()))
+        return NullUniValue;
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("PrivateKey", EncodeSecret(key));
+    result.pushKV("PublicKey", HexStr(key.GetPubKey()));
+    return result;
+}
+
+// peercoin: display key pair from hex private key
+UniValue showkeypair(const JSONRPCRequest& request)
+{
+    if (request.fHelp || request.params.size() != 1)
+        throw std::runtime_error(
+            "showkeypair <hexprivkey>\n"
+            "Display a public/private key pair with given hex private key.\n"
+            "<hexprivkey> is the private key in hex form.\n");
+
+    std::string strPrivKey = request.params[0].get_str();
+
+    CKey key = DecodeSecret(strPrivKey);
+    if (!key.IsValid()) throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Private key outside allowed range");
+
+    CPubKey pubkey = key.GetPubKey();
+    assert(key.VerifyPubKey(pubkey));
+
+    // Test signing some message
+    std::string strMsg = "Test sign by showkeypair";
+    std::vector<unsigned char> vchMsg(strMsg.begin(), strMsg.end());
+    std::vector<unsigned char> vchSig;
+    if (!key.Sign(Hash(vchMsg.begin(), vchMsg.end()), vchSig))
+        throw std::runtime_error(
+            "Failed to sign using the key, bad key?\n");
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("PublicKey", HexStr(key.GetPubKey()));
+    CPrivKey vchPrivKey = key.GetPrivKey();
+    result.pushKV("PrivateKey", HexStr<CPrivKey::iterator>(vchPrivKey.begin(), vchPrivKey.end()));
+    result.pushKV("PrivateKeyHex", strPrivKey);
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
@@ -524,6 +587,8 @@ static const CRPCCommand commands[] =
 
 
     /* Not shown in help */
+    { "hidden",             "makekeypair",            &makekeypair,            {"prefix"} },
+    { "hidden",             "showkeypair",            &showkeypair,            {"hexprivkey"} },
     { "hidden",             "setmocktime",            &setmocktime,            {"timestamp"}},
     { "hidden",             "echo",                   &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
     { "hidden",             "echojson",               &echo,                   {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
