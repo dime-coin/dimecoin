@@ -3315,7 +3315,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 
     // Make sure headers form valid chain
     if (block.nTime == 1387807823 ||  /* mainnet genesis */
-        block.nTime == 1611000000)    /* testnet genesis */
+        block.nTime == 1636592000)    /* testnet genesis */
         return true;
 
     CBlockIndex *pindex = mapBlockIndex[block.hashPrevBlock];

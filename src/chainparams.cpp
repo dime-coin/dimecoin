@@ -268,16 +268,18 @@ public:
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
          */
-        pchMessageStart[0] = 0xef;
-        pchMessageStart[1] = 0x5b;
-        pchMessageStart[2] = 0x20;
-        pchMessageStart[3] = 0xde;
+        pchMessageStart[0] = 0x78;
+        pchMessageStart[1] = 0x92;
+        pchMessageStart[2] = 0x30;
+        pchMessageStart[3] = 0x39;
         nDefaultPort = 21931;
         nPruneAfterHeight = 100000;
         nMaxReorganizationDepth = 100;
 
-        genesis = CreateGenesisBlock(1611000000, 519773, 0x1e0fffff, 112, 1 * COIN);
+        genesis = CreateGenesisBlock(1636592000, 803251, 0x1e0fffff, 1, 0 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
+        assert(consensus.hashGenesisBlock == uint256S("00000d3b251f80cbbff32cf05e0d50cfbec979e9309d3677e2726988203ba0f1"));
+        assert(genesis.hashMerkleRoot == uint256S("558288e9f2dbdd2c5a9ed64d2962a5679b83bda205394564609cfddbbaab6193"));
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,15);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,9);
@@ -298,6 +300,7 @@ public:
         strSporkPubKey = "035d6c637e346a99b6986c711c42c8827b451430b224b4484ac1d1b81c6027da82"; //! 7KhfSKLDoEZZE3xbBadE2fd6iSnXRT6her
 
         checkpointData = {{
+            {       0,     uint256S("0x00000d3b251f80cbbff32cf05e0d50cfbec979e9309d3677e2726988203ba0f1")},
         }};
 
         chainTxData = ChainTxData{
