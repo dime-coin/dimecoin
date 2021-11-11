@@ -2673,6 +2673,9 @@ bool CWallet::SelectStakeCoins(StakeCoinsSet &setCoins, CAmount nTargetAmount, b
         if (out.nDepth < Params().GetConsensus().nStakeMinDepth)
             continue;
 
+        if (out.tx->tx->vout[out.i].nValue < Params().GetConsensus().nStakeMinAmount)
+            continue;
+
         auto scriptPubKeyCoin = out.tx->tx->vout[out.i].scriptPubKey;
         if(!scriptFilterPubKey.empty() && scriptPubKeyCoin != scriptFilterPubKey)
             continue;
