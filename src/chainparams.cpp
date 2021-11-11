@@ -281,6 +281,9 @@ public:
         assert(consensus.hashGenesisBlock == uint256S("00000d3b251f80cbbff32cf05e0d50cfbec979e9309d3677e2726988203ba0f1"));
         assert(genesis.hashMerkleRoot == uint256S("558288e9f2dbdd2c5a9ed64d2962a5679b83bda205394564609cfddbbaab6193"));
 
+        vFixedSeeds.clear();
+        vSeeds.clear();
+
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,15);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,9);
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,143);
@@ -288,7 +291,7 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
         bech32_hrp = "vx";
 
-        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
+        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
 
         fMiningRequiresPeers = true;
         fDefaultConsistencyChecks = false;
