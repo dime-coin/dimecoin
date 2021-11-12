@@ -116,7 +116,7 @@ void AskPassphraseDialog::accept()
             break;
         }
         QMessageBox::StandardButton retval = QMessageBox::question(this, tr("Confirm wallet encryption"),
-                 tr("Warning: If you encrypt your wallet and lose your passphrase, you will <b>LOSE ALL OF YOUR BITCOINS</b>!") + "<br><br>" + tr("Are you sure you wish to encrypt your wallet?"),
+                 tr("Warning: If you encrypt your wallet and lose your passphrase, you will <b>LOSE ALL OF YOUR DIMECOINS</b>!") + "<br><br>" + tr("Are you sure you wish to encrypt your wallet?"),
                  QMessageBox::Yes|QMessageBox::Cancel,
                  QMessageBox::Cancel);
         if(retval == QMessageBox::Yes)
@@ -129,7 +129,7 @@ void AskPassphraseDialog::accept()
                                          "<qt>" +
                                          tr("Your wallet is now encrypted. "
                                          "Remember that encrypting your wallet cannot fully protect "
-                                         "your bitcoins from being stolen by malware infecting your computer.") +
+                                         "your Dimecoins from being stolen by malware infecting your computer.") +
                                          "<br><br><b>" +
                                          tr("IMPORTANT: Any previous backups you have made of your wallet file "
                                          "should be replaced with the newly generated, encrypted wallet file. "

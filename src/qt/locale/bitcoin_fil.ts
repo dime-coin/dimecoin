@@ -176,8 +176,8 @@
         <translation>Kumpirmahin ang encryption ng walet.</translation>
     </message>
     <message>
-        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR BITCOINS&lt;/b&gt;!</source>
-        <translation>Babala: Kapag in-encrypt mo ang iyong walet at nawala ang iyong passphrase, &lt;b&gt;MAWAWALA ANG LAHAT NG IYONG BITCOINS &lt;/b&gt;!</translation>
+        <source>Warning: If you encrypt your wallet and lose your passphrase, you will &lt;b&gt;LOSE ALL OF YOUR DIMECOINS&lt;/b&gt;!</source>
+        <translation>Babala: Kapag in-encrypt mo ang iyong walet at nawala ang iyong passphrase, &lt;b&gt;MAWAWALA ANG LAHAT NG IYONG DIMECOINS &lt;/b&gt;!</translation>
     </message>
     <message>
         <source>Are you sure you wish to encrypt your wallet?</source>
