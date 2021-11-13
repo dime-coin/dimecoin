@@ -939,6 +939,9 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, const std::string& strCommand,
             return;
         }
 
+        // someone asked us for vin we have no idea about?
+        LogPrint(BCLog::MASTERNODE, "DSEG -- No invs sent to peer %d\n", pfrom->GetId());
+
     } else if (strCommand == NetMsgType::MNVERIFY) { // Masternode Verify
 
         // Need LOCK2 here to ensure consistent locking order because the all functions below call GetBlockHash which locks cs_main
