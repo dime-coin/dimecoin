@@ -3310,27 +3310,28 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
     static int lastHeight;
+    const bool isPoS = !block.nNonce;
 
-    bool isPoS = block.nNonce == 0;
-
-    // Make sure headers form valid chain
-    if (block.nTime == 1387807823 ||  /* mainnet genesis */
-        block.nTime == 1636592000)    /* testnet genesis */
+    //! genesis has no prevblock
+    if (block.GetBlockTime() == Params().GenesisBlock().GetBlockTime()) {
         return true;
+    }
 
+    //! simple test we can do for PoS headers
     CBlockIndex *pindex = mapBlockIndex[block.hashPrevBlock];
-    if (!pindex)
+    if (!pindex) {
         return state.DoS(0, false, REJECT_INVALID, "prev-header", false, "non-continous headers");
-
-    if (pindex->nHeight < lastHeight)
-        return true;
-
+    } else {
+        if (pindex->nHeight < lastHeight) {
+            return true;
+        }
+    }
     lastHeight = pindex->nHeight;
-    LogPrintf("blkheader @ height %d\n", lastHeight);
 
-    // Check proof of work matches claimed amount
-    if (!isPoS && fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
+    //! standard test for PoW headers
+    if (!isPoS && fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams)) {
         return state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
+    }
 
     return true;
 }
