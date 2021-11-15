@@ -143,6 +143,7 @@ BITCOIN_CORE_H = \
   key_io.h \
   keystore.h \
   kernel.h \
+  kernelrecord.h \
   dbwrapper.h \
   limitedmap.h \
   logging.h \
@@ -333,6 +334,7 @@ libdimecoin_wallet_a_SOURCES = \
   wallet/walletdb.cpp \
   wallet/walletutil.cpp \
   wallet/coinselection.cpp \
+  kernelrecord.cpp \
   $(BITCOIN_CORE_H)
 
 # crypto primitives library
@@ -409,6 +411,7 @@ libdimecoin_consensus_a_SOURCES = \
   hash.cpp \
   hash.h \
   prevector.h \
+  timedatadummy.cpp \
   primitives/block.cpp \
   primitives/block.h \
   primitives/transaction.cpp \
@@ -545,7 +548,9 @@ dimecoin_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_LIBS)
 #
 
 # dimecoin-tx binary #
-dimecoin_tx_SOURCES = bitcoin-tx.cpp
+dimecoin_tx_SOURCES = \
+  bitcoin-tx.cpp \
+  timedatadummy.cpp 
 dimecoin_tx_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 dimecoin_tx_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 dimecoin_tx_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)

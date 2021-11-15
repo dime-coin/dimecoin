@@ -17,6 +17,7 @@
 #include <policy/policy.h>
 #include <policy/rbf.h>
 #include <rpc/mining.h>
+#include <rpc/blockchain.h>
 #include <rpc/rawtransaction.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
@@ -40,6 +41,12 @@
 #include <univalue.h>
 
 #include <functional>
+
+// for minting info functions
+#include <interfaces/wallet.h>
+#include <kernelrecord.h>
+#include <miner.h>
+#include <boost/lexical_cast.hpp>
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 
@@ -4157,6 +4164,85 @@ static UniValue getstakesplitthreshold(const JSONRPCRequest& request)
     return int(pwallet->nStakeSplitThreshold);
 }
 
+UniValue listminting(const JSONRPCRequest& request)
+{
+
+    CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
+ 
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if(request.fHelp || request.params.size() > 2)
+        throw std::runtime_error(
+                "listminting [count=-1] [from=0]\n"
+                "Return all mintable outputs and provide details for each of them.");
+
+    int64_t count = -1;
+    if(request.params.size() > 0)
+        count = request.params[0].get_int();
+
+    UniValue ret(UniValue::VARR);
+
+    const CBlockIndex *p = GetLastBlockIndex(chainActive.Tip(), true);
+    const Consensus::Params& consensusParams = Params().GetConsensus();
+
+    double difficulty = (double)GetDifficulty(GetNextWorkRequired(p,consensusParams,true));
+    int64_t nStakeMinAge = Params().GetConsensus().nStakeMinAge;
+
+    std::unique_ptr<interfaces::Wallet> iwallet = interfaces::MakeWallet(*pwallet);
+    const auto& vwtx = iwallet->getWalletTxs();
+
+    for(const auto& wtx : vwtx) { 
+        std::vector<KernelRecord> txList = KernelRecord::decomposeOutput(*iwallet, wtx);
+
+        int64_t minAge = nStakeMinAge / 60 / 60 / 24;
+        for (auto& kr : txList) {
+            if(!kr.spent) {
+
+                if(count > 0 && (int32_t)ret.size() >= count) {
+                    break;
+                }
+
+                std::string strTime = boost::lexical_cast<std::string>(kr.nTime);
+                std::string strAmount = boost::lexical_cast<std::string>((double)kr.nValue / COIN);
+                std::string strAge = boost::lexical_cast<std::string>(kr.getAge());
+                std::string strCoinAge = boost::lexical_cast<std::string>(kr.getCoinAge());
+
+                std::string status = "immature";
+                int searchInterval = 0;
+                int attemps = 0;
+                if(kr.getAge() >=  minAge)
+                {
+                    status = "mature";
+                    searchInterval = (int)nLastCoinStakeSearchInterval;
+                    attemps = GetAdjustedTime() - kr.nTime - nStakeMinAge;
+                }
+
+                UniValue obj(UniValue::VOBJ);
+                obj.pushKV("address",                   kr.address);
+                obj.pushKV("input-txid",                kr.hash.ToString());
+                obj.pushKV("time",                      strTime);
+                obj.pushKV("amount",                    strAmount);
+                obj.pushKV("status",                    status);
+                obj.pushKV("age-in-day",                strAge);
+                obj.pushKV("coin-day-weight",           strCoinAge);
+                obj.pushKV("proof-of-stake-difficulty", difficulty);              
+                obj.pushKV("minting-probability-10min", kr.getProbToMintWithinNMinutes(difficulty, 10));
+                obj.pushKV("minting-probability-24h",   kr.getProbToMintWithinNMinutes(difficulty, 60*24));
+                obj.pushKV("minting-probability-30d",   kr.getProbToMintWithinNMinutes(difficulty, 60*24*30));
+                obj.pushKV("minting-probability-90d",   kr.getProbToMintWithinNMinutes(difficulty, 60*24*90)); 
+                obj.pushKV("search-interval-in-sec",    searchInterval);
+                obj.pushKV("attempts",                  attemps);
+                ret.push_back(obj); 
+            } 
+        } 
+    }
+
+    return ret;
+}
+
+
 extern UniValue abortrescan(const JSONRPCRequest& request); // in rpcdump.cpp
 extern UniValue dumpprivkey(const JSONRPCRequest& request); // in rpcdump.cpp
 extern UniValue importprivkey(const JSONRPCRequest& request);
@@ -4219,7 +4305,7 @@ static const CRPCCommand commands[] =
   { "wallet",             "rescanblockchain",                 &rescanblockchain,              {"start_height", "stop_height"} },
   { "wallet",             "setstakesplitthreshold",           &setstakesplitthreshold,        {"threshold_amount"}},
   { "wallet",             "getstakesplitthreshold",           &getstakesplitthreshold,        {} },
-
+  { "wallet",             "listminting",                      &listminting,                   {"count", "from"} },
   /** Account functions (deprecated) */
   { "wallet",             "getaccountaddress",                &getlabeladdress,               {"account"} },
   { "wallet",             "getaccount",                       &getaccount,                    {"address"} },
