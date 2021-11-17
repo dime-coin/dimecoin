@@ -806,6 +806,9 @@ public:
         return *database;
     }
 
+    // Scheuler function to abandon orphaned coinstakes
+    void AbandonOrphanedCoinstakes();
+
     /**
      * Select a set of coins such that nValueRet >= nTargetValue and at least
      * all coins from coinControl are selected; Never select unconfirmed coins

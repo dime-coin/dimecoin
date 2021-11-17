@@ -1870,6 +1870,26 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
     return ret;
 }
 
+void CWallet::AbandonOrphanedCoinstakes()
+{
+    // AbandonTransaction locks both cs_main and wallet's cs
+
+    for (std::pair<const uint256, CWalletTx>& item : mapWallet)
+    {
+        const uint256& wtxid = item.first;
+        CWalletTx& wtx = item.second;
+
+        int nDepth = wtx.GetDepthInMainChain();
+
+        if (nDepth == 0 && !wtx.isAbandoned() && wtx.IsCoinStake()) {
+            LogPrintf("Abandoning coinstake wtx %s\n", wtx.GetHash().ToString());
+            if (!AbandonTransaction(wtxid)) {
+                LogPrintf("Failed to abandon coinstake tx %s\n", wtx.GetHash().ToString());
+            }
+        }
+    }
+}
+
 void CWallet::ReacceptWalletTransactions()
 {
     // If transactions aren't being broadcasted, don't let them into local mempool either

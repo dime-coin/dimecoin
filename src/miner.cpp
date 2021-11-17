@@ -25,6 +25,7 @@
 #include <pow.h>
 #include <primitives/transaction.h>
 #include <script/standard.h>
+#include <shutdown.h>
 #include <spork.h>
 #include <timedata.h>
 #include <util/system.h>
@@ -62,6 +63,37 @@ bool checkRecentMiningActivity()
     const int64_t minTimeout = 60;
     int64_t sinceLast = GetAdjustedTime() - nLastMiningActivityTime;
     return sinceLast < minTimeout;
+}
+
+void ReclaimAbandonedStake()
+{
+    auto vpwallets = GetWallets();
+    size_t nWallets = vpwallets.size();
+
+    if (nWallets < 1) {
+        return;
+    }
+
+    for (size_t i = 0; i < nWallets; ++i) {
+        vpwallets[i]->AbandonOrphanedCoinstakes();
+    }
+}
+
+void ThreadAbandonCoinStake()
+{
+    while (!ShutdownRequested())
+    {
+        boost::this_thread::interruption_point();
+        MilliSleep(60000);
+
+        if(ShutdownRequested()) {
+           return;
+        }
+
+        if(!IsInitialBlockDownload()) {
+           ReclaimAbandonedStake();
+        }
+    }
 }
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
