@@ -31,11 +31,11 @@
 #include <unordered_set>
 #include <vector>
 
+#include <boost/bind/bind.hpp>
 #include <boost/signals2/signal.hpp>
 #include <boost/thread/condition_variable.hpp> // for boost::thread_interrupted
 
-#include <boost/bind/bind.hpp>
-using namespace boost::placeholders;
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS 1
 
 // Application startup time (used for uptime calculation)
 int64_t GetStartupTime();
