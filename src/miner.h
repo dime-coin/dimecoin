@@ -35,6 +35,9 @@ struct CBlockTemplate
 
 void setRecentMiningActivity();
 
+void ReclaimAbandonedStake();
+void ThreadAbandonCoinStake();
+
 // Container for tracking updates to ancestor feerate as we include (parent)
 // transactions in a block
 struct CTxMemPoolModifiedEntry {
