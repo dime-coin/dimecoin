@@ -35,6 +35,8 @@ class HelpMessageDialog;
 class ModalOverlay;
 class MasternodeList;
 
+class MintingView;
+
 namespace interfaces {
 class Handler;
 class Node;
@@ -107,6 +109,7 @@ private:
     QToolBar* appToolBar = nullptr;
     QAction* overviewAction = nullptr;
     QAction* historyAction = nullptr;
+    QAction* mintingAction = nullptr;
     QAction* masternodeAction = nullptr;
     QAction* governanceAction = nullptr; 
     QAction* quitAction = nullptr;
@@ -147,6 +150,7 @@ private:
     QSystemTrayIcon* trayIcon = nullptr;
     QMenu* trayIconMenu = nullptr;
     Notificator* notificator = nullptr;
+    MintingView* mintingView = nullptr;
     RPCConsole* rpcConsole = nullptr;
     HelpMessageDialog* helpMessageDialog = nullptr;
     ModalOverlay* modalOverlay = nullptr;
@@ -244,6 +248,8 @@ private Q_SLOTS:
     void gotoOverviewPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
+    /** Switch to minting page */
+    void gotoMintingPage();
     /** Switch to masternode page */
     void gotoMasternodePage();
     /** Switch to receive coins page */

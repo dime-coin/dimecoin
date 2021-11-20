@@ -68,7 +68,8 @@ public Q_SLOTS:
     void gotoOverviewPage();
     /** Switch to history (transactions) page */
     void gotoHistoryPage();
-
+    /** Switch to minting page */
+    void gotoMintingPage();
     /** Switch to masternode page */
     void gotoMasternodePage();
     /** Switch to governance page */
