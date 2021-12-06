@@ -27,7 +27,8 @@ NetworkStyle::NetworkStyle(const QString &_appName, const int iconColorHueShift,
     titleAddText(qApp->translate("SplashScreen", _titleAddText))
 {
     // load pixmap
-    QPixmap pixmap(":/icons/splash");
+    QPixmap pixmap(":/icons/bitcion");
+    QPixmap pixmapSplash(":/icons/splash");
 
     if(iconColorHueShift != 0 && iconColorSaturationReduction != 0)
     {
@@ -73,6 +74,7 @@ NetworkStyle::NetworkStyle(const QString &_appName, const int iconColorHueShift,
 
     appIcon             = QIcon(pixmap);
     trayAndWindowIcon   = QIcon(pixmap.scaled(QSize(256,256)));
+    splashIcon          = QIcon(pixmapSplash);
 }
 
 const NetworkStyle *NetworkStyle::instantiate(const QString &networkId)

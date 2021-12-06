@@ -50,7 +50,7 @@ SplashScreen::SplashScreen(interfaces::Node& node, Qt::WindowFlags f, const Netw
     // draw a slightly radial gradient
     QRect rectIcon(QPoint(0,0), QSize(1154,570));
     const QSize requiredSize(1154,570);
-    QPixmap icon(networkStyle->getAppIcon().pixmap(requiredSize));
+    QPixmap icon(networkStyle->getSplashIcon().pixmap(requiredSize));
     QRadialGradient gradient(QPoint(0,0), splashSize.width()/devicePixelRatio);
     gradient.setColorAt(0, Qt::white);
     gradient.setColorAt(1, QColor(247,247,247));
