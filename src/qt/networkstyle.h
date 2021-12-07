@@ -22,14 +22,16 @@ public:
     const QString &getAppName() const { return appName; }
     const QIcon &getAppIcon() const { return appIcon; }
     const QIcon &getTrayAndWindowIcon() const { return trayAndWindowIcon; }
+    const QIcon &getSplashIcon() const { return splashIcon; }
     const QString &getTitleAddText() const { return titleAddText; }
 
 private:
     NetworkStyle(const QString &appName, const int iconColorHueShift, const int iconColorSaturationReduction, const char *titleAddText);
-
+    void colorHue(const int iconColorHueShift, const int iconColorSaturationReduction, QPixmap &pixmap );
     QString appName;
     QIcon appIcon;
     QIcon trayAndWindowIcon;
+    QIcon splashIcon;
     QString titleAddText;
 };
 

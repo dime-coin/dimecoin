@@ -45,12 +45,12 @@ SplashScreen::SplashScreen(interfaces::Node& node, Qt::WindowFlags f, const Netw
     QSize splashSize(1154*devicePixelRatio,570*devicePixelRatio);
     pixmap = QPixmap(splashSize);
     QPainter pixPaint(&pixmap);
-    pixPaint.setPen(QColor(0,0,0));
+    pixPaint.setPen(QColor(255,255,255));
 
     // draw a slightly radial gradient
     QRect rectIcon(QPoint(0,0), QSize(1154,570));
     const QSize requiredSize(1154,570);
-    QPixmap icon(networkStyle->getAppIcon().pixmap(requiredSize));
+    QPixmap icon(networkStyle->getSplashIcon().pixmap(requiredSize));
     QRadialGradient gradient(QPoint(0,0), splashSize.width()/devicePixelRatio);
     gradient.setColorAt(0, Qt::white);
     gradient.setColorAt(1, QColor(247,247,247));
@@ -122,7 +122,7 @@ static void InitMessage(SplashScreen *splash, const std::string &message)
         Qt::QueuedConnection,
         Q_ARG(QString, QString::fromStdString(message)),
         Q_ARG(int, Qt::AlignBottom|Qt::AlignHCenter),
-        Q_ARG(QColor, QColor(55,55,55)));
+        Q_ARG(QColor, QColor(255,255,255)));
 }
 
 static void ShowProgress(SplashScreen *splash, const std::string &title, int nProgress, bool resume_possible)

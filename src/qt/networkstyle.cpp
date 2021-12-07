@@ -21,14 +21,8 @@ static const struct {
 };
 static const unsigned network_styles_count = sizeof(network_styles)/sizeof(*network_styles);
 
-// titleAddText needs to be const char* for tr()
-NetworkStyle::NetworkStyle(const QString &_appName, const int iconColorHueShift, const int iconColorSaturationReduction, const char *_titleAddText):
-    appName(_appName),
-    titleAddText(qApp->translate("SplashScreen", _titleAddText))
+void NetworkStyle::colorHue(const int iconColorHueShift, const int iconColorSaturationReduction, QPixmap &pixmap )
 {
-    // load pixmap
-    QPixmap pixmap(":/icons/splash");
-
     if(iconColorHueShift != 0 && iconColorSaturationReduction != 0)
     {
         // generate QImage from QPixmap
@@ -70,10 +64,24 @@ NetworkStyle::NetworkStyle(const QString &_appName, const int iconColorHueShift,
         //convert back to QPixmap
         pixmap.convertFromImage(img);
     }
+}
 
+// titleAddText needs to be const char* for tr()
+NetworkStyle::NetworkStyle(const QString &_appName, const int iconColorHueShift, const int iconColorSaturationReduction, const char *_titleAddText):
+    appName(_appName),
+    titleAddText(qApp->translate("SplashScreen", _titleAddText))
+{
+    // load pixmap
+    QPixmap pixmap(":/icons/bitcoin");
+    QPixmap pixmapSplash(":/icons/splash");
+    colorHue(iconColorHueShift, iconColorSaturationReduction, pixmap);
+    colorHue(iconColorHueShift, iconColorSaturationReduction, pixmapSplash);
+    
     appIcon             = QIcon(pixmap);
     trayAndWindowIcon   = QIcon(pixmap.scaled(QSize(256,256)));
+    splashIcon          = QIcon(pixmapSplash);
 }
+
 
 const NetworkStyle *NetworkStyle::instantiate(const QString &networkId)
 {
