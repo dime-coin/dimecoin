@@ -27,7 +27,7 @@ public:
 
 private:
     NetworkStyle(const QString &appName, const int iconColorHueShift, const int iconColorSaturationReduction, const char *titleAddText);
-
+    void colorHue(const int iconColorHueShift, const int iconColorSaturationReduction, QPixmap &pixmap );
     QString appName;
     QIcon appIcon;
     QIcon trayAndWindowIcon;
