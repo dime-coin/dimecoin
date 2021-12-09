@@ -5,8 +5,6 @@
 #include <chainparams.h>
 #include <util/strencodings.h>
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
 
 CMasternodeConfig masternodeConfig;
 

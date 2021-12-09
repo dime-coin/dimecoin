@@ -9,13 +9,8 @@
 #include <masternode/masternodeman.h>
 #include <messagesigner.h>
 #include <netfulfilledman.h>
-#include <spork.h>
-#include <util/system.h>
 #include <netmessagemaker.h>
-#include <script/standard.h>
-#include <key_io.h>
 
-#include <boost/lexical_cast.hpp>
 
 /** Object for who's going to get paid on which blocks */
 CMasternodePayments mnpayments;

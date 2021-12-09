@@ -3,11 +3,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <masternode/activemasternode.h>
-#include <masternode/masternode.h>
 #include <masternode/masternode-sync.h>
 #include <masternode/masternodeman.h>
 #include <netbase.h>
-#include <protocol.h>
 
 // Keep track of the active Masternode
 CActiveMasternode activeMasternode;

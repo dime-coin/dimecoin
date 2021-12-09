@@ -4,16 +4,12 @@
 
 #include <masternode/activemasternode.h>
 #include <key_io.h>
-#include <init.h>
 #include <netbase.h>
-#include <masternode/masternode.h>
 #include <masternode/masternode-payments.h>
 #include <masternode/masternode-sync.h>
 #include <masternode/masternodeman.h>
 #include <messagesigner.h>
-#include <script/standard.h>
 #include <shutdown.h>
-#include <util/system.h>
 #ifdef ENABLE_WALLET
 #include <wallet/wallet.h>
 #endif // ENABLE_WALLET
