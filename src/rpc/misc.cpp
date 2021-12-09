@@ -23,7 +23,7 @@
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 #include <wallet/walletdb.h>
-#include <masternode-sync.h>
+#include <masternode/masternode-sync.h>
 #include <miner.h>
 #endif
 #include <warnings.h>

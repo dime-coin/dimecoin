@@ -5,7 +5,7 @@
 #ifndef MASTERNODEMAN_H
 #define MASTERNODEMAN_H
 
-#include <masternode.h>
+#include <masternode/masternode.h>
 #include <sync.h>
 
 using namespace std;

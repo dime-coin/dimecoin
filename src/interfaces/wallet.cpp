@@ -24,8 +24,8 @@
 #include <wallet/feebumper.h>
 #include <wallet/fees.h>
 #include <wallet/wallet.h>
-#include <masternode.h>
-#include <masternodeman.h>
+#include <masternode/masternode.h>
+#include <masternode/masternodeman.h>
 
 namespace interfaces {
 namespace {

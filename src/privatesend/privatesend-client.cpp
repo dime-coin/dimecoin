@@ -7,8 +7,8 @@
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <init.h>
-#include <masternode-sync.h>
-#include <masternodeman.h>
+#include <masternode/masternode-sync.h>
+#include <masternode/masternodeman.h>
 #include <script/sign.h>
 #include <txmempool.h>
 #include <util/system.h>

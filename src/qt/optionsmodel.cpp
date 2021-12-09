@@ -20,7 +20,7 @@
 #include <qt/intro.h>
 
 #ifdef ENABLE_WALLET
-#include <masternodeconfig.h>
+#include <masternode/masternodeconfig.h>
 #endif // ENABLE_WALLET
 
 #include <QNetworkProxy>

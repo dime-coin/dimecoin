@@ -22,8 +22,8 @@
 
 #include <instantx.h>
 #include <netmessagemaker.h>
-#include <masternode-sync.h>
-#include <masternodeman.h>
+#include <masternode/masternode-sync.h>
+#include <masternode/masternodeman.h>
 
 #ifdef WIN32
 #include <string.h>

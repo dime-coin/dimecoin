@@ -6,9 +6,9 @@
 #include <dsnotificationinterface.h>
 #include <instantx.h>
 #include <governance/governance.h>
-#include <masternodeman.h>
-#include <masternode-payments.h>
-#include <masternode-sync.h>
+#include <masternode/masternodeman.h>
+#include <masternode/masternode-payments.h>
+#include <masternode/masternode-sync.h>
 
 void CDSNotificationInterface::InitializeCurrentBlockTip()
 {

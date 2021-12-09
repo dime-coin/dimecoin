@@ -1,6 +1,6 @@
 
 #include <netbase.h>
-#include <masternodeconfig.h>
+#include <masternode/masternodeconfig.h>
 #include <util/system.h>
 #include <chainparams.h>
 #include <util/strencodings.h>

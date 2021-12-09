@@ -30,7 +30,7 @@
 #include <util/moneystr.h>
 #include <wallet/fees.h>
 #include <kernel.h>
-#include <masternode-payments.h>
+#include <masternode/masternode-payments.h>
 #include <instantx.h>
 #include <wallet/walletutil.h>
 
