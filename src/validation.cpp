@@ -224,6 +224,7 @@ CBlockIndex *pindexBestHeader = nullptr;
 CWaitableCriticalSection g_best_block_mutex;
 CConditionVariable g_best_block_cv;
 uint256 g_best_block;
+bool ibd_complete{false};
 int nScriptCheckThreads = 0;
 std::atomic_bool fImporting(false);
 std::atomic_bool fReindex(false);
@@ -1304,6 +1305,7 @@ bool IsInitialBlockDownload()
         return true;
     LogPrintf("Leaving InitialBlockDownload (latching to false)\n");
     setFullDiskChecks(true);
+    ibd_complete = true;
     latchToFalse.store(true, std::memory_order_relaxed);
     return false;
 }
@@ -3309,6 +3311,8 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
+    if (!ibd_complete) return true;
+
     static int lastHeight;
     const bool isPoS = !block.nNonce;
 
