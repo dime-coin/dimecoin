@@ -8,9 +8,9 @@
 #include <governance/governance-classes.h>
 #include <netaddress.h>
 #include <net_processing.h>
-#include <masternode.h>
-#include <masternode-sync.h>
-#include <masternodeman.h>
+#include <masternode/masternode.h>
+#include <masternode/masternode-sync.h>
+#include <masternode/masternodeman.h>
 #include <messagesigner.h>
 #include <netfulfilledman.h>
 #include <util/system.h>

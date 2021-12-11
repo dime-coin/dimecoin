@@ -37,7 +37,7 @@
 #include <util/system.h>
 #include <warnings.h>
 #include <walletinitinterface.h>
-#include <masternodeconfig.h>
+#include <masternode/masternodeconfig.h>
 
 #include <memory>
 #include <stdint.h>

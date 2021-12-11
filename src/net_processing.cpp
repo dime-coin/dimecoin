@@ -37,10 +37,10 @@
 
 #include <spork.h>
 #include <instantx.h>
-#include <activemasternode.h>
-#include <masternode-payments.h>
-#include <masternode-sync.h>
-#include <masternodeman.h>
+#include <masternode/activemasternode.h>
+#include <masternode/masternode-payments.h>
+#include <masternode/masternode-sync.h>
+#include <masternode/masternodeman.h>
 
 #if defined(NDEBUG)
 # error "Dimecoin cannot be compiled without assertions."

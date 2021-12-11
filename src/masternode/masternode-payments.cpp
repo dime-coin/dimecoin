@@ -2,20 +2,15 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <activemasternode.h>
+#include <masternode/activemasternode.h>
 #include <governance/governance-classes.h>
-#include <masternode-payments.h>
-#include <masternode-sync.h>
-#include <masternodeman.h>
+#include <masternode/masternode-payments.h>
+#include <masternode/masternode-sync.h>
+#include <masternode/masternodeman.h>
 #include <messagesigner.h>
 #include <netfulfilledman.h>
-#include <spork.h>
-#include <util/system.h>
 #include <netmessagemaker.h>
-#include <script/standard.h>
-#include <key_io.h>
 
-#include <boost/lexical_cast.hpp>
 
 /** Object for who's going to get paid on which blocks */
 CMasternodePayments mnpayments;

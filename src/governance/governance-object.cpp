@@ -8,8 +8,8 @@
 #include <governance/governance-object.h>
 #include <governance/governance-vote.h>
 #include <instantx.h>
-#include <masternode-sync.h>
-#include <masternodeman.h>
+#include <masternode/masternode-sync.h>
+#include <masternode/masternodeman.h>
 #include <messagesigner.h>
 #include <util/system.h>
 #include <txdb.h>

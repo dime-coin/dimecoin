@@ -28,7 +28,7 @@
 #include <util/system.h>
 #include <validation.h>
 #include <warnings.h>
-#include <masternodeman.h>
+#include <masternode/masternodeman.h>
 
 #if defined(HAVE_CONFIG_H)
 #include <config/bitcoin-config.h>

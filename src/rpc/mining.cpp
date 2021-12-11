@@ -13,9 +13,9 @@
 #include <init.h>
 #include <validation.h>
 #include <key_io.h>
-#include <masternode-payments.h>
-#include <masternodeman.h>
-#include <masternode-sync.h>
+#include <masternode/masternode-payments.h>
+#include <masternode/masternodeman.h>
+#include <masternode/masternode-sync.h>
 #include <miner.h>
 #include <net.h>
 #include <policy/fees.h>

@@ -2,12 +2,12 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <activemasternode.h>
+#include <masternode/activemasternode.h>
 #include <instantx.h>
 #include <key.h>
 #include <validation.h>
-#include <masternode-sync.h>
-#include <masternodeman.h>
+#include <masternode/masternode-sync.h>
+#include <masternode/masternodeman.h>
 #include <messagesigner.h>
 #include <net.h>
 #include <protocol.h>

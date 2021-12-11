@@ -4,10 +4,10 @@
 
 #include "governancedialog.h"
 #include "ui_governancedialog.h"
-#include <masternode.h>
-#include <masternode-sync.h>
-#include <masternodeconfig.h>
-#include <masternodeman.h>
+#include <masternode/masternode.h>
+#include <masternode/masternode-sync.h>
+#include <masternode/masternodeconfig.h>
+#include <masternode/masternodeman.h>
 #include <governance/governance.h>
 #include <governance/governance-vote.h>
 #include <governance/governance-classes.h>

@@ -1,12 +1,10 @@
 
 #include <netbase.h>
-#include <masternodeconfig.h>
+#include <masternode/masternodeconfig.h>
 #include <util/system.h>
 #include <chainparams.h>
 #include <util/strencodings.h>
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
 
 CMasternodeConfig masternodeConfig;
 

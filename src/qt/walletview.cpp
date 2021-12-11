@@ -22,7 +22,7 @@
 
 #include <interfaces/node.h>
 #include <ui_interface.h>
-#include <masternodeconfig.h>
+#include <masternode/masternodeconfig.h>
 
 #include <QAction>
 #include <QActionGroup>

@@ -3,14 +3,14 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include <privatesend/privatesend.h>
 
-#include <activemasternode.h>
+#include <masternode/activemasternode.h>
 #include <consensus/validation.h>
 #include <governance/governance.h>
 #include <init.h>
 #include <instantx.h>
-#include <masternode-payments.h>
-#include <masternode-sync.h>
-#include <masternodeman.h>
+#include <masternode/masternode-payments.h>
+#include <masternode/masternode-sync.h>
+#include <masternode/masternodeman.h>
 #include <messagesigner.h>
 #include <script/sign.h>
 #include <txmempool.h>

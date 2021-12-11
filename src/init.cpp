@@ -53,12 +53,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <messagesigner.h>
-#include <masternodeconfig.h>
-#include <activemasternode.h>
+#include <masternode/masternodeconfig.h>
+#include <masternode/activemasternode.h>
 #include <instantx.h>
 #include <wallet/wallet.h>
-#include <masternodeman.h>
-#include <masternode-payments.h>
+#include <masternode/masternodeman.h>
+#include <masternode/masternode-payments.h>
 #include <netfulfilledman.h>
 #include <governance/governance.h>
 #include <flat-database.h>

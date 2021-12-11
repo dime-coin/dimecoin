@@ -16,9 +16,9 @@
 #include <hash.h>
 #include <key_io.h>
 #include <validation.h>
-#include <masternode.h>
-#include <masternodeman.h>
-#include <masternode-payments.h>
+#include <masternode/masternode.h>
+#include <masternode/masternodeman.h>
+#include <masternode/masternode-payments.h>
 #include <net.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
@@ -33,7 +33,7 @@
 #include <validationinterface.h>
 #include <wallet/wallet.h>
 #include <blocksigner.h>
-#include <masternode-sync.h>
+#include <masternode/masternode-sync.h>
 
 #include <algorithm>
 #include <queue>

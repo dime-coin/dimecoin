@@ -44,7 +44,7 @@
 #include <validationinterface.h>
 #include <warnings.h>
 #include <kernel.h>
-#include <masternode-payments.h>
+#include <masternode/masternode-payments.h>
 #include <blocksigner.h>
 
 #include <future>
