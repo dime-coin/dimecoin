@@ -145,8 +145,11 @@ bool ComputeNextStakeModifier(const CBlockIndex* pindexCurrent, uint64_t &nStake
     fGeneratedStakeModifier = false;
     if (!pindexPrev)
     {
+        if (!IsTestnet()) {
+            nStakeModifier = 0xffff0000;
+        }
         fGeneratedStakeModifier = true;
-        return true;  // genesis block's modifier is 0
+        return true;
     }
     // First find current stake modifier and its generation block time
     // if it's not old enough, return the same stake modifier
