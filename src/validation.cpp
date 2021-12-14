@@ -190,6 +190,8 @@ public:
     bool RewindBlockIndex(const CChainParams& params);
     bool LoadGenesisBlock(const CChainParams& chainparams);
 
+    void PruneBlockIndexCandidates();
+
     void UnloadBlockIndex();
 
 private:
@@ -232,6 +234,7 @@ bool fTxIndex = true;
 bool fIsBareMultisigStd = DEFAULT_PERMIT_BAREMULTISIG;
 bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
+bool fBypassPowTests = false;
 bool fCheckpointsEnabled = DEFAULT_CHECKPOINTS_ENABLED;
 size_t nCoinCacheUsage = 5000 * 300;
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
@@ -576,7 +579,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
     // Coinbase/stake is only valid in a block, not as a loose transaction
     // * note: no point banning here, as we'll ban the poor sod who simply relayed this
     if (tx.IsCoinBase() || tx.IsCoinStake())
-        return false;
+        return state.DoS(100, false, REJECT_INVALID, "coinbase");
 
     // Reject transactions with witness before segregated witness activates (override with -prematurewitness)
     bool witnessEnabled = IsWitnessEnabled(chainActive.Tip(), chainparams.GetConsensus());
@@ -1477,8 +1480,6 @@ void InitScriptExecutionCache() {
               (nElems*sizeof(uint256)) >>20, (nMaxCacheSize*2)>>20, nElems);
 }
 
-
-
 void ReprocessBlocks(int nBlocks)
 {
     {
@@ -1505,87 +1506,83 @@ void ReprocessBlocks(int nBlocks)
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks)
 {
-    if (tx.IsCoinBase() || tx.IsCoinStake()) {
-        return true;
-    }
+    if (tx.IsCoinBase()) return true;
 
-    {
-        if (pvChecks)
-            pvChecks->reserve(tx.vin.size());
+    if (pvChecks)
+        pvChecks->reserve(tx.vin.size());
 
-        // The first loop above does all the inexpensive checks.
-        // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
-        // Helps prevent CPU exhaustion attacks.
+    // The first loop above does all the inexpensive checks.
+    // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
+    // Helps prevent CPU exhaustion attacks.
 
-        // Skip script verification when connecting blocks under the
-        // assumevalid block. Assuming the assumevalid block is valid this
-        // is safe because block merkle hashes are still computed and checked,
-        // Of course, if an assumed valid block is invalid due to false scriptSigs
-        // this optimization would allow an invalid chain to be accepted.
-        if (fScriptChecks) {
-            // First check if script executions have been cached with the same
-            // flags. Note that this assumes that the inputs provided are
-            // correct (ie that the transaction hash which is in tx's prevouts
-            // properly commits to the scriptPubKey in the inputs view of that
-            // transaction).
-            uint256 hashCacheEntry;
-            // We only use the first 19 bytes of nonce to avoid a second SHA
-            // round - giving us 19 + 32 + 4 = 55 bytes (+ 8 + 1 = 64)
-            static_assert(55 - sizeof(flags) - 32 >= 128/8, "Want at least 128 bits of nonce for script execution cache");
-            CSHA256().Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32).Write(tx.GetWitnessHash().begin(), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(hashCacheEntry.begin());
-            AssertLockHeld(cs_main); //TODO: Remove this requirement by making CuckooCache not require external locks
-            if (scriptExecutionCache.contains(hashCacheEntry, !cacheFullScriptStore)) {
-                return true;
-            }
+    // Skip script verification when connecting blocks under the
+    // assumevalid block. Assuming the assumevalid block is valid this
+    // is safe because block merkle hashes are still computed and checked,
+    // Of course, if an assumed valid block is invalid due to false scriptSigs
+    // this optimization would allow an invalid chain to be accepted.
+    if (fScriptChecks) {
+        // First check if script executions have been cached with the same
+        // flags. Note that this assumes that the inputs provided are
+        // correct (ie that the transaction hash which is in tx's prevouts
+        // properly commits to the scriptPubKey in the inputs view of that
+        // transaction).
+        uint256 hashCacheEntry;
+        // We only use the first 19 bytes of nonce to avoid a second SHA
+        // round - giving us 19 + 32 + 4 = 55 bytes (+ 8 + 1 = 64)
+        static_assert(55 - sizeof(flags) - 32 >= 128/8, "Want at least 128 bits of nonce for script execution cache");
+        CSHA256().Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32).Write(tx.GetWitnessHash().begin(), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(hashCacheEntry.begin());
+        AssertLockHeld(cs_main); //TODO: Remove this requirement by making CuckooCache not require external locks
+        if (scriptExecutionCache.contains(hashCacheEntry, !cacheFullScriptStore)) {
+            return true;
+        }
 
-            for (unsigned int i = 0; i < tx.vin.size(); i++) {
-                const COutPoint &prevout = tx.vin[i].prevout;
-                const Coin& coin = inputs.AccessCoin(prevout);
-                assert(!coin.IsSpent());
+        for (unsigned int i = 0; i < tx.vin.size(); i++) {
+            const COutPoint &prevout = tx.vin[i].prevout;
+            const Coin& coin = inputs.AccessCoin(prevout);
+            assert(!coin.IsSpent());
 
-                if(tx.IsCoinStake())
-                    continue;
+            if(tx.IsCoinStake())
+                continue;
 
-                // We very carefully only pass in things to CScriptCheck which
-                // are clearly committed to by tx' witness hash. This provides
-                // a sanity check that our caching is not introducing consensus
-                // failures through additional data in, eg, the coins being
-                // spent being checked as a part of CScriptCheck.
+            // We very carefully only pass in things to CScriptCheck which
+            // are clearly committed to by tx' witness hash. This provides
+            // a sanity check that our caching is not introducing consensus
+            // failures through additional data in, eg, the coins being
+            // spent being checked as a part of CScriptCheck.
 
-                // Verify signature
-                CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, &txdata);
-                if (pvChecks) {
-                    pvChecks->push_back(CScriptCheck());
-                    check.swap(pvChecks->back());
-                } else if (!check()) {
-                    if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
-                        // Check whether the failure was caused by a
-                        // non-mandatory script verification check, such as
-                        // non-standard DER encodings or non-null dummy
-                        // arguments; if so, don't trigger DoS protection to
-                        // avoid splitting the network between upgraded and
-                        // non-upgraded nodes.
-                        CScriptCheck check2(coin.out, tx, i,
-                                            flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
-                        if (check2())
-                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
-                    }
-                    // Failures of other flags indicate a transaction that is
-                    // invalid in new blocks, e.g. an invalid P2SH. We DoS ban
-                    // such nodes as they are not following the protocol. That
-                    // said during an upgrade careful thought should be taken
-                    // as to the correct behavior - we may want to continue
-                    // peering with non-upgraded nodes even after soft-fork
-                    // super-majority signaling has occurred.
-                    return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+            // Verify signature
+            CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, &txdata);
+            if (pvChecks) {
+                pvChecks->push_back(CScriptCheck());
+                check.swap(pvChecks->back());
+            } else if (!check()) {
+                if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
+                    // Check whether the failure was caused by a
+                    // non-mandatory script verification check, such as
+                    // non-standard DER encodings or non-null dummy
+                    // arguments; if so, don't trigger DoS protection to
+                    // avoid splitting the network between upgraded and
+                    // non-upgraded nodes.
+                    CScriptCheck check2(coin.out, tx, i,
+                                        flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
+                    if (check2())
+                        return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
                 }
+                // Failures of other flags indicate a transaction that is
+                // invalid in new blocks, e.g. an invalid P2SH. We DoS ban
+                // such nodes as they are not following the protocol. That
+                // said during an upgrade careful thought should be taken
+                // as to the correct behavior - we may want to continue
+                // peering with non-upgraded nodes even after soft-fork
+                // super-majority signaling has occurred.
+                return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
             }
+        }
 
-            if (cacheFullScriptStore && !pvChecks) {
-                // We executed all of the provided scripts, and were told to
-                // cache the result. Do so now.
-                scriptExecutionCache.insert(hashCacheEntry);
-            }
+        if (cacheFullScriptStore && !pvChecks) {
+            // We executed all of the provided scripts, and were told to
+            // cache the result. Do so now.
+            scriptExecutionCache.insert(hashCacheEntry);
         }
     }
 
@@ -1977,7 +1974,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // verify that the view's current state corresponds to the previous block
     uint256 hashPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->GetBlockHash();
-    if (hashPrevBlock != view.GetBestBlock()) return false;
+    assert(hashPrevBlock == view.GetBestBlock());
 
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
@@ -2756,6 +2753,18 @@ CBlockIndex* CChainState::FindMostWorkChain() {
     } while(true);
 }
 
+/** Delete all entries in setBlockIndexCandidates that are worse than the current tip. */
+void CChainState::PruneBlockIndexCandidates() {
+    // Note that we can't delete the current block itself, as we may need to return to it later in case a
+    // reorganization to a better block fails.
+    std::set<CBlockIndex*, CBlockIndexWorkComparator>::iterator it = setBlockIndexCandidates.begin();
+    while (it != setBlockIndexCandidates.end() && setBlockIndexCandidates.value_comp()(*it, chainActive.Tip())) {
+        setBlockIndexCandidates.erase(it++);
+    }
+    // Either the current tip or a successor of it we're working towards is left in setBlockIndexCandidates.
+    assert(!setBlockIndexCandidates.empty());
+}
+
 /**
  * Try to make some progress towards making pindexMostWork the active block.
  * pblock is either nullptr or a pointer to a CBlock corresponding to pindexMostWork.
@@ -2815,6 +2824,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                     return false;
                 }
             } else {
+                PruneBlockIndexCandidates();
                 if (!pindexOldTip || chainActive.Tip()->nChainWork > pindexOldTip->nChainWork) {
                     // We're in a better position than we were. Return temporarily to release the lock.
                     fContinue = false;
@@ -2976,6 +2986,7 @@ bool CChainState::PreciousBlock(CValidationState& state, const CChainParams& par
         }
         if (pindex->IsValid(BLOCK_VALID_TRANSACTIONS) && pindex->nChainTx) {
             setBlockIndexCandidates.insert(pindex);
+            PruneBlockIndexCandidates();
         }
     }
 
@@ -3578,7 +3589,7 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
     }
 
     // Check difficulty
-    if (block.nBits != GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake()))
+    if (!fBypassPowTests && block.nBits != GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake()))
         return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, strprintf("incorrect difficulty: block pow=%d bits=%08x calc=%08x",
                   block.IsProofOfWork() ? "Y" : "N", block.nBits, GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake())));
 
@@ -4207,6 +4218,7 @@ bool LoadChainTip(const CChainParams& chainparams)
         return false;
     }
     chainActive.SetTip(pindex);
+    g_chainstate.PruneBlockIndexCandidates();
 
     LogPrintf("Loaded best chain: hashBestChain=%s height=%d date=%s progress=%f\n",
               chainActive.Tip()->GetBlockHash().ToString(), chainActive.Height(),
@@ -4476,7 +4488,13 @@ bool CChainState::RewindBlockIndex(const CChainParams& params)
         }
     }
 
-    CheckBlockIndex(params.GetConsensus());
+    if (chainActive.Tip() != nullptr) {
+        // We can't prune block index candidates based on our tip if we have
+        // no tip due to chainActive being empty!
+        PruneBlockIndexCandidates();
+
+        CheckBlockIndex(params.GetConsensus());
+    }
 
     return true;
 }
@@ -4663,7 +4681,8 @@ bool LoadExternalBlockFile(const CChainParams& chainparams, FILE* fileIn, CDiskB
 
                 }
 
-                {
+                // Activate the genesis block so normal node progress can continue
+                if (hash == chainparams.GetConsensus().hashGenesisBlock) {
                     CValidationState state;
                     if (!ActivateBestChain(state, chainparams)) {
                         break;

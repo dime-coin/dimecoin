@@ -5,6 +5,8 @@
 #ifndef BITCOIN_REVERSELOCK_H
 #define BITCOIN_REVERSELOCK_H
 
+#include <stdexcept>
+
 /**
  * An RAII-style reverse lock. Unlocks on construction and locks on destruction.
  */
@@ -14,6 +16,8 @@ class reverse_lock
 public:
 
     explicit reverse_lock(Lock& _lock) : lock(_lock) {
+        if(!lock.owns_lock())
+            throw std::runtime_error("failed to unlock mutex for lock");
         _lock.unlock();
         _lock.swap(templock);
     }

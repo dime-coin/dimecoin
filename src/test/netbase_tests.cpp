@@ -3,7 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <netbase.h>
-#include <test/test_bitcoin.h>
+#include <test/test_dimecoin.h>
 #include <util/strencodings.h>
 
 #include <string>
@@ -267,18 +267,6 @@ BOOST_AUTO_TEST_CASE(subnet_test)
     BOOST_CHECK_EQUAL(subnet.ToString(), "0.0.0.0/1");
     subnet = ResolveSubNet("1.2.3.4/0.0.0.0");
     BOOST_CHECK_EQUAL(subnet.ToString(), "0.0.0.0/0");
-
-    subnet = ResolveSubNet("1:2:3:4:5:6:7:8/ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
-    BOOST_CHECK_EQUAL(subnet.ToString(), "1:2:3:4:5:6:7:8/128");
-    subnet = ResolveSubNet("1:2:3:4:5:6:7:8/ffff:0000:0000:0000:0000:0000:0000:0000");
-    BOOST_CHECK_EQUAL(subnet.ToString(), "1::/16");
-    subnet = ResolveSubNet("1:2:3:4:5:6:7:8/0000:0000:0000:0000:0000:0000:0000:0000");
-    BOOST_CHECK_EQUAL(subnet.ToString(), "::/0");
-    subnet = ResolveSubNet("1.2.3.4/255.255.232.0");
-    BOOST_CHECK_EQUAL(subnet.ToString(), "1.2.0.0/255.255.232.0");
-    subnet = ResolveSubNet("1:2:3:4:5:6:7:8/ffff:ffff:ffff:fffe:ffff:ffff:ffff:ff0f");
-    BOOST_CHECK_EQUAL(subnet.ToString(), "1:2:3:4:5:6:7:8/ffff:ffff:ffff:fffe:ffff:ffff:ffff:ff0f");
-
 }
 
 BOOST_AUTO_TEST_CASE(netbase_getgroup)

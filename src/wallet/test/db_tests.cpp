@@ -7,7 +7,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <fs.h>
-#include <test/test_bitcoin.h>
+#include <test/test_dimecoin.h>
 #include <wallet/db.h>
 
 

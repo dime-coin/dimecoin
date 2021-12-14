@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2018 The Bitcoin Core developers
+// Copyright (c) 2009-2017 The Bitcoin Core developers
 // Copyright (c) 2017 The Zcash developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
@@ -44,7 +44,7 @@ static int ec_privkey_import_der(const secp256k1_context* ctx, unsigned char *ou
     if (end - privkey < 1 || !(*privkey & 0x80u)) {
         return 0;
     }
-    ptrdiff_t lenb = *privkey & ~0x80u; privkey++;
+    size_t lenb = *privkey & ~0x80u; privkey++;
     if (lenb < 1 || lenb > 2) {
         return 0;
     }
@@ -52,7 +52,7 @@ static int ec_privkey_import_der(const secp256k1_context* ctx, unsigned char *ou
         return 0;
     }
     /* sequence length */
-    ptrdiff_t len = privkey[lenb-1] | (lenb > 1 ? privkey[lenb-2] << 8 : 0u);
+    size_t len = privkey[lenb-1] | (lenb > 1 ? privkey[lenb-2] << 8 : 0u);
     privkey += lenb;
     if (end - privkey < len) {
         return 0;
@@ -66,7 +66,7 @@ static int ec_privkey_import_der(const secp256k1_context* ctx, unsigned char *ou
     if (end - privkey < 2 || privkey[0] != 0x04u) {
         return 0;
     }
-    ptrdiff_t oslen = privkey[1];
+    size_t oslen = privkey[1];
     privkey += 2;
     if (oslen > 32 || end - privkey < oslen) {
         return 0;
@@ -170,7 +170,7 @@ CPrivKey CKey::GetPrivKey() const {
     size_t privkeylen;
     privkey.resize(PRIVATE_KEY_SIZE);
     privkeylen = PRIVATE_KEY_SIZE;
-    ret = ec_privkey_export_der(secp256k1_context_sign, privkey.data(), &privkeylen, begin(), fCompressed ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
+    ret = ec_privkey_export_der(secp256k1_context_sign, (unsigned char*) privkey.data(), &privkeylen, begin(), fCompressed ? SECP256K1_EC_COMPRESSED : SECP256K1_EC_UNCOMPRESSED);
     assert(ret);
     privkey.resize(privkeylen);
     return privkey;
@@ -199,7 +199,7 @@ bool CKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig, uint32_
     secp256k1_ecdsa_signature sig;
     int ret = secp256k1_ecdsa_sign(secp256k1_context_sign, &sig, hash.begin(), begin(), secp256k1_nonce_function_rfc6979, test_case ? extra_entropy : nullptr);
     assert(ret);
-    secp256k1_ecdsa_signature_serialize_der(secp256k1_context_sign, vchSig.data(), &nSigLen, &sig);
+    secp256k1_ecdsa_signature_serialize_der(secp256k1_context_sign, (unsigned char*)vchSig.data(), &nSigLen, &sig);
     vchSig.resize(nSigLen);
     return true;
 }
@@ -218,7 +218,7 @@ bool CKey::VerifyPubKey(const CPubKey& pubkey) const {
     return pubkey.Verify(hash, vchSig);
 }
 
-bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig, CPubKey::InputScriptType scriptType) const {
+bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig) const {
     if (!fValid)
         return false;
     vchSig.resize(CPubKey::COMPACT_SIGNATURE_SIZE);
@@ -226,18 +226,10 @@ bool CKey::SignCompact(const uint256 &hash, std::vector<unsigned char>& vchSig, 
     secp256k1_ecdsa_recoverable_signature sig;
     int ret = secp256k1_ecdsa_sign_recoverable(secp256k1_context_sign, &sig, hash.begin(), begin(), secp256k1_nonce_function_rfc6979, nullptr);
     assert(ret);
-    secp256k1_ecdsa_recoverable_signature_serialize_compact(secp256k1_context_sign, &vchSig[1], &rec, &sig);
+    secp256k1_ecdsa_recoverable_signature_serialize_compact(secp256k1_context_sign, (unsigned char*)&vchSig[1], &rec, &sig);
     assert(ret);
     assert(rec != -1);
-
-    switch(scriptType) {
-    case CPubKey::InputScriptType::SPENDP2SHWITNESS: vchSig[0] = 31 + rec + (fCompressed ? 4 : 0); break;
-    case CPubKey::InputScriptType::SPENDWITNESS: vchSig[0] = 35 + rec + (fCompressed ? 4 : 0); break;
-    case CPubKey::InputScriptType::SPENDP2PKH: vchSig[0] = 27 + rec + (fCompressed ? 4 : 0); break;
-    default:
-        return false;
-    }
-
+    vchSig[0] = 27 + rec + (fCompressed ? 4 : 0);
     return true;
 }
 
@@ -329,7 +321,6 @@ bool ECC_InitSanityCheck() {
 }
 
 void ECC_Start() {
-    assert(secp256k1_context_sign == nullptr);
 
     secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
     assert(ctx != nullptr);

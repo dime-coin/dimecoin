@@ -143,11 +143,7 @@ bool ComputeNextStakeModifier(const CBlockIndex* pindexCurrent, uint64_t &nStake
     const CBlockIndex* pindexPrev = pindexCurrent->pprev;
     nStakeModifier = 0;
     fGeneratedStakeModifier = false;
-    if (!pindexPrev)
-    {
-        if (!IsTestnet()) {
-            nStakeModifier = 0xffff0000;
-        }
+    if (!pindexPrev) {
         fGeneratedStakeModifier = true;
         return true;
     }

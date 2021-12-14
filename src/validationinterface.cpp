@@ -49,7 +49,6 @@ struct MainSignalsInstance {
 static CMainSignals g_signals;
 
 void CMainSignals::RegisterBackgroundSignalScheduler(CScheduler& scheduler) {
-    assert(!m_internals);
     m_internals.reset(new MainSignalsInstance(&scheduler));
 }
 

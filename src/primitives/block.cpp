@@ -9,11 +9,10 @@
 #include <tinyformat.h>
 #include <util/strencodings.h>
 #include <crypto/common.h>
-#include <crypto/quarkhash.h>
 
 uint256 CBlockHeader::GetHash() const
 {
-    return quark_hash(BEGIN(nVersion), END(nNonce));
+    return HashQuark(BEGIN(nVersion), END(nNonce));
 }
 
 bool CBlock::IsProofOfStake() const
