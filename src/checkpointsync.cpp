@@ -1,3 +1,4 @@
+// Copyright (c) 2013-2022 The Dimecoin Core developers
 // Copyright (c) 2013-2019 Feathercoin developers
 // Copyright (c) 2011-2013 PPCoin developers
 // Copyright (c) 2013 Primecoin developers

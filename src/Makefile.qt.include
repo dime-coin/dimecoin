@@ -1,5 +1,6 @@
 # Copyright (c) 2013-2016 The Bitcoin Core developers
 # Copyright (c) 2014-2017 The Dash Core developers
+# Copyright (c) 2013-2022 The Dimecoin Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -348,6 +349,7 @@ BITCOIN_QT_BASE_CPP = \
   qt/bitcoinunits.cpp \
   qt/clientmodel.cpp \
   qt/csvmodelwriter.cpp \
+  qt/dimecoin.cpp \
   qt/guiutil.cpp \
   qt/intro.cpp \
   qt/modaloverlay.cpp \

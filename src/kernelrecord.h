@@ -1,5 +1,5 @@
 // Copyright (c) 2012-2021 The Peercoin developers
-// Copyright (c) 2021 The Dimecoin developers
+// Copyright (c) 2013-2022 The Dimecoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef DIMECOIN_KERNELRECORD_H

@@ -1,4 +1,6 @@
 // Copyright (c) 2014-2017 The Dash Core developers
+// Copyright (c) 2013-2022 The Dimecoin Core developers
+
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -20,6 +22,8 @@
 #include <QTimer>
 #include <QMessageBox>
 
+void handleSelectionKey();
+
 int GetOffsetFromUtc()
 {
 #if QT_VERSION < 0x050200
@@ -37,6 +41,8 @@ MasternodeList::MasternodeList(const PlatformStyle *platformStyle, QWidget *pare
     clientModel(0),
     walletModel(0)
 {
+    handleSelectionKey();
+
     ui->setupUi(this);
 
     ui->startButton->setEnabled(false);

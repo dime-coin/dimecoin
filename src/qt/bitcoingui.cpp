@@ -1,3 +1,4 @@
+// Copyright (c) 2013-2022 The Dimecoin Core developers
 // Copyright (c) 2011-2018 The Bitcoin Core developers
 // Copyright (c) 2014-2017 The Dash Core developers
 // Distributed under the MIT software license, see the accompanying

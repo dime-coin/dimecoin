@@ -1,4 +1,5 @@
 // Copyright (c) 2011-2018 The Bitcoin Core developers
+// Copyright (c) 2013-2022 The Dimecoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -38,7 +39,7 @@ SplashScreen::SplashScreen(interfaces::Node& node, Qt::WindowFlags f, const Netw
     QString font = QApplication::font().toString();
 
     // define text to place
-    QString copyrightText = QChar(0xA9) + QString("2021") + QString(tr(" Dimecoin Network LLC"));
+    QString copyrightText = QChar(0xA9) + QString("2022") + QString(tr(" Dimecoin Network LLC"));
     QString titleAddText = networkStyle->getTitleAddText();
 
     // create a bitmap according to device pixelratio
@@ -64,7 +65,7 @@ SplashScreen::SplashScreen(interfaces::Node& node, Qt::WindowFlags f, const Netw
 #endif
 
     // copyright information
-    pixPaint.setFont(QFont(font, 6 * fontFactor));
+    pixPaint.setFont(QFont(font, 8 * fontFactor));
     pixPaint.drawText(paddingLeft, paddingTop + titleCopyrightVSpace, copyrightText);
 
     // draw additional text if special network
