@@ -61,6 +61,7 @@ public:
 
     int GetVersion() const { return nVersion; }
     int GetType() const { return nType; }
+    size_t size() const { return stream->size(); }
 };
 
 template<typename S>
@@ -124,10 +125,6 @@ class CVectorWriter
     int GetType() const
     {
         return nType;
-    }
-    size_t size() const
-    {
-        return vchData.size();
     }
     void seek(size_t nSize)
     {
@@ -352,7 +349,7 @@ public:
         if (nReadPosNext > vch.size()) {
             throw std::ios_base::failure("CDataStream::read(): end of data");
         }
-        memcpy(pch, &vch[nReadPos], nSize);        
+        memcpy(pch, &vch[nReadPos], nSize);
         if (nReadPosNext == vch.size())
         {
             nReadPos = 0;
@@ -460,7 +457,7 @@ private:
     const int nType;
     const int nVersion;
 
-    FILE* file;	
+    FILE* file;
 
 public:
     CAutoFile(FILE* filenew, int nTypeIn, int nVersionIn) : nType(nTypeIn), nVersion(nVersionIn)

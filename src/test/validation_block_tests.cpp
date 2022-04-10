@@ -10,7 +10,7 @@
 #include <miner.h>
 #include <pow.h>
 #include <random.h>
-#include <test/test_bitcoin.h>
+#include <test/test_dimecoin.h>
 #include <validation.h>
 #include <validationinterface.h>
 
@@ -54,7 +54,7 @@ std::shared_ptr<CBlock> Block(const uint256& prev_hash)
     CScript pubKey;
     pubKey << i++ << OP_TRUE;
 
-    auto ptemplate = BlockAssembler(Params()).CreateNewBlock(pubKey, false);
+    auto ptemplate = BlockAssembler(Params()).CreateNewBlock(NULL, pubKey, false, false);
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
     pblock->nTime = ++time;

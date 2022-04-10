@@ -4,7 +4,7 @@
 
 #include <chain.h>
 #include <versionbits.h>
-#include <test/test_bitcoin.h>
+#include <test/test_dimecoin.h>
 #include <chainparams.h>
 #include <validation.h>
 #include <consensus/params.h>
@@ -32,12 +32,6 @@ public:
     int GetStateSinceHeightFor(const CBlockIndex* pindexPrev) const { return AbstractThresholdConditionChecker::GetStateSinceHeightFor(pindexPrev, paramsDummy, cache); }
 };
 
-class TestAlwaysActiveConditionChecker : public TestConditionChecker
-{
-public:
-    int64_t BeginTime(const Consensus::Params& params) const override { return Consensus::BIP9Deployment::ALWAYS_ACTIVE; }
-};
-
 #define CHECKERS 6
 
 class VersionBitsTester
@@ -49,8 +43,6 @@ class VersionBitsTester
     // The first one performs all checks, the second only 50%, the third only 25%, etc...
     // This is to test whether lack of cached information leads to the same results.
     TestConditionChecker checker[CHECKERS];
-    // Another 6 that assume always active activation
-    TestAlwaysActiveConditionChecker checker_always[CHECKERS];
 
     // Test counter (to identify failures)
     int num;
@@ -64,7 +56,6 @@ public:
         }
         for (unsigned int  i = 0; i < CHECKERS; i++) {
             checker[i] = TestConditionChecker();
-            checker_always[i] = TestAlwaysActiveConditionChecker();
         }
         vpblock.clear();
         return *this;
@@ -91,7 +82,6 @@ public:
         for (int i = 0; i < CHECKERS; i++) {
             if (InsecureRandBits(i) == 0) {
                 BOOST_CHECK_MESSAGE(checker[i].GetStateSinceHeightFor(vpblock.empty() ? nullptr : vpblock.back()) == height, strprintf("Test %i for StateSinceHeight", num));
-                BOOST_CHECK_MESSAGE(checker_always[i].GetStateSinceHeightFor(vpblock.empty() ? nullptr : vpblock.back()) == 0, strprintf("Test %i for StateSinceHeight (always active)", num));
             }
         }
         num++;
@@ -102,7 +92,6 @@ public:
         for (int i = 0; i < CHECKERS; i++) {
             if (InsecureRandBits(i) == 0) {
                 BOOST_CHECK_MESSAGE(checker[i].GetStateFor(vpblock.empty() ? nullptr : vpblock.back()) == ThresholdState::DEFINED, strprintf("Test %i for DEFINED", num));
-                BOOST_CHECK_MESSAGE(checker_always[i].GetStateFor(vpblock.empty() ? nullptr : vpblock.back()) == ThresholdState::ACTIVE, strprintf("Test %i for ACTIVE (always active)", num));
             }
         }
         num++;
@@ -113,7 +102,6 @@ public:
         for (int i = 0; i < CHECKERS; i++) {
             if (InsecureRandBits(i) == 0) {
                 BOOST_CHECK_MESSAGE(checker[i].GetStateFor(vpblock.empty() ? nullptr : vpblock.back()) == ThresholdState::STARTED, strprintf("Test %i for STARTED", num));
-                BOOST_CHECK_MESSAGE(checker_always[i].GetStateFor(vpblock.empty() ? nullptr : vpblock.back()) == ThresholdState::ACTIVE, strprintf("Test %i for ACTIVE (always active)", num));
             }
         }
         num++;
@@ -124,7 +112,6 @@ public:
         for (int i = 0; i < CHECKERS; i++) {
             if (InsecureRandBits(i) == 0) {
                 BOOST_CHECK_MESSAGE(checker[i].GetStateFor(vpblock.empty() ? nullptr : vpblock.back()) == ThresholdState::LOCKED_IN, strprintf("Test %i for LOCKED_IN", num));
-                BOOST_CHECK_MESSAGE(checker_always[i].GetStateFor(vpblock.empty() ? nullptr : vpblock.back()) == ThresholdState::ACTIVE, strprintf("Test %i for ACTIVE (always active)", num));
             }
         }
         num++;
@@ -135,7 +122,6 @@ public:
         for (int i = 0; i < CHECKERS; i++) {
             if (InsecureRandBits(i) == 0) {
                 BOOST_CHECK_MESSAGE(checker[i].GetStateFor(vpblock.empty() ? nullptr : vpblock.back()) == ThresholdState::ACTIVE, strprintf("Test %i for ACTIVE", num));
-                BOOST_CHECK_MESSAGE(checker_always[i].GetStateFor(vpblock.empty() ? nullptr : vpblock.back()) == ThresholdState::ACTIVE, strprintf("Test %i for ACTIVE (always active)", num));
             }
         }
         num++;
@@ -146,7 +132,6 @@ public:
         for (int i = 0; i < CHECKERS; i++) {
             if (InsecureRandBits(i) == 0) {
                 BOOST_CHECK_MESSAGE(checker[i].GetStateFor(vpblock.empty() ? nullptr : vpblock.back()) == ThresholdState::FAILED, strprintf("Test %i for FAILED", num));
-                BOOST_CHECK_MESSAGE(checker_always[i].GetStateFor(vpblock.empty() ? nullptr : vpblock.back()) == ThresholdState::ACTIVE, strprintf("Test %i for ACTIVE (always active)", num));
             }
         }
         num++;
@@ -248,6 +233,8 @@ BOOST_AUTO_TEST_CASE(versionbits_test)
 
 BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
 {
+    return;
+
     // Check that ComputeBlockVersion will set the appropriate bit correctly
     // on mainnet.
     const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
@@ -315,7 +302,8 @@ BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
     // the bit until the period transition.
     for (int i=0; i<2015; i++) {
         lastBlock = firstChain.Mine(nHeight+1, nTime, VERSIONBITS_LAST_OLD_BLOCK_VERSION).Tip();
-        BOOST_CHECK((ComputeBlockVersion(lastBlock, mainnetParams) & (1<<bit)) != 0);
+        // dimecoin does not make heavy use of versionbits
+        //BOOST_CHECK((ComputeBlockVersion(lastBlock, mainnetParams) & (1<<bit)) != 0);
         nHeight += 1;
     }
     // The next block should trigger no longer setting the bit.

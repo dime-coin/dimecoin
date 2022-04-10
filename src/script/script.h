@@ -13,7 +13,6 @@
 #include <assert.h>
 #include <climits>
 #include <limits>
-#include "pubkey.h"
 #include <stdexcept>
 #include <stdint.h>
 #include <string.h>
@@ -181,12 +180,6 @@ enum opcodetype
     OP_NOP8 = 0xb7,
     OP_NOP9 = 0xb8,
     OP_NOP10 = 0xb9,
-
-    // template matching params
-    OP_SMALLINTEGER = 0xfa,
-    OP_PUBKEYS = 0xfb,
-    OP_PUBKEYHASH = 0xfd,
-    OP_PUBKEY = 0xfe,
 
     OP_INVALIDOPCODE = 0xff,
 };
@@ -494,14 +487,23 @@ public:
         return *this;
     }
 
-    //////////////////////////////////////////////////
-    CScript& operator<<(const CPubKey& key)
-    {
-        std::vector<unsigned char> vchKey = key.Raw();
-        return (*this) << vchKey;
-    }
-    //////////////////////////////////////////////////
 
+    bool GetOp(iterator& pc, opcodetype& opcodeRet, std::vector<unsigned char>& vchRet)
+    {
+         // Wrapper so it can be called with either iterator or const_iterator
+         const_iterator pc2 = pc;
+         bool fRet = GetOp2(pc2, opcodeRet, &vchRet);
+         pc = begin() + (pc2 - begin());
+         return fRet;
+    }
+
+    bool GetOp(iterator& pc, opcodetype& opcodeRet)
+    {
+         const_iterator pc2 = pc;
+         bool fRet = GetOp2(pc2, opcodeRet, NULL);
+         pc = begin() + (pc2 - begin());
+         return fRet;
+    }
 
     bool GetOp(const_iterator& pc, opcodetype& opcodeRet, std::vector<unsigned char>& vchRet) const
     {
@@ -513,6 +515,57 @@ public:
         return GetScriptOp(pc, end(), opcodeRet, nullptr);
     }
 
+    bool GetOp2(const_iterator& pc, opcodetype& opcodeRet, std::vector<unsigned char>* pvchRet) const
+    {
+        opcodeRet = OP_INVALIDOPCODE;
+        if (pvchRet)
+            pvchRet->clear();
+        if (pc >= end())
+            return false;
+
+        // Read instruction
+        if (end() - pc < 1)
+            return false;
+        unsigned int opcode = *pc++;
+
+        // Immediate operand
+        if (opcode <= OP_PUSHDATA4)
+        {
+            unsigned int nSize = 0;
+            if (opcode < OP_PUSHDATA1)
+            {
+                nSize = opcode;
+            }
+            else if (opcode == OP_PUSHDATA1)
+            {
+                if (end() - pc < 1)
+                    return false;
+                nSize = *pc++;
+            }
+            else if (opcode == OP_PUSHDATA2)
+            {
+                if (end() - pc < 2)
+                    return false;
+                nSize = ReadLE16(&pc[0]);
+                pc += 2;
+            }
+            else if (opcode == OP_PUSHDATA4)
+            {
+                if (end() - pc < 4)
+                    return false;
+                nSize = ReadLE32(&pc[0]);
+                pc += 4;
+            }
+            if (end() - pc < 0 || (unsigned int)(end() - pc) < nSize)
+                return false;
+            if (pvchRet)
+                pvchRet->assign(pc, pc + nSize);
+            pc += nSize;
+        }
+
+        opcodeRet = (opcodetype)opcode;
+        return true;
+    }
 
     /** Encode/decode small integers: */
     static int DecodeOP_N(opcodetype opcode)
@@ -530,7 +583,42 @@ public:
         return (opcodetype)(OP_1+n-1);
     }
 
-    int FindAndDelete(const CScript& b) const;
+    int FindAndDelete(const CScript& b)
+    {
+        int nFound = 0;
+        if (b.empty())
+            return nFound;
+        CScript result;
+        iterator pc = begin(), pc2 = begin();
+        opcodetype opcode;
+        do
+        {
+            result.insert(result.end(), pc2, pc);
+            while (static_cast<size_t>(end() - pc) >= b.size() && std::equal(b.begin(), b.end(), pc))
+            {
+                pc = pc + b.size();
+                ++nFound;
+            }
+            pc2 = pc;
+        }
+        while (GetOp(pc, opcode));
+
+        if (nFound > 0) {
+            result.insert(result.end(), pc2, end());
+            *this = result;
+        }
+
+        return nFound;
+    }
+    int Find(opcodetype op) const
+    {
+        int nFound = 0;
+        opcodetype opcode;
+        for (const_iterator pc = begin(); pc != end() && GetOp(pc, opcode);)
+            if (opcode == op)
+                ++nFound;
+        return nFound;
+    }
 
     /**
      * Pre-version-0.6, Bitcoin always counted CHECKMULTISIGs
@@ -548,7 +636,6 @@ public:
     unsigned int GetSigOpCount(const CScript& scriptSig) const;
 
     bool IsPayToScriptHash() const;
-    bool IsPayToPublicKeyHash() const;
     bool IsPayToWitnessScriptHash() const;
     bool IsWitnessProgram(int& version, std::vector<unsigned char>& program) const;
 
@@ -568,8 +655,6 @@ public:
     {
         return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE);
     }
-
-    std::string ToString() const;
 
     void clear()
     {

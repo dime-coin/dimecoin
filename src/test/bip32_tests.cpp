@@ -9,7 +9,7 @@
 #include <uint256.h>
 #include <util/system.h>
 #include <util/strencodings.h>
-#include <test/test_bitcoin.h>
+#include <test/test_dimecoin.h>
 
 #include <string>
 #include <vector>
@@ -91,7 +91,7 @@ static void RunTest(const TestVector &test) {
     std::vector<unsigned char> seed = ParseHex(test.strHexMaster);
     CExtKey key;
     CExtPubKey pubkey;
-    key.SetSeed(seed.data(), seed.size());
+    key.SetMaster(seed.data(), seed.size());
     pubkey = key.Neuter();
     for (const TestDerivation &derive : test.vDerive) {
         unsigned char data[74];

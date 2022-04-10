@@ -20,7 +20,7 @@ secp256k1_context* secp256k1_context_verify = nullptr;
  *
  *  Supported violations include negative integers, excessive padding, garbage
  *  at the end, and overly long length descriptors. This is safe to use in
- *  Dimecoin because since the activation of BIP66, signatures are verified to be
+ *  Bitcoin because since the activation of BIP66, signatures are verified to be
  *  strict DER before being passed to this module, and we know it supports all
  *  violations present in the blockchain before that point.
  */
@@ -171,14 +171,14 @@ bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchS
         return false;
     secp256k1_pubkey pubkey;
     secp256k1_ecdsa_signature sig;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size())) {
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, size())) {
         return false;
     }
     if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, vchSig.data(), vchSig.size())) {
         return false;
     }
     /* libsecp256k1's ECDSA verification requires lower-S signatures, which have
-     * not historically been enforced in Dimecoin, so normalize them first. */
+     * not historically been enforced in Bitcoin, so normalize them first. */
     secp256k1_ecdsa_signature_normalize(secp256k1_context_verify, &sig, &sig);
     return secp256k1_ecdsa_verify(secp256k1_context_verify, &sig, hash.begin(), &pubkey);
 }
@@ -186,13 +186,10 @@ bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchS
 bool CPubKey::RecoverCompact(const uint256 &hash, const std::vector<unsigned char>& vchSig) {
     if (vchSig.size() != COMPACT_SIGNATURE_SIZE)
         return false;
-
-    uint8_t recid = (vchSig[0] - 27) % 4;
-    bool fComp = vchSig[0] >= 31;
-
+    int recid = (vchSig[0] - 27) & 3;
+    bool fComp = ((vchSig[0] - 27) & 4) != 0;
     secp256k1_pubkey pubkey;
     secp256k1_ecdsa_recoverable_signature sig;
-
     if (!secp256k1_ecdsa_recoverable_signature_parse_compact(secp256k1_context_verify, &sig, &vchSig[1], recid)) {
         return false;
     }
@@ -210,14 +207,14 @@ bool CPubKey::IsFullyValid() const {
     if (!IsValid())
         return false;
     secp256k1_pubkey pubkey;
-    return secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size());
+    return secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, size());
 }
 
 bool CPubKey::Decompress() {
     if (!IsValid())
         return false;
     secp256k1_pubkey pubkey;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size())) {
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, size())) {
         return false;
     }
     unsigned char pub[PUBLIC_KEY_SIZE];
@@ -235,7 +232,7 @@ bool CPubKey::Derive(CPubKey& pubkeyChild, ChainCode &ccChild, unsigned int nChi
     BIP32Hash(cc, nChild, *begin(), begin()+1, out);
     memcpy(ccChild.begin(), out+32, 32);
     secp256k1_pubkey pubkey;
-    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, &(*this)[0], size())) {
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context_verify, &pubkey, vch, size())) {
         return false;
     }
     if (!secp256k1_ec_pubkey_tweak_add(secp256k1_context_verify, &pubkey, out)) {
@@ -274,7 +271,7 @@ bool CExtPubKey::Derive(CExtPubKey &out, unsigned int _nChild) const {
     return pubkey.Derive(out.pubkey, out.chaincode, _nChild, chaincode);
 }
 
-bool CPubKey::CheckLowS(const std::vector<unsigned char>& vchSig) {
+/* static */ bool CPubKey::CheckLowS(const std::vector<unsigned char>& vchSig) {
     secp256k1_ecdsa_signature sig;
     if (!ecdsa_signature_parse_der_lax(secp256k1_context_verify, &sig, vchSig.data(), vchSig.size())) {
         return false;

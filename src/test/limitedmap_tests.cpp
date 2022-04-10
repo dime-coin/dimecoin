@@ -4,7 +4,7 @@
 
 #include <limitedmap.h>
 
-#include <test/test_bitcoin.h>
+#include <test/test_dimecoin.h>
 
 #include <boost/test/unit_test.hpp>
 

@@ -12,7 +12,7 @@
 #include <rpc/register.h>
 #include <rpc/server.h>
 #include <qt/rpcconsole.h>
-#include <test/test_bitcoin.h>
+#include <test/test_dimecoin.h>
 #include <univalue.h>
 #include <util/system.h>
 

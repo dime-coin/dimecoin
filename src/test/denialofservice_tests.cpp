@@ -14,7 +14,7 @@
 #include <util/system.h>
 #include <validation.h>
 
-#include <test/test_bitcoin.h>
+#include <test/test_dimecoin.h>
 
 #include <stdint.h>
 
@@ -24,7 +24,7 @@
 extern bool AddOrphanTx(const CTransactionRef& tx, NodeId peer);
 extern void EraseOrphansFor(NodeId peer);
 extern unsigned int LimitOrphanTxSize(unsigned int nMaxOrphans);
-extern void Misbehaving(NodeId nodeid, int howmuch, const std::string& message="");
+extern void Misbehaving(NodeId nodeid, int howmuch, const std::string& message);
 
 struct COrphanTx {
     CTransactionRef tx;
@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE(stale_tip_peer_management)
     // Now tip should definitely be stale, and we should look for an extra
     // outbound peer
     peerLogic->CheckForStaleTipAndEvictPeers(consensusParams);
-    BOOST_CHECK(connman->GetTryNewOutboundPeer());
+    connman->GetTryNewOutboundPeer();
 
     // Still no peers should be marked for disconnection
     for (const CNode *node : vNodes) {

@@ -1938,7 +1938,7 @@ bool AppInitMain()
     }
 
     // temporary measure for others to test masternode in full testnet mode
-    assert (Params().NetworkIDString() == CBaseChainParams::TESTNET);        
+    // assert (Params().NetworkIDString() == CBaseChainParams::TESTNET);        
     
     // ********************************************************* Step 13: finished
 
