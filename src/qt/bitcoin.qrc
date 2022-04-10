@@ -28,6 +28,7 @@
         <file alias="add">res/icons/add.png</file>
         <file alias="edit">res/icons/edit.png</file>
         <file alias="history">res/icons/history.png</file>
+        <file alias="minting">res/icons/minting.png</file>
         <file alias="masternodes">res/icons/masternodes.png</file>
         <file alias="governance">res/icons/governance.png</file>
         <file alias="overview">res/icons/overview.png</file>
