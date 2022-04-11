@@ -20,7 +20,7 @@ public:
     State validate(QString &input, int &pos) const;
 };
 
-/** Dimecoin address widget validator, checks for a valid bitcoin address.
+/** Dimecoin address widget validator, checks for a valid dimecoin address.
  */
 class BitcoinAddressCheckValidator : public QValidator
 {

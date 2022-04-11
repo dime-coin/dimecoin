@@ -10,7 +10,7 @@
 #include <vector>
 
 /**
- * CBaseChainParams defines the base parameters (shared between bitcoin-cli and bitcoind)
+ * CBaseChainParams defines the base parameters (shared between dimecoin-cli and dimecoind)
  * of a given instance of the Bitcoin system.
  */
 class CBaseChainParams

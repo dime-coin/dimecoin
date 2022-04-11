@@ -44,7 +44,7 @@ struct MasternodeCountInfo
     }
 };
 
-//! Top-level interface for a bitcoin node (bitcoind process).
+//! Top-level interface for a bitcoin node (dimecoind process).
 class Node
 {
 public:

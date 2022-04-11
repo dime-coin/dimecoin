@@ -51,7 +51,7 @@ namespace GUIUtil
     // Set up widget for address
     void setupAddressWidget(QValidatedLineEdit *widget, QWidget *parent);
 
-    // Parse "bitcoin:" URI into recipient object, return true on successful parsing
+    // Parse "dimecoin:" URI into recipient object, return true on successful parsing
     bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out);
     bool parseBitcoinURI(QString uri, SendCoinsRecipient *out);
     QString formatBitcoinURI(const SendCoinsRecipient &info);
