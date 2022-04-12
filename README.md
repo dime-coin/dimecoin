@@ -33,7 +33,7 @@ Difficulty              | Adjusted per block
 Staking Requirement     | 100,000 DIME
 Staking Maturity        | 450 Confirmations
 Masternode Collateral   | 500,000,000 DIME
-Circulation             | [View on explorer](https://chainz.cryptoid.info/dimecoin/)
+Circulation             | [View on explorer](https://chainz.cryptoid.info/dime/)
 Max Supply              | No maximum supply, block reward set to reduce 8% annually. 
 
 
