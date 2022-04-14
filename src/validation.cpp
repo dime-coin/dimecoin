@@ -1973,6 +1973,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     }
 
+    bool fProofOfWork = block.IsProofOfWork();
+    bool fProofOfStake = block.IsProofOfStake();
+
+    if (!fProofOfWork && !fProofOfStake) {
+        return state.DoS(0, error("ConnectBlock(): Block is neither PoW or PoS"), REJECT_INVALID, "bad-block-type");
+    }
+
+    if (fProofOfStake && (pindex->nHeight < chainparams.GetConsensus().nFirstPoSBlock)) {
+        return state.DoS(0, error("ConnectBlock(): PoS has not begun yet"), REJECT_INVALID, "early-pos");
+    }
+
     // verify that the view's current state corresponds to the previous block
     uint256 hashPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->GetBlockHash();
     assert(hashPrevBlock == view.GetBestBlock());

@@ -76,7 +76,7 @@ public:
         strNetworkID = "main";
 
         consensus.nSubsidyHalvingInterval = 512000;
-        consensus.nFirstPoSBlock = std::numeric_limits<int>::max();
+        consensus.nFirstPoSBlock = 4950000;
         consensus.nInstantSendKeepLock = 24;
         consensus.nBudgetPaymentsStartBlock = 0;
         consensus.nBudgetPaymentsCycleBlocks = 16616;
