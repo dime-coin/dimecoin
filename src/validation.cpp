@@ -1986,7 +1986,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // verify that the view's current state corresponds to the previous block
     uint256 hashPrevBlock = pindex->pprev == nullptr ? uint256() : pindex->pprev->GetBlockHash();
-    assert(hashPrevBlock == view.GetBestBlock());
+    if (hashPrevBlock != view.GetBestBlock()) return false;
 
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
@@ -3334,9 +3334,6 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
-    if (!ibd_complete) return true;
-
-    static int lastHeight;
     const bool isPoS = !block.nNonce;
 
     //! genesis has no prevblock
@@ -3348,12 +3345,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
     CBlockIndex *pindex = mapBlockIndex[block.hashPrevBlock];
     if (!pindex) {
         return state.DoS(0, false, REJECT_INVALID, "prev-header", false, "non-continous headers");
-    } else {
-        if (pindex->nHeight < lastHeight) {
-            return true;
-        }
     }
-    lastHeight = pindex->nHeight;
 
     //! standard test for PoW headers
     if (!isPoS && fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams)) {
