@@ -197,6 +197,11 @@ bool CheckSyncCheckpoint(const uint256 hashBlock, const int nHeight, const CBloc
         return true;
     }
 
+    // Return true if still in IBD/importing
+    if (fReindex || fImporting || !ibd_complete) {
+        return true;
+    }
+
     {
         LOCK(cs_hashSyncCheckpoint);
 
