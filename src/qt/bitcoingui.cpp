@@ -208,12 +208,12 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
         connect(labelBlocksIcon, SIGNAL(clicked(QPoint)), this, SLOT(showModalOverlay()));
         connect(progressBar, SIGNAL(clicked(QPoint)), this, SLOT(showModalOverlay()));
     }
-#endif
 
     QTimer* timerStakingIcon = new QTimer(labelStakingIcon);
     connect(timerStakingIcon, SIGNAL(timeout()), this, SLOT(setStakingStatus()));
     timerStakingIcon->start(10000);
     setStakingStatus();
+#endif
 }
 
 BitcoinGUI::~BitcoinGUI()

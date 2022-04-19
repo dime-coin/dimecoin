@@ -998,6 +998,10 @@ static UniValue setgenerate(const JSONRPCRequest& request)
                 + HelpExampleRpc("setgenerate", "true, 1")
                 );
 
+#ifndef ENABLE_WALLET
+    return std::string("Cannot generate when compiled with --disable-wallet");
+#else
+
     if (!IsTestnet())
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "This is for testnet only, you will not find blocks this way");
 
@@ -1020,6 +1024,7 @@ static UniValue setgenerate(const JSONRPCRequest& request)
     GenerateBitcoins(fGenerate, nGenProcLimit, Params(), *g_connman);
 
     return fGenerate ? std::string("Mining started") : std::string("Mining stopped");
+#endif
 }
 
 static const CRPCCommand commands[] =

@@ -36,8 +36,10 @@ struct CBlockTemplate
 
 void setRecentMiningActivity();
 
+#ifdef ENABLE_WALLET
 void ReclaimAbandonedStake();
 void ThreadAbandonCoinStake();
+#endif
 
 // Container for tracking updates to ancestor feerate as we include (parent)
 // transactions in a block
@@ -209,8 +211,10 @@ private:
 void IncrementExtraNonce(CBlock *pblock, const CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev);
 
+#ifdef ENABLE_WALLET
 /** Run the miner threads */
 void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams, CConnman &connman);
 void ThreadStakeMinter(const CChainParams& chainparams, CConnman &connman, CWallet *pwallet);
+#endif
 
 #endif // BITCOIN_MINER_H

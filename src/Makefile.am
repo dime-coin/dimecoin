@@ -278,6 +278,7 @@ libdimecoin_server_a_SOURCES = \
   net_processing.cpp \
   netfulfilledman.cpp \
   noui.cpp \
+  outputtype.cpp \
   policy/fees.cpp \
   policy/policy.cpp \
   policy/rbf.cpp \

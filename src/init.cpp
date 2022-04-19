@@ -1948,12 +1948,14 @@ bool AppInitMain()
 
     g_wallet_init_interface.Start(scheduler);
 
+#ifdef ENABLE_WALLET
     if(!fMasterNode) {
        if(GetWallets().front() && gArgs.GetBoolArg("-staking", true)) {
            threadGroup.create_thread(std::bind(&ThreadStakeMinter, boost::ref(chainparams), boost::ref(connman), GetWallets().front()));
            threadGroup.create_thread(std::bind(&ThreadAbandonCoinStake));
        }
     }
+#endif
 
     return true;
 }

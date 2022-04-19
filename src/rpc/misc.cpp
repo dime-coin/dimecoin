@@ -14,6 +14,7 @@
 #include <httpserver.h>
 #include <net.h>
 #include <netbase.h>
+#include <outputtype.h>
 #include <rpc/blockchain.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
@@ -471,6 +472,7 @@ static UniValue getinfo_deprecated(const JSONRPCRequest& request)
     );
 }
 
+#ifdef ENABLE_WALLET
 UniValue getstakingstatus(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 0)
@@ -511,6 +513,7 @@ UniValue getstakingstatus(const JSONRPCRequest& request)
 
     return obj;
 }
+#endif
 
 // peercoin: make a public-private key pair
 UniValue makekeypair(const JSONRPCRequest& request)
@@ -584,8 +587,9 @@ static const CRPCCommand commands[] =
     { "util",               "createmultisig",         &createmultisig,         {"nrequired","keys"} },
     { "util",               "verifymessage",          &verifymessage,          {"address","signature","message"} },
     { "util",               "signmessagewithprivkey", &signmessagewithprivkey, {"privkey","message"} },
+#ifdef ENABLE_WALLET
     { "util",               "getstakingstatus",       &getstakingstatus,       {} },
-
+#endif
 
     /* Not shown in help */
     { "hidden",             "makekeypair",            &makekeypair,            {"prefix"} },

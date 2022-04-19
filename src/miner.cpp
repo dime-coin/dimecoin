@@ -51,8 +51,10 @@ uint64_t nLastBlockWeight = 0;
 int64_t nLastMiningActivityTime = 0;
 int64_t nLastCoinStakeSearchInterval = 0;
 
+#ifdef ENABLE_WALLET
 //! forward declaration from wallet/wallet.cpp
 void InsertAndAdjustFoundationPayment(CMutableTransaction &tx, const CTxOut &txoutFoundationPayment);
+#endif
 
 void setRecentMiningActivity()
 {
@@ -66,6 +68,7 @@ bool checkRecentMiningActivity()
     return sinceLast < minTimeout;
 }
 
+#ifdef ENABLE_WALLET
 void ReclaimAbandonedStake()
 {
     auto vpwallets = GetWallets();
@@ -96,6 +99,7 @@ void ThreadAbandonCoinStake()
         }
     }
 }
+#endif
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
@@ -162,6 +166,11 @@ void BlockAssembler::resetBlock()
 }
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, const CScript &scriptPubKeyIn, bool fProofOfStake, bool fMineWitnessTx)
+#ifndef ENABLE_WALLET
+{
+    return NULL;
+}
+#else
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -289,6 +298,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
 
     return std::move(pblocktemplate);
 }
+#endif
 
 void BlockAssembler::onlyUnconfirmed(CTxMemPool::setEntries& testSet)
 {
@@ -580,6 +590,7 @@ static bool ProcessBlockFound(const std::shared_ptr<const CBlock> &pblock, const
     return true;
 }
 
+#ifdef ENABLE_WALLET
 void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWallet* pwallet, bool fProofOfStake)
 {
     LogPrintf("bitcoinminer -- started\n");
@@ -729,7 +740,9 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
         }
     }
 }
+#endif
 
+#ifdef ENABLE_WALLET
 void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams, CConnman &connman)
 {
     static boost::thread_group* minerThreads = NULL;
@@ -765,5 +778,5 @@ void ThreadStakeMinter(const CChainParams &chainparams, CConnman &connman, CWall
         LogPrintf("ThreadStakeMinter() error \n");
     }
     LogPrintf("ThreadStakeMinter exiting,\n");
-
 }
+#endif
