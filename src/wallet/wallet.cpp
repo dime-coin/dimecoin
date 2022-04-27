@@ -3152,7 +3152,7 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
                     txNew.vin.push_back(CTxIn(coin.outpoint,CScript()));
                 }
 
-                nBytes = CalculateMaximumSignedTxSize(txNew, this);
+                nBytes = CalculateMaximumSignedTxSize(txNew, this) + 2;
                 if (nBytes < 0) {
                     strFailReason = _("Signing transaction failed");
                     return false;
