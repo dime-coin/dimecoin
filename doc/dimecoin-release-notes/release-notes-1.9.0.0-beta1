@@ -1,0 +1,6 @@
+Notes 
+
+* Before using, backup your wallet.dat!
+* Do not use old blockchain files, instead download new bootstrap from wiki, specially uploaded for new version. It means after backing up wallet.dat, you must delete the dimecoin directory, or simply rename it in case you want to reuse v1.8.0 later.
+* Use new dimecoin.conf file from wiki
+* You can also sync new blockchain from the beginning if you have new dimecoin.conf (can take about 5 hours)
