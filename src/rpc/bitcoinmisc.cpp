@@ -79,7 +79,7 @@ static UniValue spork(const JSONRPCRequest& request)
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
-  { "bitcoin",            "spork",          &spork,          {"mode"} },
+  { "dimecoin",            "spork",          &spork,          {"mode"} },
 };
 
 void RegisterBitcoinMiscCommands(CRPCTable &tableRPC)
