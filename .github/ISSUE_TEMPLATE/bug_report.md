@@ -5,6 +5,7 @@ title: ''
 labels: ''
 assignees: ''
 timestamptz: ''
+=======
 
 ---
 
@@ -13,6 +14,8 @@ timestamptz: ''
 General dimecoin questions and/or support requests are best directed to the dedicated support channels for Dimecoin at https://t.me/dimeofficial support or contacting via support at dimecoinnetwork.com 
 
 For reporting security issues, please email developer at dimecoinnewtork.com.
+
+=======
 
 If the node is "stuck" during sync or giving "block checksum mismatch" errors, please ensure your hardware is stable by running memtest and observe CPU temperature with a load-test tool such as linpack before creating an issue! -->
 
