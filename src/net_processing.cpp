@@ -4135,14 +4135,14 @@ void ThreadProcessExtensions(CConnman *pConnman)
         boost::this_thread::interruption_point();
         MilliSleep(1000);
 
-        // try to sync from all available nodes, one step at a time
-        masternodeSync.ProcessTick(connman);
+        if (ibd_complete) {
 
-        if(!ShutdownRequested()) {
-
+            // increment counter
             nTick++;
+            masternodeSync.ProcessTick(connman);
 
-            if(masternodeSync.IsBlockchainSynced()) {
+            if(masternodeSync.IsBlockchainSynced())
+            {
                 // make sure to check all masternodes first
                 mnodeman.Check();
 

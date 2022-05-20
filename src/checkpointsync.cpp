@@ -413,6 +413,9 @@ bool CSyncCheckpoint::CheckSignature()
 // Process synchronized checkpoint
 bool CSyncCheckpoint::ProcessSyncCheckpoint()
 {
+    if (!ibd_complete)
+        return true;
+
     if (!CheckSignature())
         return false;
 
