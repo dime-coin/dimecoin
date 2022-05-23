@@ -76,7 +76,7 @@ public:
         strNetworkID = "main";
 
         consensus.nSubsidyHalvingInterval = 512000;
-        consensus.nFirstPoSBlock = 4950000;
+        consensus.nFirstPoSBlock = 5000000;
         consensus.nInstantSendKeepLock = 24;
         consensus.nBudgetPaymentsStartBlock = 0;
         consensus.nBudgetPaymentsCycleBlocks = 16616;
