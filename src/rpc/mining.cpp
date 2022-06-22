@@ -381,6 +381,12 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
     LOCK(cs_main);
 
+    //! use the fork height as conditional
+    bool newBlocks = false;
+    if (chainActive.Tip()->nHeight >= Params().GetConsensus().nFirstPoSBlock) {
+        newBlocks = true;
+    }
+
     std::string strMode = "template";
     UniValue lpval = NullUniValue;
     std::set<std::string> setClientRules;
@@ -455,7 +461,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     if (IsInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Dimecoin is downloading blocks...");
 
-    if (!masternodeSync.IsSynced())
+    if (newBlocks && !masternodeSync.IsSynced())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Dimecoin is downloading masternode data...");
 
     static unsigned int nTransactionsUpdatedLast;
@@ -662,7 +668,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
     result.pushKV("transactions", transactions);
     result.pushKV("coinbaseaux", aux);
-    result.pushKV("coinbasevalue", (int64_t)pblock->vtx[0]->vout[0].nValue);
+    result.pushKV("coinbasevalue", (int64_t) GetBlockSubsidy(pindexPrev->nHeight + 1, Params().GetConsensus()));
     result.pushKV("longpollid", chainActive.Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast));
     result.pushKV("target", hashTarget.GetHex());
     result.pushKV("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1);
@@ -685,30 +691,34 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
     result.pushKV("bits", strprintf("%08x", pblock->nBits));
     result.pushKV("height", (int64_t)(pindexPrev->nHeight+1));
 
-    // masternode payment//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    if (newBlocks) {
 
-    UniValue masternodeObj(UniValue::VARR);
+        // masternode payment//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    int mnCount;
-    CScript mnScript;
-    CTxDestination mnAddress;
-    if (!mnpayments.GetBlockPayee(pindexPrev->nHeight + 1, mnScript)) {
-        masternode_info_t mnInfo;
-        if (!mnodeman.GetNextMasternodeInQueueForPayment(pindexPrev->nHeight + 1, true, mnCount, mnInfo))
-            mnScript = GetScriptForDestination(mnInfo.pubKeyCollateralAddress.GetID());
+        UniValue masternodeObj(UniValue::VARR);
+
+        int mnCount;
+        CScript mnScript;
+        CTxDestination mnAddress;
+        if (!mnpayments.GetBlockPayee(pindexPrev->nHeight + 1, mnScript)) {
+            masternode_info_t mnInfo;
+            if (!mnodeman.GetNextMasternodeInQueueForPayment(pindexPrev->nHeight + 1, true, mnCount, mnInfo))
+                mnScript = GetScriptForDestination(mnInfo.pubKeyCollateralAddress.GetID());
+        }
+
+        ExtractDestination(mnScript, mnAddress);
+
+        UniValue obj(UniValue::VOBJ);
+        obj.pushKV("payee", EncodeDestination(mnAddress));
+        obj.pushKV("script", HexStr(mnScript));
+        obj.pushKV("amount", GetMasternodePayment(pindexPrev->nHeight + 1, pblock->vtx[0]->vout[0].nValue));
+        masternodeObj.push_back(obj);
+
+        result.push_back(Pair("masternode", masternodeObj));
+        result.push_back(Pair("masternode_payments_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock || IsTestnet()));
+        result.push_back(Pair("masternode_payments_enforced", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT) || IsTestnet()));
+
     }
-
-    ExtractDestination(mnScript, mnAddress);
-
-    UniValue obj(UniValue::VOBJ);
-    obj.pushKV("payee", EncodeDestination(mnAddress));
-    obj.pushKV("script", HexStr(mnScript));
-    obj.pushKV("amount", GetMasternodePayment(pindexPrev->nHeight + 1, pblock->vtx[0]->vout[0].nValue));
-    masternodeObj.push_back(obj);
-
-    result.push_back(Pair("masternode", masternodeObj));
-    result.push_back(Pair("masternode_payments_started", pindexPrev->nHeight + 1 > consensusParams.nMasternodePaymentsStartBlock || IsTestnet()));
-    result.push_back(Pair("masternode_payments_enforced", sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT) || IsTestnet()));
 
     if (!pblocktemplate->vchCoinbaseCommitment.empty() && fSupportsSegwit) {
         result.pushKV("default_witness_commitment", HexStr(pblocktemplate->vchCoinbaseCommitment.begin(), pblocktemplate->vchCoinbaseCommitment.end()));
