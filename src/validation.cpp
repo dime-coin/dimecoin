@@ -3592,10 +3592,18 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
             mapProofOfStake.insert(std::make_pair(hash, hashProofOfStake));
     }
 
-    // Check difficulty
-    if (!fBypassPowTests && block.nBits != GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake()))
-        return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, strprintf("incorrect difficulty: block pow=%d bits=%08x calc=%08x",
-                  block.IsProofOfWork() ? "Y" : "N", block.nBits, GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake())));
+    // toggle between retarget algorithms
+    if (nHeight < consensusParams.fullSplitDiffHeight) {
+        if (!fBypassPowTests && block.nBits != GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake())) {
+            return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, strprintf("incorrect difficulty: block pow=%d bits=%08x calc=%08x",
+                      block.IsProofOfWork() ? "Y" : "N", block.nBits, GetNextWorkRequired(pindexPrev, consensusParams, block.IsProofOfStake())));
+        }
+    } else {
+        if (block.nBits != GetNextWorkRequiredDual(pindexPrev, consensusParams, block.IsProofOfStake())) {
+            return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, strprintf("incorrect difficulty: block pow=%d bits=%08x calc=%08x",
+                      block.IsProofOfWork() ? "Y" : "N", block.nBits, GetNextWorkRequiredDual(pindexPrev, consensusParams, block.IsProofOfStake())));
+        }
+    }
 
     // Start enforcing BIP113 (Median Time Past) using versionbits logic.
     int nLockTimeFlags = 0;
