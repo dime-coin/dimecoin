@@ -106,6 +106,7 @@ public:
         consensus.nStakeMinDepth = 450;
         consensus.nModifierInterval = 60 * 20;
         consensus.nCoinbaseMaturity = 60;
+        consensus.fullSplitDiffHeight = 5060000;
 
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
@@ -238,6 +239,7 @@ public:
         consensus.nStakeMinDepth = 15;
         consensus.nModifierInterval = 60 * 20;
         consensus.nCoinbaseMaturity = 15;
+        consensus.fullSplitDiffHeight = 0;
 
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
@@ -357,6 +359,7 @@ public:
         consensus.nStakeMinDepth = 15;
         consensus.nModifierInterval = 60 * 20;
         consensus.nCoinbaseMaturity = 15;
+        consensus.fullSplitDiffHeight = 0;
 
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;

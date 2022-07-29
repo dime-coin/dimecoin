@@ -16,6 +16,8 @@ class CBlockHeader;
 class CBlockIndex;
 class uint256;
 
+unsigned int GetNextWorkRequiredDual(const CBlockIndex* pindexLast, const Consensus::Params& consensusParams, bool fProofOfStake);
+
 const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, bool fProofOfStake);
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& consensusParams = Params().GetConsensus(), bool fProofOfStake = false);
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params);
