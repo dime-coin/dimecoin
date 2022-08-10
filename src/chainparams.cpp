@@ -106,7 +106,7 @@ public:
         consensus.nStakeMinDepth = 450;
         consensus.nModifierInterval = 60 * 20;
         consensus.nCoinbaseMaturity = 60;
-        consensus.fullSplitDiffHeight = 5060000;
+        consensus.fullSplitDiffHeight = 5075000;
 
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
