@@ -171,7 +171,7 @@ unsigned int GetNextWorkRequiredDual(const CBlockIndex* pindexLast, const Consen
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& consensusParams, bool fProofOfStake)
 {
-    if (Params().NetworkIDString() == CBaseChainParams::MAIN) {
+    if (Params().NetworkIDString() == CBaseChainParams::MAIN && (pindexLast->nHeight + 1 < consensusParams.fullSplitDiffHeight)) {
         const int nHeight = pindexLast->nHeight + 1;
         const int lwma3height = 3310000;
         if (nHeight < lwma3height) {
