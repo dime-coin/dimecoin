@@ -1811,19 +1811,13 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
             return false;
         }
 
-        int nHeight = chainActive.Height();
-        bool targetFork = false;
-        if (nHeight >= chainparams.GetConsensus().fullSplitDiffHeight) {
-            targetFork = true;
-        }
-
-        if (nVersion < MIN_PEER_PROTO_VERSION + targetFork)
+        if (nVersion < MIN_PEER_PROTO_VERSION)
         {
             // disconnect from peers older than this proto version
             LogPrint(BCLog::NET, "peer=%d using obsolete version %i; disconnecting\n", pfrom->GetId(), nVersion);
             if (enable_bip61) {
                 connman->PushMessage(pfrom, CNetMsgMaker(INIT_PROTO_VERSION).Make(NetMsgType::REJECT, strCommand, REJECT_OBSOLETE,
-                                   strprintf("Version must be %d or greater", MIN_PEER_PROTO_VERSION + targetFork)));
+                                   strprintf("Version must be %d or greater", MIN_PEER_PROTO_VERSION)));
             }
             pfrom->fDisconnect = true;
             return false;
