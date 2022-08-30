@@ -189,10 +189,9 @@ public:
         }};
 
         chainTxData = ChainTxData{
-            // block 4150000 00000000000290b28b830a3451902d6af024225870f35bc13d78ce80739dbb0e
-            /* nTime    */ 1601227778,
-            /* nTxCount */ 5234386,
-            /* dTxRate  */ 0.025
+            1656588520,
+            6133748,
+            0.03
         };
 
         /* disable fallback fee on mainnet */
