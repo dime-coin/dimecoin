@@ -28,7 +28,7 @@ Creation Date           | December 23rd, 2013
 Proof Type              | Hybrid Proof of Stake (PoS) / Proof of Work (PoW) with Masternodes 
 Algo                    | Quark
 Block Time              | 64 seconds
-Block Reward / Fees     | 15,400 DIME awarded per block. 45% to miners/stakers 45% to masternodes 10% to foundation for development. Fee: 0.0001 DIME / mb
+Block Reward / Fees     | 15,400 DIME awarded per block. 45% to miners/stakers 45% to masternodes 10% to foundation for development. Fee: 0.01 DIME / mb
 Difficulty              | Adjusted per block
 Staking Requirement     | 100,000 DIME
 Staking Maturity        | 450 Confirmations
