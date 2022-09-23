@@ -1296,16 +1296,32 @@ static UniValue getchaintips(const JSONRPCRequest& request)
     // Always report the currently active tip.
     setTips.insert(chainActive.Tip());
 
+    int nBranchMin = -1;
+    int nCountMax = INT_MAX;
+
+    if(request.params.size() >= 1)
+        nCountMax = request.params[0].get_int();
+
+    if(request.params.size() == 2)
+        nBranchMin = request.params[1].get_int();
+
     /* Construct the output array.  */
     UniValue res(UniValue::VARR);
     for (const CBlockIndex* block : setTips)
     {
+        const CBlockIndex* pindexFork = chainActive.FindFork(block);
+        const int branchLen = block->nHeight - pindexFork->nHeight;
+        if(branchLen < nBranchMin) continue;
+
+        if(nCountMax-- < 1) break;
+
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("height", block->nHeight);
         obj.pushKV("hash", block->phashBlock->GetHex());
-
-        const int branchLen = block->nHeight - chainActive.FindFork(block)->nHeight;
+        obj.pushKV("difficulty", GetDifficulty(block->nBits));
+        obj.pushKV("chainwork", block->nChainWork.GetHex());
         obj.pushKV("branchlen", branchLen);
+        obj.pushKV("forkpoint", pindexFork->phashBlock->GetHex());
 
         std::string status;
         if (chainActive.Contains(block)) {
