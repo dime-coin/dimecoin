@@ -11,12 +11,12 @@ MacOSX Cross-compilation
 Cross-compiling to MacOSX requires a few additional packages to be installed:
 
 ```bash
-$ sudo apt-get install python3-setuptools libcap-dev zlib1g-dev libbz2-dev
+$ sudo apt-get install python3-setuptools libcap-dev zlib1g-dev libbz2-dev libncurses5
 ```
 
-Additionally, the Mac OSX SDK must be downloaded and extracted manually:
+Additionally, the Mac OSX SDK must be downloaded and extracted manually (ensure the SDK resides within the depends folder of the Dimecoin directory):
 
-```bash
+```bash 
 $ mkdir -p depends/sdk-sources
 $ mkdir -p depends/SDKs
 $ curl https://bitcoincore.org/depends-sources/sdks/MacOSX10.11.sdk.tar.gz -o depends/sdk-sources/MacOSX10.11.sdk.tar.gz
