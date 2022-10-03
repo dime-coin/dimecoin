@@ -665,10 +665,12 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         aMutable.push_back("version/force");
     }
 
+    CAmount coinbaseValue = GetBlockSubsidy(pindexPrev->nHeight + 1, Params().GetConsensus());
+
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
     result.pushKV("transactions", transactions);
     result.pushKV("coinbaseaux", aux);
-    result.pushKV("coinbasevalue", (int64_t) GetBlockSubsidy(pindexPrev->nHeight + 1, Params().GetConsensus()));
+    result.pushKV("coinbasevalue", coinbaseValue);
     result.pushKV("longpollid", chainActive.Tip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast));
     result.pushKV("target", hashTarget.GetHex());
     result.pushKV("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1);
@@ -711,7 +713,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         UniValue obj(UniValue::VOBJ);
         obj.pushKV("payee", EncodeDestination(mnAddress));
         obj.pushKV("script", HexStr(mnScript));
-        obj.pushKV("amount", GetMasternodePayment(pindexPrev->nHeight + 1, pblock->vtx[0]->vout[0].nValue));
+        obj.pushKV("amount", GetMasternodePayment(pindexPrev->nHeight + 1, coinbaseValue));
         masternodeObj.push_back(obj);
 
         result.push_back(Pair("masternode", masternodeObj));
