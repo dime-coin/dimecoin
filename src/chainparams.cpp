@@ -173,7 +173,7 @@ public:
         nCollateralLevels = { 500000000 };
         nPoolMaxTransactions = 3;
         nFulfilledRequestExpireTime = 60*60;
-        strSporkPubKey = "035d6c637e346a99b6986c711c42c8827b451430b224b4484ac1d1b81c6027da82"; //! 7KhfSKLDoEZZE3xbBadE2fd6iSnXRT6her
+        strSporkPubKey = "045078e030f9b5131e2fe4de7bf81761e5eb609309f951ca3dd63b85fc702b97c736de0644562e48b75c2555a5765bdc2aecc15264777b99ec2f2643d4521a50e2"; //! 76ekH6a2mnJXmeqxfmSduYXYKv7wZ1oG3F
 
         checkpointData = {{
             {       0,     uint256S("0x00000d5a9113f87575c77eb5442845ff8a0014f6e79e2dd2317d88946ef910da")},
@@ -302,7 +302,7 @@ public:
         nCollateralLevels = { 100000 };
         nPoolMaxTransactions = 3;
         nFulfilledRequestExpireTime = 60*60;
-        strSporkPubKey = "035d6c637e346a99b6986c711c42c8827b451430b224b4484ac1d1b81c6027da82"; //! 7KhfSKLDoEZZE3xbBadE2fd6iSnXRT6her
+        strSporkPubKey = "045078e030f9b5131e2fe4de7bf81761e5eb609309f951ca3dd63b85fc702b97c736de0644562e48b75c2555a5765bdc2aecc15264777b99ec2f2643d4521a50e2"; //! 76ekH6a2mnJXmeqxfmSduYXYKv7wZ1oG3F
 
         checkpointData = {{
             {       0,     uint256S("0x00000d3b251f80cbbff32cf05e0d50cfbec979e9309d3677e2726988203ba0f1")},
@@ -422,7 +422,7 @@ public:
         nCollateralLevels = { 100000 };
         nPoolMaxTransactions = 3;
         nFulfilledRequestExpireTime = 60*60;
-        strSporkPubKey = "035d6c637e346a99b6986c711c42c8827b451430b224b4484ac1d1b81c6027da82"; //! 7KhfSKLDoEZZE3xbBadE2fd6iSnXRT6her
+        strSporkPubKey = "045078e030f9b5131e2fe4de7bf81761e5eb609309f951ca3dd63b85fc702b97c736de0644562e48b75c2555a5765bdc2aecc15264777b99ec2f2643d4521a50e2"; //! 76ekH6a2mnJXmeqxfmSduYXYKv7wZ1oG3F
 
         checkpointData = {{
             { 0, genesis.GetHash() }
