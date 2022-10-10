@@ -1507,83 +1507,81 @@ void ReprocessBlocks(int nBlocks)
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks)
 {
-    if (tx.IsCoinBase()) return true;
+    if (!tx.IsCoinBase())
+    {
+        if (pvChecks)
+            pvChecks->reserve(tx.vin.size());
 
-    if (pvChecks)
-        pvChecks->reserve(tx.vin.size());
+        // The first loop above does all the inexpensive checks.
+        // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
+        // Helps prevent CPU exhaustion attacks.
 
-    // The first loop above does all the inexpensive checks.
-    // Only if ALL inputs pass do we perform expensive ECDSA signature checks.
-    // Helps prevent CPU exhaustion attacks.
-
-    // Skip script verification when connecting blocks under the
-    // assumevalid block. Assuming the assumevalid block is valid this
-    // is safe because block merkle hashes are still computed and checked,
-    // Of course, if an assumed valid block is invalid due to false scriptSigs
-    // this optimization would allow an invalid chain to be accepted.
-    if (fScriptChecks) {
-        // First check if script executions have been cached with the same
-        // flags. Note that this assumes that the inputs provided are
-        // correct (ie that the transaction hash which is in tx's prevouts
-        // properly commits to the scriptPubKey in the inputs view of that
-        // transaction).
-        uint256 hashCacheEntry;
-        // We only use the first 19 bytes of nonce to avoid a second SHA
-        // round - giving us 19 + 32 + 4 = 55 bytes (+ 8 + 1 = 64)
-        static_assert(55 - sizeof(flags) - 32 >= 128/8, "Want at least 128 bits of nonce for script execution cache");
-        CSHA256().Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32).Write(tx.GetWitnessHash().begin(), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(hashCacheEntry.begin());
-        AssertLockHeld(cs_main); //TODO: Remove this requirement by making CuckooCache not require external locks
-        if (scriptExecutionCache.contains(hashCacheEntry, !cacheFullScriptStore)) {
-            return true;
-        }
-
-        for (unsigned int i = 0; i < tx.vin.size(); i++) {
-            const COutPoint &prevout = tx.vin[i].prevout;
-            const Coin& coin = inputs.AccessCoin(prevout);
-            assert(!coin.IsSpent());
-
-            if(tx.IsCoinStake())
-                continue;
-
-            // We very carefully only pass in things to CScriptCheck which
-            // are clearly committed to by tx' witness hash. This provides
-            // a sanity check that our caching is not introducing consensus
-            // failures through additional data in, eg, the coins being
-            // spent being checked as a part of CScriptCheck.
-
-            // Verify signature
-            CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, &txdata);
-            if (pvChecks) {
-                pvChecks->push_back(CScriptCheck());
-                check.swap(pvChecks->back());
-            } else if (!check()) {
-                if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
-                    // Check whether the failure was caused by a
-                    // non-mandatory script verification check, such as
-                    // non-standard DER encodings or non-null dummy
-                    // arguments; if so, don't trigger DoS protection to
-                    // avoid splitting the network between upgraded and
-                    // non-upgraded nodes.
-                    CScriptCheck check2(coin.out, tx, i,
-                                        flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
-                    if (check2())
-                        return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
-                }
-                // Failures of other flags indicate a transaction that is
-                // invalid in new blocks, e.g. an invalid P2SH. We DoS ban
-                // such nodes as they are not following the protocol. That
-                // said during an upgrade careful thought should be taken
-                // as to the correct behavior - we may want to continue
-                // peering with non-upgraded nodes even after soft-fork
-                // super-majority signaling has occurred.
-                return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+        // Skip script verification when connecting blocks under the
+        // assumevalid block. Assuming the assumevalid block is valid this
+        // is safe because block merkle hashes are still computed and checked,
+        // Of course, if an assumed valid block is invalid due to false scriptSigs
+        // this optimization would allow an invalid chain to be accepted.
+        if (fScriptChecks) {
+            // First check if script executions have been cached with the same
+            // flags. Note that this assumes that the inputs provided are
+            // correct (ie that the transaction hash which is in tx's prevouts
+            // properly commits to the scriptPubKey in the inputs view of that
+            // transaction).
+            uint256 hashCacheEntry;
+            // We only use the first 19 bytes of nonce to avoid a second SHA
+            // round - giving us 19 + 32 + 4 = 55 bytes (+ 8 + 1 = 64)
+            static_assert(55 - sizeof(flags) - 32 >= 128/8, "Want at least 128 bits of nonce for script execution cache");
+            CSHA256().Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32).Write(tx.GetWitnessHash().begin(), 32).Write((unsigned char*)&flags, sizeof(flags)).Finalize(hashCacheEntry.begin());
+            AssertLockHeld(cs_main); //TODO: Remove this requirement by making CuckooCache not require external locks
+            if (scriptExecutionCache.contains(hashCacheEntry, !cacheFullScriptStore)) {
+                return true;
             }
-        }
 
-        if (cacheFullScriptStore && !pvChecks) {
-            // We executed all of the provided scripts, and were told to
-            // cache the result. Do so now.
-            scriptExecutionCache.insert(hashCacheEntry);
+            for (unsigned int i = 0; i < tx.vin.size(); i++) {
+                const COutPoint &prevout = tx.vin[i].prevout;
+                const Coin& coin = inputs.AccessCoin(prevout);
+                assert(!coin.IsSpent());
+
+                // We very carefully only pass in things to CScriptCheck which
+                // are clearly committed to by tx' witness hash. This provides
+                // a sanity check that our caching is not introducing consensus
+                // failures through additional data in, eg, the coins being
+                // spent being checked as a part of CScriptCheck.
+
+                // Verify signature
+                CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, &txdata);
+                if (pvChecks) {
+                    pvChecks->push_back(CScriptCheck());
+                    check.swap(pvChecks->back());
+                } else if (!check()) {
+                    if (flags & STANDARD_NOT_MANDATORY_VERIFY_FLAGS) {
+                        // Check whether the failure was caused by a
+                        // non-mandatory script verification check, such as
+                        // non-standard DER encodings or non-null dummy
+                        // arguments; if so, don't trigger DoS protection to
+                        // avoid splitting the network between upgraded and
+                        // non-upgraded nodes.
+                        CScriptCheck check2(coin.out, tx, i,
+                                flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
+                        if (check2())
+                            return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
+                    }
+                    // Failures of other flags indicate a transaction that is
+                    // invalid in new blocks, e.g. an invalid P2SH. We DoS ban
+                    // such nodes as they are not following the protocol. That
+                    // said during an upgrade careful thought should be taken
+                    // as to the correct behavior - we may want to continue
+                    // peering with non-upgraded nodes even after soft-fork
+                    // super-majority signaling has occurred.
+                    return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                }
+            }
+
+            if (cacheFullScriptStore && !pvChecks) {
+                // We executed all of the provided scripts, and were told to
+                // cache the result. Do so now.
+                scriptExecutionCache.insert(hashCacheEntry);
+            }
         }
     }
 
