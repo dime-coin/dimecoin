@@ -2833,7 +2833,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
     return true;
 }
 
-static void NotifyHeaderTip() {
+static bool NotifyHeaderTip() {
     bool fNotify = false;
     bool fInitialBlockDownload = false;
     static CBlockIndex* pindexHeaderOld = nullptr;
@@ -2852,6 +2852,7 @@ static void NotifyHeaderTip() {
     if (fNotify) {
         uiInterface.NotifyHeaderTip(fInitialBlockDownload, pindexHeader);
     }
+    return fNotify;
 }
 
 /**
@@ -3096,9 +3097,6 @@ static void AcceptProofOfStakeBlock(const CBlock &block, CBlockIndex *pindexNew)
         pindexNew->nStakeTime = 0;
     }
 
-    //update previous block pointer
-    //        pindexNew->pprev->pnext = pindexNew;
-
     // ppcoin: compute chain trust score
     pindexNew->bnChainTrust = (pindexNew->pprev ? pindexNew->pprev->bnChainTrust : ArithToUint256(0 + pindexNew->GetBlockTrust()));
 
@@ -3122,9 +3120,8 @@ static void AcceptProofOfStakeBlock(const CBlock &block, CBlockIndex *pindexNew)
         LogPrintf("AcceptProofOfStakeBlock() : ComputeNextStakeModifier() failed \n");
     pindexNew->SetStakeModifier(nStakeModifier, fGeneratedStakeModifier);
     pindexNew->nStakeModifierChecksum = GetStakeModifierChecksum(pindexNew);
-    if (!CheckStakeModifierCheckpoints(pindexNew->nHeight, pindexNew->nStakeModifierChecksum)) {
+    if (!IsTestnet() && !CheckStakeModifierCheckpoints(pindexNew->nHeight, pindexNew->nStakeModifierChecksum)) {
         LogPrintf("AcceptProofOfStakeBlock() : Rejected by stake modifier checkpoint height=%d, modifier=%s \n", pindexNew->nHeight, std::to_string(nStakeModifier));
-        LogPrintf("pindexNew->nStakeModifierChecksum = %08x\n", pindexNew->nStakeModifierChecksum);
     }
 
     setDirtyBlockIndex.insert(pindexNew);
@@ -3760,7 +3757,11 @@ bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidatio
             }
         }
     }
-    NotifyHeaderTip();
+    if (NotifyHeaderTip()) {
+        if (IsInitialBlockDownload() && ppindex && *ppindex) {
+            LogPrintf("Synchronizing blockheaders, height: %d (~%.2f%%)\n", (*ppindex)->nHeight, 100.0/((*ppindex)->nHeight+(GetAdjustedTime() - (*ppindex)->GetBlockTime()) / Params().GetConsensus().nPowTargetSpacing) * (*ppindex)->nHeight);
+        }
+    }
     return true;
 }
 
