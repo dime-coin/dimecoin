@@ -26,9 +26,13 @@ class MNEstimator:
         self.defaultCliExe = "dimecoin-cli.exe" # the cli.exe file
         self.pathandCli = self.defaultCliPath + "\\" + self.defaultCliExe
         self.mnfile = self.defaultCliPath + "\\data\\mns.json"
+        self.testnet = False # Set to True if using testnet
 
     def getmasternodes(self):
-        command = f"{self.pathandCli} -testnet {self.datadir} masternode list status \"ENABLED\""
+        if self.testnet == True:
+            command = f"{self.pathandCli} -testnet {self.datadir} masternode list status \"ENABLED\""
+        else:
+            command = f"{self.pathandCli} {self.datadir} masternode list status \"ENABLED\""
         print(f"executing: {command}")
         mns = os.popen(command)
         masternode_list = mns.read()
@@ -42,7 +46,10 @@ class MNEstimator:
         return mncount
 
     def getblocktemplate(self):
-        command = f"{self.pathandCli} -testnet {self.datadir} getblocktemplate"
+        if self.testnet == True:
+            command = f"{self.pathandCli} -testnet {self.datadir} getblocktemplate"
+        else:
+            command = f"{self.pathandCli} {self.datadir} getblocktemplate"
         print(f"executing: {command}")
         blocktemplate = os.popen(command)
         blocktemplate_list = blocktemplate.read()
@@ -67,7 +74,7 @@ class MNEstimator:
 
         reward_total = (int(n)/t)*r*int(b)*float(a)
 
-        print(f"If you operate {n} masternode(s), there is a total of {t} enabled masternode(s), the current block reward is {r}, the average daily blocks is {b}, and the average masternode payment percent is {a * 100}%")
+        print(f"If you operate {n} masternode(s), there is a total of {t} enabled masternode(s), the current block reward is {r}, the average daily blocks is {b}, and the average masternode payment percent is {float(a) * 100}%")
         print(f"({n}/{t}) * {r} * {b} * {a}% = {reward_total}")
         reward_total = "{:,}".format(reward_total)
         print(f"The total ESTIMATED daily masternode reward is: {reward_total}")
