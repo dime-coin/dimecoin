@@ -14,28 +14,25 @@ import time
 class DimeConsolidator:
     def __init__(self):
         self.dest_wallet = ""    # Add your destination wallet here
-        self.num_of_txns = 27    # don't change this number, windows command prompt has a character limitation. 
+        self.num_of_txns = 26    # don't change this number, windows command prompt has a character limitation. 
         self.max_txns = 0
         self.fee = 0
         self.txn_id = ""
         self.hexoutput = ""
         self.passphrase = ""   # If you want you can hard code your passphrase.  Not recomended.  However it's useful for a large number of transactions.
-        self.defaultCliPath = "C:\Program Files\Dimecoin\daemon"  # Path where your cli.exe is located i.e C:\Program Files\Dimecoin\daemon
+        self.defaultCliPath = r'"C:\Program Files\Dimecoin\daemon"'  # Path where your cli.exe is located i.e C:\Program Files\Dimecoin\daemon
         self.datadir = ""   # Leave this blank if you're not using the -datadir argument. i.e -datadir=C:\Program Files\Dimecoin\Blockchain
         self.defaultCliExe = "dimecoin-cli.exe"         # the cli.exe file
         self.pathandCli = self.defaultCliPath + "\\" + self.defaultCliExe
         self.testnet = True
-        self.unspentfile = self.defaultCliPath + "\\data\\unspent.json"
-        self.hexoutputfile = self.defaultCliPath + "\\data\\txnhexcode.json"
-        self.walletinfofile = self.defaultCliPath + "\\data\\winfo.json"
-        self.txnprepfile = self.defaultCliPath + "\\data\\txnprep.json"
-        self.testfile = self.defaultCliPath + "\\data\\test.json"
         self.unencrypted = False
         self.wstatus = False
 
     def log_output(self,fname, data, method):
         #Store API results in a file
-        filepath = fname
+        # Using the raw string keeps the double quotes int the path which os.open is unable to find
+        path = self.defaultCliPath.replace('"', "")
+        filepath = path + "\\data\\" + fname
         if os.path.isfile(filepath):
             pass
         try:
@@ -51,6 +48,8 @@ class DimeConsolidator:
 
     def read_json(self,filename):
         # Retrieve json data from a file
+        path= self.defaultCliPath.replace('"', "")
+        filename = path + "\\data\\" + filename
         try:
             with open(filename) as data_file:
                 file_dict = json.load(data_file)
@@ -67,8 +66,8 @@ class DimeConsolidator:
         print(f"executing: {command}")
         winfo = os.popen(command)
         wallet_info = winfo.read()
-        self.log_output(self.walletinfofile, wallet_info, 'w+')
-        winfo_jdata = self.read_json(self.walletinfofile)
+        self.log_output("winfo.json", wallet_info, 'w+')
+        winfo_jdata = self.read_json("winfo.json")
 
         try:
              self.wstatus = winfo_jdata["unlocked_until"]
@@ -155,8 +154,8 @@ class DimeConsolidator:
         signtxn = os.popen(command)
         print("Signing transaction...")
         hexoutput =  signtxn.read()
-        self.log_output(self.hexoutputfile, hexoutput, 'w+')
-        hexoutput_jdata = self.read_json(self.hexoutputfile)
+        self.log_output("txnhexcode.json", hexoutput, 'w+')
+        hexoutput_jdata = self.read_json("txnhexcode.json")
         return hexoutput_jdata
 
     def send_txn(self,signed_hex):
@@ -202,18 +201,18 @@ class DimeConsolidator:
         unspent = os.popen(command)
         # convert the stream to a list
         list_unspent = unspent.read()
-        self.log_output(self.unspentfile, list_unspent, 'w+')
+        self.log_output("unspent.json", list_unspent, 'w+')
 
         low_amount_list = []
-        jdata = self.read_json(self.unspentfile)
+        jdata = self.read_json("unspent.json")
         # parse the list of unspent transactions keeping only those under the requested amount
         for i in range(len(jdata)):
             if jdata[i]['amount'] <= int(maxinput):
                 low_amount_list.append(jdata[i])
         if low_amount_list != "":
             lowamountjson = json.dumps(low_amount_list)
-            self.log_output(self.unspentfile, lowamountjson, 'w+')
-            jdata = self.read_json(self.unspentfile)
+            self.log_output("unspent.json", lowamountjson, 'w+')
+            jdata = self.read_json("unspent.json")
             if len(jdata) <= 0:
                 print(f"Failed to find any inputs with an amount below: {str(maxinput)}")
                 sys.exit(0)
@@ -294,7 +293,8 @@ class DimeConsolidator:
             maxinput = 999999999
         jdata = self.getunspent(maxinput)
         self.max_txns = int(len(jdata))
-        print(f"You have {len(jdata) - 1} unspent transactions.")
+        txncount = len(jdata) - 1
+        print(f"You have {txncount} unspent transactions.")
         if (len(jdata) - 1) == 0:
             sys.exit(0)    
         # TODO: rewrite this to scale based on how many transactions exist or by how many the user specifies
@@ -329,11 +329,15 @@ class DimeConsolidator:
                     print(f"********** SUCCESS! **********\nTransaction id: {self.txn_id}")
                 time.sleep(5)
             else:
-                print("Finsihed!")
+                print("Finished!")
         else:
-            # Windows command line has a limitation on the number of characters so we cap inputs at 27.
-            self.num_of_txns = input(f"How many transactions would you like to combine? (max 27): ")
-            if self.num_of_txns == "" or int(self.num_of_txns) <= 0 or int(self.num_of_txns) > 27:
+            # Windows command line has a limitation on the number of characters so we cap inputs at 26.
+            if txncount >= self.num_of_txns:
+                maxtxns = self.num_of_txns
+            else:
+                maxtxns = txncount
+            self.num_of_txns = input(f"How many transactions would you like to combine? (max {str(maxtxns)}): ")
+            if self.num_of_txns == "" or int(self.num_of_txns) <= 0 or int(self.num_of_txns) > 26:
                 print("Invalid number of transactions provided!")
                 sys.exit(0)
             if self.unencrypted == True:
@@ -357,7 +361,7 @@ class DimeConsolidator:
                 else:
                     sys.exit(0)
             else:
-                print("Error something is wrong with this transaction.  Fee too small? Wallet unlock time expired?  Please try again.")
+                print("Error something is wrong with this transaction. Fee too small? Wallet unlock time expired? Try combining fewer inputs?  Please try again.")
                 sys.exit(0)
 
     def main(self,jdata, wstatus, maxinput):
