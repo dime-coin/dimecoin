@@ -2133,6 +2133,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CBlockUndo blockundo;
 
+    bool fCheckQueuePass = pindex->nHeight >= chainparams.GetConsensus().nFirstPoSBlock;
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
 
     std::vector<int> prevheights;
@@ -2153,10 +2154,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         nInputs += tx.vin.size();
 
-        if (!tx.IsCoinBase() && !tx.IsCoinStake())
+        if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
-            if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
+            if (!fCheckQueuePass && !Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
             nFees += txfee;
@@ -2197,7 +2198,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
+            if (!fCheckQueuePass && !CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                              tx.GetHash().ToString(), FormatStateMessage(state));
             control.Add(vChecks);

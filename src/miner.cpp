@@ -238,7 +238,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
         bool fStakeFound = false;
         if (nSearchTime >= nLastCoinStakeSearchTime) {
             unsigned int nTxNewTime = 0;
-            if (wallet->CreateCoinStake(*wallet, pblock->nBits, blockReward, coinstakeTx, nTxNewTime, vwtxPrev, fIncludeWitness)) {
+            if (wallet->CreateCoinStake(*wallet, pblock->nBits, coinstakeTx, blockReward, nTxNewTime)) {
                 pblock->nTime = nTxNewTime;
                 coinbaseTx.vout[0].SetEmpty();
                 pblock->vtx.emplace_back(MakeTransactionRef(coinstakeTx));
