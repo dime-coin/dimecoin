@@ -1,5 +1,5 @@
 #########################################################################
-##  DIMECOIN input consolidator for Windows v0.0.1                     ##
+##  DIMECOIN input consolidator for Windows v0.0.2                     ##
 ##  Created by Dalamar 9/3/2022                                        ##
 ##  This utility is intended for consolidating input                   ##
 ##  transactions.                                                      ##
@@ -14,7 +14,7 @@ import time
 class DimeConsolidator:
     def __init__(self):
         self.dest_wallet = ""    # Add your destination wallet here
-        self.num_of_txns = 26    # don't change this number, windows command prompt has a character limitation. 
+        self.num_of_txns = 22    # don't change this number, windows command prompt has an 8191 character limitation. 
         self.max_txns = 0
         self.fee = 0
         self.txn_id = ""
@@ -24,7 +24,7 @@ class DimeConsolidator:
         self.datadir = ""   # Leave this blank if you're not using the -datadir argument. i.e -datadir=C:\Program Files\Dimecoin\Blockchain
         self.defaultCliExe = "dimecoin-cli.exe"         # the cli.exe file
         self.pathandCli = self.defaultCliPath + "\\" + self.defaultCliExe
-        self.testnet = True
+        self.testnet = False
         self.unencrypted = False
         self.wstatus = False
 
@@ -160,7 +160,7 @@ class DimeConsolidator:
 
     def send_txn(self,signed_hex):
         # Send the signed transaction
-        if self.testnet != "":
+        if self.testnet != False:
             command = f"{self.pathandCli} -testnet {self.datadir} sendrawtransaction {signed_hex}"
         else:
             command = f"{self.pathandCli} {self.datadir} sendrawtransaction {signed_hex}"
@@ -287,7 +287,7 @@ class DimeConsolidator:
             print(f"{e}")
             sys.exit(0)
 
-        maxinput = input("What is the max input amount you'd like selected to consolidate (i.e. 10000): ")
+        maxinput = input("What is the max input amount you'd like me to select for consolidation? (i.e. 10000): ")
         if maxinput == "":
             print("No input size prefrence provided, defaulting to include inputs up to 1 billion in size")
             maxinput = 999999999
@@ -296,50 +296,53 @@ class DimeConsolidator:
         txncount = len(jdata) - 1
         print(f"You have {txncount} unspent transactions.")
         if (len(jdata) - 1) == 0:
-            sys.exit(0)    
-        # TODO: rewrite this to scale based on how many transactions exist or by how many the user specifies
-        if self.max_txns >= 540:
-            loop = input("Do you want to loop 20 times? (540 inputs) y/n:")
-            loopqty = 20
-        elif self.max_txns >= 270:
-            loop = input("Do you want to loop 10 times? (270 inputs) y/n: ")
-            loopqty = 10
-        elif self.max_txns >= 135:
-            loop = input("Do you want to loop 5 times? (135 inputs) y/n: ")
-            loopqty = 5
+            sys.exit(0)
+        if txncount > self.num_of_txns:    
+            wanttoloop = input("Do you want the program to loop using the info you've provided? (y/n): ")
+            wanttoloop = wanttoloop.upper()
         else:
-            loop = "n"
-            loopqty = 1
-            unlocktime = 60
-        if loop.lower() == "y":
-            if self.passphrase == "":
-                wstatus = self.get_wallet_info()
-            else:
-                # Using unlocktime to scale how long to unlock the wallet based on number of inputs being consolidated.
-                # The wallet needs to remain unlocked for the duration of the consolidation cycle.
-                unlocktime = loopqty * 60
-                self.unlock_wallet(self.passphrase, unlocktime)
-                wstatus = True
-            for x in range(loopqty):
-                print(f"Starting loop number {x+1} of {str(loopqty)}")
-                self.num_of_txns = 27
-                self.main(jdata, wstatus, maxinput)
-                self.txn_id = self.send_txn(str(self.hexoutput['hex']))
-                if self.txn_id != "":
-                    print(f"********** SUCCESS! **********\nTransaction id: {self.txn_id}")
-                time.sleep(5)
-            else:
+            wanttoloop = "N"
+            
+        if wanttoloop == "Y":
+            loopmax = int(txncount/self.num_of_txns)          
+            loopqty = input(f"How many times would you like to loop this consolidation activity? (Max is {loopmax}): ")
+            if int(loopqty) <= 0 or int(loopqty) > int(loopmax) or int(loopqty) == "":
+                print("ERROR! Something is wrong with the loop number provided.")
+                sys.exit(0)
+            else: 
+                print(f"Okay, looping {loopqty} times!")
+                if self.passphrase == "":
+                    wstatus = self.get_wallet_info()
+                else:
+                    # Using unlocktime to scale how long to unlock the wallet based on number of inputs being consolidated.
+                    # The wallet needs to remain unlocked for the duration of the consolidation cycle.
+                    unlocktime = int(loopqty) * 60
+                    self.unlock_wallet(self.passphrase, unlocktime)
+                    wstatus = True
+                    
+                for x in range(int(loopqty)):
+                    print(f"Starting loop number {x+1} of {str(loopqty)}")
+                    self.num_of_txns = 22
+                    self.main(jdata, wstatus, maxinput)
+                    self.txn_id = self.send_txn(str(self.hexoutput['hex']))
+                    if self.txn_id != "":
+                        print(f"********** SUCCESS! **********\nTransaction id: {self.txn_id}")
+                        time.sleep(.25)
+                
                 print("Finished!")
         else:
-            # Windows command line has a limitation on the number of characters so we cap inputs at 26.
+            unlocktime = 60
+            # Windows command line has a 8191 character limitation so we cap combinable inputs at 22.
             if txncount >= self.num_of_txns:
                 maxtxns = self.num_of_txns
             else:
                 maxtxns = txncount
+            
             self.num_of_txns = input(f"How many transactions would you like to combine? (max {str(maxtxns)}): ")
-            if self.num_of_txns == "" or int(self.num_of_txns) <= 0 or int(self.num_of_txns) > 26:
+            if self.num_of_txns == "" or int(self.num_of_txns) <= 0 or int(self.num_of_txns) > maxtxns:
                 print("Invalid number of transactions provided!")
                 sys.exit(0)
+
             if self.unencrypted == True:
                 self.wstatus = True
             elif self.passphrase == "" and self.wstatus == False:
@@ -371,7 +374,7 @@ class DimeConsolidator:
         if int(self.num_of_txns) < 10:
             self.fee = 0.01
         else:
-            self.fee = int(self.num_of_txns) * 0.0015
+            self.fee = int(self.num_of_txns) * 0.0025
 
         if int(self.num_of_txns) > 0 and int(self.num_of_txns) < self.max_txns:
             txn_list_amnt, txn_list_noamnt = self.consolidate_txns(jdata,int(self.num_of_txns))
