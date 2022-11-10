@@ -2133,7 +2133,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CBlockUndo blockundo;
 
-    bool fCheckQueuePass = pindex->nHeight >= chainparams.GetConsensus().nFirstPoSBlock;
+    bool fCheckQueuePass = pindex->nHeight >= chainparams.GetConsensus().nFirstPoSBlock && pindex->nHeight < chainparams.GetConsensus().fullStakingOverhaul;
+
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
 
     std::vector<int> prevheights;

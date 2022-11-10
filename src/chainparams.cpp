@@ -107,6 +107,7 @@ public:
         consensus.nModifierInterval = 60 * 20;
         consensus.nCoinbaseMaturity = 60;
         consensus.fullSplitDiffHeight = 5075000;
+        consensus.fullStakingOverhaul = 5228000;
 
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
@@ -239,6 +240,7 @@ public:
         consensus.nModifierInterval = 60 * 20;
         consensus.nCoinbaseMaturity = 15;
         consensus.fullSplitDiffHeight = 0;
+        consensus.fullStakingOverhaul = 95000;
 
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
