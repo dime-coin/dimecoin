@@ -59,9 +59,11 @@ Development Notes for 2.2.0.0
 
 Changes have been made to Dimecoin Core that deal with peer connectivity and protocol forking. Peers will communicate with the appropriate protocol version to avoid confusion during IBD. 
 
+Input tests have been refactored and the fakestaking code which was no longer needed has been removed. Additional checks have been put in place to ensure outputs are signed correctly. 
+
 Changes have also been made to correct the masternode payment split when getblocktemplate is called for Proof of Work. This change will ensure MN pays are split evenly between both Proof of Stake and Proof of Work as intended. 
 
-Additionally, the `getchaintips` RPC function has been explanded to add additional chain fork height parameters for debugging purposes. 
+The `getchaintips` RPC function has been expanded to add additional chain fork height parameters for debugging purposes. 
 
 2.2.0.0 Change Log
 ------------------
@@ -74,7 +76,7 @@ Additionally, the `getchaintips` RPC function has been explanded to add addition
 
 - correct masternode payment split in getblocktemplate for POW  ['5e3168'](https://github.com/dime-coin/dimecoin/commit/5e316859cb84215b65f786ca006ea56d1988a986)
 
-- ensure outputs are correctly signed ['67708b'](https://github.com/dime-coin/dimecoin/commit/67708b444b02b5b2102b842c8c02720e7f76d688)
+- ensure outputs are signed correctly ['67708b'](https://github.com/dime-coin/dimecoin/commit/67708b444b02b5b2102b842c8c02720e7f76d688)
 
 - remove deprecated fakestake code ['1ec405'](https://github.com/dime-coin/dimecoin/commit/1ec405c9d1a397c7d2813867923de093c0d30d93)
 
@@ -84,7 +86,7 @@ Additionally, the `getchaintips` RPC function has been explanded to add addition
 
 - disable protocol forking and bump minprotocol to address forking issues ['969770'](https://github.com/dime-coin/dimecoin/commit/969770616ddf8dc0e14c89c99cc73ddfc8c6f068)
 
--avoid warning for stakemodifier, display headers while syncing ['2b24c7'](https://github.com/dime-coin/dimecoin/commit/2b24c7c522cadc74745d57f674f995416b7fde54)
+- avoid warning for stakemodifier, display headers while syncing ['2b24c7'](https://github.com/dime-coin/dimecoin/commit/2b24c7c522cadc74745d57f674f995416b7fde54)
 
 ### RPC
 
