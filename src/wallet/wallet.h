@@ -745,9 +745,6 @@ private:
     /* HD derive new child key (on internal or external chain) */
     void DeriveNewChildKey(WalletBatch &batch, CKeyMetadata& metadata, CKey& secret, bool internal = false);
 
-    bool CreateCoinStakeKernel(CScript &kernelScript, const CScript &stakeScript, unsigned int nBits, const CBlock &blockFrom, unsigned int nTxPrevOffset, const CTransactionRef &txPrev, const COutPoint &prevout, unsigned int &nTimeTx, bool fPrintProofOfStake) const;
-    void FillCoinStakePayments(CMutableTransaction &transaction, const CScript &kernelScript, const COutPoint &stakePrevout, CAmount blockReward) const;
-
     std::set<int64_t> setInternalKeyPool;
     std::set<int64_t> setExternalKeyPool;
     int64_t m_max_keypool_index = 0;
@@ -1036,10 +1033,8 @@ public:
      */
     bool CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CReserveKey& reservekey, CAmount& nFeeRet, int& nChangePosInOut,
                            std::string& strFailReason, const CCoinControl& coin_control, bool sign = true, OnTransactionToBeSigned onTxToBeSigned = OnTransactionToBeSigned());
-    bool CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CAmount blockReward,
-                         CMutableTransaction& txNew, unsigned int& nTxNewTime,
-                         std::vector<const CWalletTx *> &vwtxPrev,
-                         bool fGenerateSegwit);
+
+    bool CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CMutableTransaction &txNew, CAmount blockReward, unsigned int &nTimeTx);
     bool CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm, std::string fromAccount, CReserveKey& reservekey, CConnman* connman, CValidationState& state);
 
     void ListAccountCreditDebit(const std::string& strAccount, std::list<CAccountingEntry>& entries);
