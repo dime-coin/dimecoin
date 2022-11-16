@@ -21,6 +21,8 @@ Follow the link below for a detailed guide on how to backup your wallet:
 
   <https://www.dimecoinnetwork.com/docs/backup-desktop-wallet/>
 
+**Note**: Protocol changes will go into effect at block **5228000**. Please update your wallets/nodes prior to the block height being reached to ensure proper functionality. 
+
 If you are running an older version, shut it down. Please wait until it completely shuts down and the dialog box closes (this might take a few minutes for older versions) before making any changes. 
 
 Next, run the installer (on Windows) or just copy over `/Applications/Dimecoin-Qt` (on Mac)
@@ -87,6 +89,10 @@ Additionally, the `getchaintips` RPC function has been explanded to add addition
 ### RPC
 
 - expand 'getchaintips' rpc command to assist in fork debugging ['c43df0'](https://github.com/dime-coin/dimecoin/commit/c43df06907575a8ac6b9294ee944eab3f95e9cf8)
+
+### Utility
+
+- added window support for the iconsolidate utility and various bug fixes ['015fa3'](https://github.com/dime-coin/dimecoin/commit/015fa39c42085242b83887d0e7985dcb0dd9bcb0)
 
 Credits
 =======
