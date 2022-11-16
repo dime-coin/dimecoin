@@ -1,12 +1,11 @@
 #########################################################################
-##  DIMECOIN input consolidator v0.0.1                                 ##
-##  Created by Dalamar 6/6/2022                                        ##
+##  DIMECOIN input consolidator v0.0.2                                 ##
+##  Created by Dalamar 10/1/2022                                       ##
 ##  This utility is intended for consolidating input                   ##
 ##  transactions.                                                      ##
 ##  Calculations are delicate and can result in the loss of coin       ##
 ##  use this at your own risk!                                         ##
 #########################################################################
-
 
 import os, sys
 import json
@@ -15,7 +14,7 @@ import time, datetime
 class DimeConsolidator:
     def __init__(self):
         self.dest_wallet = ""    # Add your destination wallet here
-        self.num_of_txns = 67
+        self.num_of_txns = 66  # don't change this number
         self.max_txns = 0
         self.fee = 0
         self.txn_id = ""
@@ -24,7 +23,7 @@ class DimeConsolidator:
         self.unspentfile = "./data/unspent.json"
         self.hexoutputfile = "./data/txnhexcode.json"
         self.walletinfofile = "./data/winfo.json"
-        self.cli = "./dimecoin-cli -testnet"
+        self.cli = "../dimecoin-cli"  # The coin cli executable goes here, change this to "../dimecoin-cli -testnet"  if using testnet.
 
     def log_output(self,fname, data):
             filepath = "./data/" + fname
@@ -36,11 +35,10 @@ class DimeConsolidator:
                 fd = os.open(filepath, os.O_RDWR)
                 line = str.encode(data)
                 numBytes = os.write(fd, line)
-                print(f"Crreating {filepath} bytes:{numBytes}")
+                print(f"Creating {filepath} bytes:{numBytes}")
                 os.close(fd)
             except:
                 print("Failed to write to ./data")
-
 
     def read_json(self,filename):
         try:
@@ -51,7 +49,11 @@ class DimeConsolidator:
             print(f"There was a problem reading from: {filename}")
 
     def get_wallet_info(self):
-        command = f"{self.cli} getwalletinfo"
+        if self.testnet != False:
+            command = f"{self.pathandCli} -testnet {self.datadir} getwalletinfo"
+        else:
+            command = f"{self.pathandCli} {self.datadir} getwalletinfo"
+        print(f"executing: {command}")    
         winfo = os.popen(command)
         wallet_info = winfo.read()
         self.log_output("winfo.json", wallet_info)
@@ -90,7 +92,7 @@ class DimeConsolidator:
         return total
 
 
-    def create_txn(self,txn_list_noamnt, dest_wallet, totalamnt):
+    def create_txn(self,txn_list_noamnt, totalamnt):
         wallet_amnt = {self.dest_wallet:totalamnt}
         txn_list_noamnt = json.dumps(txn_list_noamnt)
         wallet_amnt = json.dumps(wallet_amnt)
@@ -100,10 +102,10 @@ class DimeConsolidator:
         txn_hex_code = createtxn.read()
         return txn_hex_code
 
-    def unlock_wallet(self,passphrase):
-        command = f"{self.cli} walletpassphrase {passphrase} 120"
+    def unlock_wallet(self,passphrase, unlocktime):
+        command = f"{self.cli} walletpassphrase {passphrase} {unlocktime}"
         unlock = os.popen(command)
-        print("Unlocking wallet for 120 seconds...")
+        print(f"Unlocking wallet for {str(unlocktime)} seconds...")
 
     def sign_txn(self,txn_hex_code):
         command = f"{self.cli} signrawtransactionwithwallet {txn_hex_code}"
@@ -128,36 +130,74 @@ class DimeConsolidator:
         print(txn_output)
 
     def getbalance(self):
-        command = f"{self.cli} -testnet getbalance"
+        command = f"{self.cli} getbalance"
         bal = os.popen(command)
         balance = bal.read()
         return balance
 
-    def getunspent(self):
+    def getunspent(self, maxinput):
         command = f"{self.cli} listunspent"
         unspent = os.popen(command)
-        # convert the stream to a list
+        # query all unspent transactions and convert the stream to a list
         list_unspent = unspent.read()
         self.log_output("unspent.json", list_unspent)
 
+        low_amount_list = []
+        jdata = self.read_json(self.unspentfile)
+        # parse the list of unspent transactions keeping only those under the requested amount
+        for i in range(len(jdata)):
+            if jdata[i]['amount'] <= int(maxinput):
+                low_amount_list.append(jdata[i])
+        if low_amount_list != "":
+            lowamountjson = json.dumps(low_amount_list)
+            self.log_output("unspent.json", lowamountjson)
+            jdata = self.read_json(self.unspentfile)
+            if len(jdata) <= 0:
+                print(f"Failed to find any inputs with an amount below: {str(maxinput)}")
+                sys.exit(0)
+        else:
+            print(f"Failed to find any inputs with an amount below: {str(maxinput)}")
+            sys.exit(0)
+        return jdata
+
+
     def startup(self):
+        unlocktime = 60
         balance = self.getbalance()
         print(f"Current wallet balance is: {balance}")
-        self.getunspent()
-        jdata = self.read_json(self.unspentfile)
+        maxinput = input("What is the max input amount you'd like selected to consolidate (i.e. 10000): ")
+        jdata = self.getunspent(maxinput)
         self.max_txns = int(len(jdata))
         print(f"You have {len(jdata) - 1} unspent transactions.")
-        if self.max_txns >= 670:
-            loop = input("Do you want to loop 10 times? (670 transactions) y/n: ")
+        if (len(jdata) - 1) == 0:
+            sys.exit(0)
+        # TODO: rewrite this to scale based on how many transactions exist or by how many the user specifies
+        if self.max_txns >= 1320:
+            loop = input("Do you want to loop 20 times? (1320 inputs) y/n:")
+            loopqty = 20
+        elif self.max_txns >= 660:
+            loop = input("Do you want to loop 10 times? (660 inputs) y/n: ")
+            loopqty = 10
+        elif self.max_txns >= 330:
+            loop = input("Do you want to loop 5 times? (330 inputs) y/n: ")
+            loopqty = 5
         else:
             loop = "n"
+            loopqty = 1
+            unlocktime = 60
         if loop.lower() == "y":
-            if self.passphrase != "":
+            if self.passphrase == "":
+                wstatus = self.get_wallet_info()
+            else:
+                # Using unlocktime to scale how long to unlock the wallet based on number of inputs being consolidated.
+                # The wallet needs to remain unlocked for the duration of the consolidation cycle.
+                unlocktime = loopqty * 60
+                self.unlock_wallet(self.passphrase,unlocktime)
                 wstatus = True
-            for x in range(10):
-                print(f"Starting loop number {x+1} of 10")
-                self.num_of_txns = 67
-                self.main(jdata, wstatus)
+            for x in range(loopqty):
+                print(f"Starting loop number {x+1} of {str(loopqty)}")
+                self.num_of_txns = 60
+                self.main(jdata, wstatus, maxinput)
                 self.txn_id = self.send_txn(str(self.hexoutput['hex']))
                 if self.txn_id != "":
                     print(f"********** SUCCESS! **********\nTransaction id: {self.txn_id}")
@@ -165,13 +205,16 @@ class DimeConsolidator:
             else:
                 print("Finsihed!")
         else:
-            self.num_of_txns = input("How many transactions would you like to combine? (max 67): ")
+            self.num_of_txns = input(f"How many transactions would you like to combine? (max {self.max_txns - 1}): ")
+            if self.num_of_txns == "" or int(self.num_of_txns) <= 0:
+                print("Invalid number of transactions provided!")
+                sys.exit(0)
             if self.passphrase == "":
                 wstatus = self.get_wallet_info()
             else:
-                self.unlock_wallet(self.passphrase)
+                self.unlock_wallet(self.passphrase, unlocktime)
                 wstatus = True
-            self.main(jdata,wstatus)
+            self.main(jdata,wstatus, maxinput)
 
             go = input("Make sure everything looks correct.\nProceed? y/n: ")
             if go.lower() == "y":
@@ -188,9 +231,9 @@ class DimeConsolidator:
                 sys.exit(0)
 
 
-    def main(self,jdata, wstatus):
-        self.getunspent()
-        jdata = self.read_json(self.unspentfile)
+    def main(self,jdata, wstatus, maxinput):
+        unlocktime = 60
+        jdata = self.getunspent(maxinput)
         print(f"You have {len(jdata) - 1} unspent transactions.")
         if int(self.num_of_txns) < 10:
             self.fee = 0.01
@@ -204,14 +247,14 @@ class DimeConsolidator:
             sys.exit(0)
 
         totalamnt = self.total_txn_amnts(txn_list_amnt, float(self.fee))
-        txn_hex_code = self.create_txn(txn_list_noamnt, self.dest_wallet, totalamnt)
+        txn_hex_code = self.create_txn(txn_list_noamnt, totalamnt)
         print(f"Generating Transaction Hex Code...")
 
         # Need to unlock wallet before txn can be signed
         if self.passphrase == "" or wstatus == False:
             print("We must unlock your wallet to sign the transaction.")
             self.passphrase = input("Enter your wallet passphrase:")
-            self.unlock_wallet(self.passphrase)
+            self.unlock_wallet(self.passphrase, unlocktime)
 
         print("Building transaction...")
         self.hexoutput = self.sign_txn(txn_hex_code)
