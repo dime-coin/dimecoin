@@ -52,7 +52,6 @@ The Dimecoin repo's [root README](/README.md) contains relevant information on t
 - [Developer Notes](developer-notes.md)
 - [Release Notes](release-notes-2.2.0.0.md)
 - [Release Process](release-process.md)
-- [Source Code Documentation ()]
 - [Translation Process](translation_process.md)
 - [Translation Strings Policy](translation_strings_policy.md)
 - [Unauthenticated REST Interface](REST-interface.md)
