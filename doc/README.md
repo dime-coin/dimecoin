@@ -50,15 +50,13 @@ Development
 The Dimecoin repo's [root README](/README.md) contains relevant information on the development process and automated testing.
 
 - [Developer Notes](developer-notes.md)
-- [Release Notes](release-notes.md)
+- [Release Notes](release-notes-2.2.0.0.md)
 - [Release Process](release-process.md)
-- [Source Code Documentation (External Link)]
+- [Source Code Documentation ()]
 - [Translation Process](translation_process.md)
 - [Translation Strings Policy](translation_strings_policy.md)
-- [Travis CI](travis-ci.md)
 - [Unauthenticated REST Interface](REST-interface.md)
 - [Shared Libraries](shared-libraries.md)
-- [BIPS](bips.md)
 - [Dnsseed Policy](dnsseed-policy.md)
 - [Benchmarking](benchmarking.md)
 
