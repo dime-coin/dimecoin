@@ -315,6 +315,24 @@ bool IsTestnet()
     return Params().NetworkIDString() == CBaseChainParams::TESTNET;
 }
 
+bool GetOriginUTXOHeight(int& height, const uint256& txhash)
+{
+    uint256 blockhash{};
+    CTransactionRef origintx;
+    if (!g_txindex->FindTx(txhash, blockhash, origintx)) {
+        LogPrintf("%s: couldnt find origin tx %s\n", __func__, txhash.ToString());
+        return false;
+    }
+
+    BlockMap::iterator it = mapBlockIndex.find(blockhash);
+    if (it != mapBlockIndex.end()) {
+        height = it->second->nHeight;
+        return true;
+    }
+
+    return false;
+}
+
 bool CheckFinalTx(const CTransaction &tx, int flags)
 {
     AssertLockHeld(cs_main);
@@ -1457,7 +1475,18 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight)
 bool CScriptCheck::operator()() {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
     const CScriptWitness *witness = &ptxTo->vin[nIn].scriptWitness;
-    return VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *txdata), &error);
+    bool check = VerifyScript(scriptSig, m_tx_out.scriptPubKey, witness, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, m_tx_out.nValue, cacheStore, *txdata), &error);
+    if (!check) {
+        int lastSpendHeight;
+        const uint256& prevhash = ptxTo->vin[nIn].prevout.hash;
+        if (GetOriginUTXOHeight(lastSpendHeight, prevhash)) {
+            if (lastSpendHeight < Params().GetConsensus().fullStakingOverhaul) {
+                LogPrintf("%s: last spent height was %d, allowing override once\n", __func__, lastSpendHeight);
+                check = true;
+            }
+        }
+    }
+    return check;
 }
 
 int GetSpendHeight(const CCoinsViewCache& inputs)
