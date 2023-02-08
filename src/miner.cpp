@@ -602,7 +602,15 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
     std::shared_ptr<CReserveScript> coinbaseScript;
     pwallet->GetScriptForMining(coinbaseScript);
 
-    while (true) {
+    while (true)
+    {
+        if (IsInitialBlockDownload()) {
+            MilliSleep(100);
+            if (ShutdownRequested()) {
+                return;
+            }
+        }
+
         try {
 
             if (fProofOfStake)
