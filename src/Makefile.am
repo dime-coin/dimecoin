@@ -244,6 +244,7 @@ libdimecoin_server_a_SOURCES = \
   masternode/activemasternode.cpp \
   addrdb.cpp \
   addrman.cpp \
+  badinputs.cpp \
   bloom.cpp \
   blocksigner.cpp \
   blockencodings.cpp \
@@ -322,6 +323,7 @@ endif
 libdimecoin_wallet_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)
 libdimecoin_wallet_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdimecoin_wallet_a_SOURCES = \
+  badinputs.cpp \
   outputtype.cpp \
   interfaces/wallet.cpp \
   wallet/coincontrol.cpp \
