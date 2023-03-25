@@ -6,7 +6,6 @@
 
 #include <wallet/wallet.h>
 
-#include <badinputs.h>
 #include <checkpoints.h>
 #include <chain.h>
 #include <wallet/coincontrol.h>
@@ -3404,10 +3403,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CMu
     CScript scriptPubKeyKernel;
     for (const auto& pcoin : setCoins)
     {
-        if (is_prevout_bad(pcoin.outpoint)) {
-            continue;
-        }
-
         uint256 blockhash;
         CTransactionRef tx;
         if (!GetTransaction(pcoin.outpoint.hash, tx, params, blockhash, true)) {

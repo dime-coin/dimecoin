@@ -7,7 +7,6 @@
 #include <miner.h>
 
 #include <amount.h>
-#include <badinputs.h>
 #include <chain.h>
 #include <chainparams.h>
 #include <coins.h>
@@ -291,9 +290,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     // checking foundation payments at this stage will give errors, bypass when called by CreateNewBlock
     CValidationState state;
     if (!TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false, false)) {
-        if (fProofOfStake) {
-            record_bad_prevout(pblock->vtx[1]->vin[0].prevout);
-        }
         throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
     }
     int64_t nTime2 = GetTimeMicros();

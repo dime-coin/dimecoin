@@ -76,7 +76,6 @@ struct Params {
     int BIP66Height;
     /** Block height at which full split diff retargeter becomes active */
     int fullSplitDiffHeight;
-    int fullStakingOverhaul;
 
     /**
      * Minimum blocks including miner confirmation of the total of 2016 blocks in a retargeting period,
