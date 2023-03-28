@@ -3399,6 +3399,10 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CMu
         return false;
     if (setCoins.empty())
         return false;
+
+    uint256 bestHash;
+    memset(&bestHash, 0xff, sizeof(bestHash));
+
     CAmount nCredit = 0;
     CScript scriptPubKeyKernel;
     for (const auto& pcoin : setCoins)
@@ -3426,7 +3430,12 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CMu
             uint256 hashProofOfStake = uint256();
             COutPoint prevoutStake = pcoin.outpoint;
             bool valid = CheckStakeKernelHash(nBits, header, sizeof(CBlock), tx, prevoutStake, nTimeTx - n, hashProofOfStake);
-            LogPrintf("%d %s\n", valid, hashProofOfStake.ToString().c_str());
+
+            if (UintToArith256(hashProofOfStake) < UintToArith256(bestHash)) {
+                LogPrintf("%s\n", hashProofOfStake.ToString().c_str());
+                bestHash = hashProofOfStake;
+            }
+
             if (valid)
             {
                 // Found a kernel
