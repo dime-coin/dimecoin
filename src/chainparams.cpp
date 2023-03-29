@@ -361,7 +361,6 @@ public:
         consensus.nModifierInterval = 60 * 20;
         consensus.nCoinbaseMaturity = 15;
         consensus.fullSplitDiffHeight = 0;
-        consensus.posStart = 0;
 
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
