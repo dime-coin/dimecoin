@@ -1,12 +1,10 @@
 ---
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
-assignees: ''
-timestamptz: ''
-=======
-
+name: "Bug report"
+description: "Create a report to help us improve"
+title: ""
+labels: ""
+assignees: ""
+timestamptz: ""
 ---
 
 <!-- This issue tracker is only for technical issues related to Dimecoin Core.
