@@ -2481,13 +2481,7 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
             if(!IsCorrectType(pcoin->tx->vout[i].nValue, nCoinType))
                 continue;
 
-            if(nCoinType == ONLY_MASTERNODE_COLLATERAL)
-	        continue;
-
             if (pcoin->tx->vout[i].nValue < nMinimumAmount || pcoin->tx->vout[i].nValue > nMaximumAmount)
-                continue;
-
-            if (IsCollateralAmount(pcoin->tx->vout[i].nValue))
                 continue;
 
             if (coinControl && coinControl->HasSelected() && !coinControl->fAllowOtherInputs && !coinControl->IsSelected(COutPoint(entry.first, i)))
