@@ -3409,6 +3409,18 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CMu
     CScript scriptPubKeyKernel;
     for (const auto& pcoin : setCoins)
     {
+        // skip collateral-like amounts
+        if (IsCollateralAmount(pcoin.txout.nValue)) {
+            LogPrintf("skipping collateral like amount %llu DIME (outpoint %s / %d)\n", pcoin.txout.nValue / COIN, pcoin.outpoint.hash.ToString().c_str(), pcoin.outpoint.n);
+            continue;
+        }
+
+        // skip wallet-locked coins
+        if (IsLockedCoin(pcoin.outpoint.hash, pcoin.outpoint.n)) {
+            LogPrintf("skipping locked output of amount %llu DIME (outpoint %s / %d)\n", pcoin.txout.nValue / COIN, pcoin.outpoint.hash.ToString().c_str(), pcoin.outpoint.n);
+            continue;
+        }
+
         uint256 blockhash;
         CTransactionRef tx;
         if (!GetTransaction(pcoin.outpoint.hash, tx, params, blockhash, true)) {
