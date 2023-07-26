@@ -3373,8 +3373,10 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CMu
     bool bnb_used;
     CCoinControl coin_control;
     CoinSelectionParams coin_selection_params;
-    if (!SelectCoins(vAvailableCoins, nBalance - nReserveBalance, setCoins, nValueIn, coin_control, coin_selection_params, bnb_used))
-        return false;
+
+    for (auto& l : vAvailableCoins) {
+        setCoins.insert(CInputCoin(l.tx->tx, l.i));
+    }
     if (setCoins.empty())
         return false;
 
