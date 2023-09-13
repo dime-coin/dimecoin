@@ -107,7 +107,7 @@ public:
         consensus.nModifierInterval = 60 * 20;
         consensus.nCoinbaseMaturity = 60;
         consensus.fullSplitDiffHeight = 5075000;
-        consensus.posStart = std::numeric_limits<int>::max();
+        consensus.posStart = 5500000;
 
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
