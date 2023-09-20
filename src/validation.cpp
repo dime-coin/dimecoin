@@ -315,6 +315,24 @@ bool IsTestnet()
     return Params().NetworkIDString() == CBaseChainParams::TESTNET;
 }
 
+bool GetOriginUTXOHeight(int& height, const uint256& txhash)
+{
+    uint256 blockhash{};
+    CTransactionRef origintx;
+    if (!g_txindex->FindTx(txhash, blockhash, origintx)) {
+        LogPrintf("%s: couldnt find origin tx %s\n", __func__, txhash.ToString());
+        return false;
+    }
+
+    BlockMap::iterator it = mapBlockIndex.find(blockhash);
+    if (it != mapBlockIndex.end()) {
+        height = it->second->nHeight;
+        return true;
+    }
+
+    return false;
+}
+
 bool CheckFinalTx(const CTransaction &tx, int flags)
 {
     AssertLockHeld(cs_main);
@@ -1506,6 +1524,10 @@ void ReprocessBlocks(int nBlocks)
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks)
 {
+    if (tx.IsCoinStake()) {
+        return true;
+    }
+
     if (!tx.IsCoinBase())
     {
         if (pvChecks)
@@ -2133,8 +2155,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CBlockUndo blockundo;
 
-    bool fCheckQueuePass = pindex->nHeight >= chainparams.GetConsensus().nFirstPoSBlock && pindex->nHeight < chainparams.GetConsensus().fullStakingOverhaul;
-
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && nScriptCheckThreads ? &scriptcheckqueue : nullptr);
 
     std::vector<int> prevheights;
@@ -2158,7 +2178,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!tx.IsCoinBase())
         {
             CAmount txfee = 0;
-            if (!fCheckQueuePass && !Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
+            if (!Consensus::CheckTxInputs(tx, state, view, pindex->nHeight, txfee)) {
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
             }
             nFees += txfee;
@@ -2199,7 +2219,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
-            if (!fCheckQueuePass && !CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
+            if (!CheckInputs(tx, state, view, fScriptChecks, flags, fCacheResults, fCacheResults, txdata[i], nScriptCheckThreads ? &vChecks : nullptr))
                 return error("ConnectBlock(): CheckInputs on %s failed with %s",
                              tx.GetHash().ToString(), FormatStateMessage(state));
             control.Add(vChecks);
@@ -3306,17 +3326,6 @@ static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state,
 {
     const bool isPoS = !block.nNonce;
 
-    //! genesis has no prevblock
-    if (block.GetBlockTime() == Params().GenesisBlock().GetBlockTime()) {
-        return true;
-    }
-
-    //! simple test we can do for PoS headers
-    CBlockIndex *pindex = mapBlockIndex[block.hashPrevBlock];
-    if (!pindex) {
-        return state.DoS(0, false, REJECT_INVALID, "prev-header", false, "non-continous headers");
-    }
-
     //! standard test for PoW headers
     if (!isPoS && fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams)) {
         return state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
@@ -3797,13 +3806,15 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     CBlockIndex *pindexDummy = nullptr;
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
 
+    // Get prev block index
+    CBlockIndex* pindexPrev = nullptr;
+    BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
+    if (mi == mapBlockIndex.end())
+        return state.DoS(10, error("%s: prev block not found", __func__), 0, "prev-blk-not-found");
+    pindexPrev = (*mi).second;
+
     if (!AcceptBlockHeader(block, state, chainparams, &pindex))
         return false;
-
-    // peercoin: we should only accept blocks that can be connected to a prev block with validated PoS
-    if (pindex->pprev && !pindex->pprev->IsValid(BLOCK_VALID_TRANSACTIONS)) {
-        return error("%s: this block does not connect to any valid known block", __func__);
-    }
 
     // Try to process all requested blocks that we don't have, but only
     // process an unrequested block if it's new and has enough work to

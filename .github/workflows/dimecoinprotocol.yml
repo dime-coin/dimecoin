@@ -1,55 +1,38 @@
-name: 'build dimecoinprotocol (x86_64-linux-gnu)'
+name: 'Build & Check Dime Protocol(x86_64-linux-gnu): No QT & No Tests'
 
 on: [push]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
         matrix:
           os: [x86_64-linux-gnu]
 
     steps:
       - uses: actions/checkout@v2
+      
+      - name: Get Dependencies
+        run:  sudo apt update && sudo apt-get install build-essential libtool autotools-dev automake pkg-config libssl-dev libevent-dev bsdmainutils python3 libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev libboost-dev libsqlite3-dev libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools libqrencode-dev software-properties-common pandoc
+      
+      - name: Install BerkleyDB
+        run: ./contrib/install_db4.sh `pwd` --enable-cxx
 
-      - name: Cache apt depencenies
-        uses: actions/cache@v2
-        id: cache-apt
-        with:
-          path: "~/apt-cache"
-          key: apt-cache
-
-      - name: Cache depends
-        id: cache-dependencies
-        uses: actions/cache@v2
-        with:
-          path: depends/${{ matrix.os }}
-          key: ${{ matrix.os }}-${{ hashFiles('depends/packages/*.mk') }}
-
-      - name: Install dependencies
-        env:
-          CACHE_HIT: ${{steps.cache-apt.outputs.cache-hit}}
-          DEPS: build-essential libtool autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache bsdmainutils
-        run: |
-          if [[ "$CACHE_HIT" == 'true' ]]; then
-            sudo cp --force --recursive ~/apt-cache/* /
-          else
-            sudo apt-get update && sudo apt-get install -yq $DEPS
-            mkdir -p ~/apt-cache
-            for dep in $DEPS; do
-                dpkg -L $dep | while IFS= read -r f; do if test -f $f; then echo $f; fi; done | xargs cp --parents --target-directory ~/apt-cache/
-            done
-          fi
-
-      - name: Build depends
-        if: steps.cache-dependencies.outputs.cache-hit != 'true' && steps.cache-apt.outputs.cache-hit != 'true'
-        run: cd depends/ && make -j4 HOST=${{matrix.os}}
-
-      - name: Refresh automake configs
+      - name: Auto Generate
         run: ./autogen.sh
 
-      - name: Configure automake
-        run: ./configure --prefix=`pwd`/depends/${{ matrix.os }}
+      - name: Configure
+        run: export BDB_PREFIX="${PWD}/db4" && ./configure BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" BDB_CFLAGS="-I${BDB_PREFIX}/include" --without-gui --disable-tests
 
-      - name: Build codebase
+      - name: Make
         run: make -j4
+
+      - name: Make Check
+        run: make check
+
+      - name: Upload Test Suite Log
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: test-suite-log
+          path: /src/test-suite.log
