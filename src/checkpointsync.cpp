@@ -211,12 +211,18 @@ bool CheckSyncCheckpoint(const uint256 hashBlock, const int nHeight, const CBloc
         }
     }
 
-    const CBlockIndex* pindexSync;
+    const CBlockIndex* pindexSync = nullptr;
     {
         LOCK2(cs_main, cs_hashSyncCheckpoint);
-        // sync-checkpoint should always be accepted block
-        assert(mapBlockIndex.count(hashSyncCheckpoint));
-        pindexSync = mapBlockIndex[hashSyncCheckpoint];
+        // After a non-graceful shutdown the latest checkpoint block
+        // may not be in mapBlockIndex yet. Defer enforcement until it is.
+        auto it = mapBlockIndex.find(hashSyncCheckpoint);
+        if (it == mapBlockIndex.end()) {
+            LogPrintf("%s: checkpoint block index for %s not yet available, deferring enforcement\n",
+                    __func__, hashSyncCheckpoint.ToString());
+            return true;
+        }
+        pindexSync = it->second;
     }
 
     {
