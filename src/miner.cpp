@@ -196,6 +196,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
 
+    if (fProofOfStake && nHeight < chainparams.GetConsensus().posStart) {
+        return nullptr;
+    }
+
     pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
     // -regtest only: allow overriding block.nVersion with
     // -blockversion=N to test forking scenarios
@@ -602,7 +606,15 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
     std::shared_ptr<CReserveScript> coinbaseScript;
     pwallet->GetScriptForMining(coinbaseScript);
 
-    while (true) {
+    while (true)
+    {
+        if (IsInitialBlockDownload()) {
+            MilliSleep(100);
+            if (ShutdownRequested()) {
+                return;
+            }
+        }
+
         try {
 
             if (fProofOfStake)
