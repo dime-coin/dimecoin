@@ -116,7 +116,7 @@ bool WalletBatch::EraseWatchOnly(const CScript &dest)
 
 bool WalletBatch::WriteBestBlock(const CBlockLocator& locator)
 {
-    WriteIC(std::string("bestblock"), CBlockLocator()); // Write empty block locator so versions that require a merkle branch automatically rescan
+    if (!WriteIC(std::string("bestblock"), CBlockLocator())) return false;
     return WriteIC(std::string("bestblock_nomerkle"), locator);
 }
 

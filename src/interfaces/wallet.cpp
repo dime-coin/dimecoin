@@ -348,7 +348,7 @@ public:
         result.immature_balance = m_wallet.GetImmatureBalance();
         result.have_watch_only = m_wallet.HaveWatchOnly();
         if (result.have_watch_only) {
-            result.watch_only_balance = m_wallet.GetBalance();
+            result.watch_only_balance = m_wallet.GetWatchOnlyBalance();
             result.unconfirmed_watch_only_balance = m_wallet.GetUnconfirmedWatchOnlyBalance();
             result.immature_watch_only_balance = m_wallet.GetImmatureWatchOnlyBalance();
         }
@@ -477,13 +477,13 @@ public:
     {
         CMasternodeBroadcast mnb;
         bool fSuccess = CMasternodeBroadcast::Create(&m_wallet, strService, strKeyMasternode, strTxHash, strOutputIndex, strErrorRet, mnb);
-        if(fSuccess)
+        if(fSuccess && g_connman)
         {
             mnodeman.UpdateMasternodeList(mnb, *g_connman);
             mnb.Relay(*g_connman);
             mnodeman.NotifyMasternodeUpdates(*g_connman);
         }
-        return true;
+        return fSuccess;
     }
     std::shared_ptr<CWallet> m_shared_wallet;
     CWallet& m_wallet;

@@ -209,7 +209,7 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
     };
 
     std::string strCommandTerminated = strCommand;
-    if (strCommandTerminated.back() != '\n')
+    if (strCommandTerminated.empty() || strCommandTerminated.back() != '\n')
         strCommandTerminated += "\n";
     for (chpos = 0; chpos < strCommandTerminated.size(); ++chpos)
     {
@@ -310,7 +310,7 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                         curarg.clear();
                         state = STATE_EATING_SPACES_IN_BRACKETS;
                     }
-                    if ((ch == ')' || ch == '\n') && stack.size() > 0)
+                    if ((ch == ')' || ch == '\n') && stack.size() > 0 && !stack.back().empty())
                     {
                         if (fExecute) {
                             // Convert argument list to JSON objects in method-dependent way,

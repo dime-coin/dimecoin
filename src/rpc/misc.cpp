@@ -495,7 +495,11 @@ UniValue getstakingstatus(const JSONRPCRequest& request)
     CWallet * const pwalletMain = GetWalletForJSONRPCRequest(request);
 
     UniValue obj(UniValue::VOBJ);
-    obj.push_back(Pair("validtime", chainActive.Tip()->nTime > 1471482000));
+    {
+        LOCK(cs_main);
+        CBlockIndex* tip = chainActive.Tip();
+        obj.push_back(Pair("validtime", tip && tip->nTime > 1471482000));
+    }
     obj.push_back(Pair("haveconnections", g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL) > 0));
     if (pwalletMain) {
         obj.push_back(Pair("walletunlocked", !pwalletMain->IsLocked()));

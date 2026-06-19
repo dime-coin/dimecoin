@@ -6,6 +6,8 @@
 
 #include <txmempool.h>
 
+#include <algorithm>
+
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
@@ -42,9 +44,10 @@ CTxMemPoolEntry::CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFe
 
 void CTxMemPoolEntry::UpdateFeeDelta(int64_t newFeeDelta)
 {
-    nModFeesWithDescendants += newFeeDelta - feeDelta;
-    nModFeesWithAncestors += newFeeDelta - feeDelta;
-    feeDelta = newFeeDelta;
+    CAmount safeNewFeeDelta = std::max<CAmount>(-MAX_MONEY, std::min<CAmount>(MAX_MONEY, newFeeDelta));
+    nModFeesWithDescendants += safeNewFeeDelta - feeDelta;
+    nModFeesWithAncestors += safeNewFeeDelta - feeDelta;
+    feeDelta = safeNewFeeDelta;
 }
 
 void CTxMemPoolEntry::UpdateLockPoints(const LockPoints& lp)

@@ -1023,8 +1023,10 @@ void CGovernanceManager::CheckMasternodeOrphanObjects(CConnman& connman)
         }
 
         auto it_count = mapMasternodeOrphanCounter.find(govobj.GetMasternodeVin().prevout);
-        if(--it_count->second == 0)
-            mapMasternodeOrphanCounter.erase(it_count);
+        if(it_count != mapMasternodeOrphanCounter.end()) {
+            if(--it_count->second == 0)
+                mapMasternodeOrphanCounter.erase(it_count);
+        }
 
         mapMasternodeOrphanObjects.erase(it++);
     }

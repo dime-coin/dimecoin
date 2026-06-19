@@ -106,7 +106,8 @@ static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
     {
         entry.pushKV("blockhash", wtx.hashBlock.GetHex());
         entry.pushKV("blockindex", wtx.nIndex);
-        entry.pushKV("blocktime", LookupBlockIndex(wtx.hashBlock)->GetBlockTime());
+        const CBlockIndex* pindex = LookupBlockIndex(wtx.hashBlock);
+        if (pindex) entry.pushKV("blocktime", pindex->GetBlockTime());
     } else {
         entry.pushKV("trusted", wtx.IsTrusted());
     }
@@ -578,6 +579,8 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     {
         amountOfSplits = request.params[4].get_int();
     }
+    if (amountOfSplits <= 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid split count; must be >= 1");
 
     bool fSubtractFeeFromAmount = false;
     if (!request.params[5].isNull()) {
@@ -2514,14 +2517,15 @@ static UniValue walletpassphrase(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() != 2) {
+    if (request.fHelp || request.params.size() < 2 || request.params.size() > 3) {
         throw std::runtime_error(
-                    "walletpassphrase \"passphrase\" timeout\n"
+                    "walletpassphrase \"passphrase\" timeout (stakingOnly)\n"
                     "\nStores the wallet decryption key in memory for 'timeout' seconds.\n"
                     "This is needed prior to performing transactions related to private keys such as sending bitcoins\n"
                     "\nArguments:\n"
                     "1. \"passphrase\"     (string, required) The wallet passphrase\n"
                     "2. timeout            (numeric, required) The time to keep the decryption key in seconds; capped at 100000000 (~3 years).\n"
+                    "3. stakingOnly        (boolean, optional) Unlock for staking only\n"
                     "\nNote:\n"
                     "Issuing the walletpassphrase command while the wallet is already unlocked will set a new unlock\n"
                     "time that overrides the old one.\n"
@@ -3192,49 +3196,47 @@ static UniValue listunspent(const JSONRPCRequest& request)
     {
         LOCK2(cs_main, pwallet->cs_wallet);
         pwallet->AvailableCoins(vecOutputs, !include_unsafe, nullptr, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount, nMinDepth, nMaxDepth);
-    }
 
-    LOCK(pwallet->cs_wallet);
+        for (const COutput& out : vecOutputs) {
+            CTxDestination address;
+            const CScript& scriptPubKey = out.tx->tx->vout[out.i].scriptPubKey;
+            bool fValidAddress = ExtractDestination(scriptPubKey, address);
 
-    for (const COutput& out : vecOutputs) {
-        CTxDestination address;
-        const CScript& scriptPubKey = out.tx->tx->vout[out.i].scriptPubKey;
-        bool fValidAddress = ExtractDestination(scriptPubKey, address);
+            if (destinations.size() && (!fValidAddress || !destinations.count(address)))
+                continue;
 
-        if (destinations.size() && (!fValidAddress || !destinations.count(address)))
-            continue;
+            UniValue entry(UniValue::VOBJ);
+            entry.pushKV("txid", out.tx->GetHash().GetHex());
+            entry.pushKV("vout", out.i);
 
-        UniValue entry(UniValue::VOBJ);
-        entry.pushKV("txid", out.tx->GetHash().GetHex());
-        entry.pushKV("vout", out.i);
+            if (fValidAddress) {
+                entry.pushKV("address", EncodeDestination(address));
 
-        if (fValidAddress) {
-            entry.pushKV("address", EncodeDestination(address));
+                auto i = pwallet->mapAddressBook.find(address);
+                if (i != pwallet->mapAddressBook.end()) {
+                    entry.pushKV("label", i->second.name);
+                    if (IsDeprecatedRPCEnabled("accounts")) {
+                        entry.pushKV("account", i->second.name);
+                    }
+                }
 
-            auto i = pwallet->mapAddressBook.find(address);
-            if (i != pwallet->mapAddressBook.end()) {
-                entry.pushKV("label", i->second.name);
-                if (IsDeprecatedRPCEnabled("accounts")) {
-                    entry.pushKV("account", i->second.name);
+                if (scriptPubKey.IsPayToScriptHash()) {
+                    const CScriptID& hash = boost::get<CScriptID>(address);
+                    CScript redeemScript;
+                    if (pwallet->GetCScript(hash, redeemScript)) {
+                        entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
+                    }
                 }
             }
 
-            if (scriptPubKey.IsPayToScriptHash()) {
-                const CScriptID& hash = boost::get<CScriptID>(address);
-                CScript redeemScript;
-                if (pwallet->GetCScript(hash, redeemScript)) {
-                    entry.pushKV("redeemScript", HexStr(redeemScript.begin(), redeemScript.end()));
-                }
-            }
+            entry.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
+            entry.pushKV("amount", ValueFromAmount(out.tx->tx->vout[out.i].nValue));
+            entry.pushKV("confirmations", out.nDepth);
+            entry.pushKV("spendable", out.fSpendable);
+            entry.pushKV("solvable", out.fSolvable);
+            entry.pushKV("safe", out.fSafe);
+            results.push_back(entry);
         }
-
-        entry.pushKV("scriptPubKey", HexStr(scriptPubKey.begin(), scriptPubKey.end()));
-        entry.pushKV("amount", ValueFromAmount(out.tx->tx->vout[out.i].nValue));
-        entry.pushKV("confirmations", out.nDepth);
-        entry.pushKV("spendable", out.fSpendable);
-        entry.pushKV("solvable", out.fSolvable);
-        entry.pushKV("safe", out.fSafe);
-        results.push_back(entry);
     }
 
     return results;

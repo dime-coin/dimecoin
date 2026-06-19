@@ -1182,17 +1182,24 @@ void CMasternodeMan::ProcessVerifyReply(CNode* pnode, CMasternodeVerification& m
     }
 
     // Received nonce for a known address must match the one we sent
-    if(mWeAskedForVerification[pnode->addr].nonce != mnv.nonce) {
+    auto itAskedForVerification = mWeAskedForVerification.find(pnode->addr);
+    if(itAskedForVerification == mWeAskedForVerification.end()) {
+        LogPrintf("CMasternodeMan::ProcessVerifyReply -- ERROR: we didn't ask for verification of %s, peer=%d\n", pnode->addr.ToString(), pnode->GetId());
+        Misbehaving(pnode->GetId(), 20);
+        return;
+    }
+
+    if(itAskedForVerification->second.nonce != mnv.nonce) {
         LogPrintf("CMasternodeMan::ProcessVerifyReply -- ERROR: wrong nounce: requested=%d, received=%d, peer=%d\n",
-                  mWeAskedForVerification[pnode->addr].nonce, mnv.nonce, pnode->GetId());
+                  itAskedForVerification->second.nonce, mnv.nonce, pnode->GetId());
         Misbehaving(pnode->GetId(), 20);
         return;
     }
 
     // Received nBlockHeight for a known address must match the one we sent
-    if(mWeAskedForVerification[pnode->addr].nBlockHeight != mnv.nBlockHeight) {
+    if(itAskedForVerification->second.nBlockHeight != mnv.nBlockHeight) {
         LogPrintf("CMasternodeMan::ProcessVerifyReply -- ERROR: wrong nBlockHeight: requested=%d, received=%d, peer=%d\n",
-                  mWeAskedForVerification[pnode->addr].nBlockHeight, mnv.nBlockHeight, pnode->GetId());
+                  itAskedForVerification->second.nBlockHeight, mnv.nBlockHeight, pnode->GetId());
         Misbehaving(pnode->GetId(), 20);
         return;
     }

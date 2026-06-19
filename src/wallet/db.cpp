@@ -86,8 +86,13 @@ BerkeleyEnvironment* GetWalletEnv(const fs::path& wallet_path, std::string& data
 
 void BerkeleyEnvironment::Close()
 {
-    if (!fDbEnvInit)
+    if (!fDbEnvInit) {
+        if (m_err_file) {
+            fclose(m_err_file);
+            m_err_file = nullptr;
+        }
         return;
+    }
 
     fDbEnvInit = false;
 
@@ -104,6 +109,10 @@ void BerkeleyEnvironment::Close()
     int ret = dbenv->close(0);
     if (ret != 0)
         LogPrintf("BerkeleyEnvironment::EnvShutdown: Error %d shutting down database environment: %s\n", ret, DbEnv::strerror(ret));
+    if (m_err_file) {
+        fclose(m_err_file);
+        m_err_file = nullptr;
+    }
     if (!fMockDb)
         DbEnv((u_int32_t)0).remove(strPath.c_str(), 0);
 }
@@ -154,7 +163,8 @@ bool BerkeleyEnvironment::Open(bool retry)
     dbenv->set_lg_max(1048576);
     dbenv->set_lk_max_locks(40000);
     dbenv->set_lk_max_objects(40000);
-    dbenv->set_errfile(fsbridge::fopen(pathErrorFile, "a")); /// debug
+    m_err_file = fsbridge::fopen(pathErrorFile, "a");
+    dbenv->set_errfile(m_err_file); /// debug
     dbenv->set_flags(DB_AUTO_COMMIT, 1);
     dbenv->set_flags(DB_TXN_WRITE_NOSYNC, 1);
     dbenv->log_set_config(DB_LOG_AUTO_REMOVE, 1);
@@ -170,6 +180,10 @@ bool BerkeleyEnvironment::Open(bool retry)
                          S_IRUSR | S_IWUSR);
     if (ret != 0) {
         dbenv->close(0);
+        if (m_err_file) {
+            fclose(m_err_file);
+            m_err_file = nullptr;
+        }
         LogPrintf("BerkeleyEnvironment::Open: Error %d opening database environment: %s\n", ret, DbEnv::strerror(ret));
         if (retry) {
             // try moving the database env out of the way
@@ -292,6 +306,11 @@ bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, boo
     }
 
     DbTxn* ptxn = env->TxnBegin();
+    if (!ptxn) {
+        LogPrintf("Cannot create database transaction for %s\n", filename);
+        pdbCopy->close(0);
+        return false;
+    }
     for (BerkeleyEnvironment::KeyValPair& row : salvagedData)
     {
         if (recoverKVcallback)

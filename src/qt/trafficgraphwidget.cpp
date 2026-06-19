@@ -125,11 +125,13 @@ void TrafficGraphWidget::paintEvent(QPaintEvent *)
 void TrafficGraphWidget::updateRates()
 {
     if(!clientModel) return;
+    int iv = timer->interval();
+    if (iv <= 0) return;
 
     quint64 bytesIn = clientModel->node().getTotalBytesRecv(),
             bytesOut = clientModel->node().getTotalBytesSent();
-    float inRate = (bytesIn - nLastBytesIn) / 1024.0f * 1000 / timer->interval();
-    float outRate = (bytesOut - nLastBytesOut) / 1024.0f * 1000 / timer->interval();
+    float inRate = (bytesIn - nLastBytesIn) / 1024.0f * 1000 / iv;
+    float outRate = (bytesOut - nLastBytesOut) / 1024.0f * 1000 / iv;
     vSamplesIn.push_front(inRate);
     vSamplesOut.push_front(outRate);
     nLastBytesIn = bytesIn;

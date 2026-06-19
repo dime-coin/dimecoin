@@ -282,6 +282,8 @@ bool CMasternodePaymentVote::Sign()
 
 bool CMasternodePayments::GetBlockPayee(int nBlockHeight, CScript& payee)
 {
+    LOCK(cs_mapMasternodeBlocks);
+
     if(mapMasternodeBlocks.count(nBlockHeight)){
         return mapMasternodeBlocks[nBlockHeight].GetBestPayee(payee);
     }

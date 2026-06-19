@@ -535,7 +535,7 @@ UniValue importwallet(const JSONRPCRequest& request)
         if (!file.is_open()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");
         }
-        nTimeBegin = chainActive.Tip()->GetBlockTime();
+        nTimeBegin = chainActive.Tip() ? chainActive.Tip()->GetBlockTime() : 0;
 
         int64_t nFilesize = std::max((int64_t)1, (int64_t)file.tellg());
         file.seekg(0, file.beg);
@@ -716,6 +716,10 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     if (!file.is_open())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");
 
+    const CBlockIndex* tip = chainActive.Tip();
+    if (!tip)
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Chain has no tip");
+
     std::map<CTxDestination, int64_t> mapKeyBirth;
     const std::map<CKeyID, int64_t>& mapKeyPool = pwallet->GetAllReserveKeys();
     pwallet->GetKeyBirthTimes(mapKeyBirth);
@@ -736,8 +740,8 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     // produce output
     file << strprintf("# Wallet dump created by Dimecoin %s\n", CLIENT_BUILD);
     file << strprintf("# * Created on %s\n", FormatISO8601DateTime(GetTime()));
-    file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), chainActive.Tip()->GetBlockHash().ToString());
-    file << strprintf("#   mined on %s\n", FormatISO8601DateTime(chainActive.Tip()->GetBlockTime()));
+    file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), tip->GetBlockHash().ToString());
+    file << strprintf("#   mined on %s\n", FormatISO8601DateTime(tip->GetBlockTime()));
     file << "\n";
 
     // add the base58check encoded extended master if the wallet uses HD

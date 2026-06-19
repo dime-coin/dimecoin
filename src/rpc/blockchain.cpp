@@ -183,7 +183,10 @@ static UniValue getbestblockhash(const JSONRPCRequest& request)
         );
 
     LOCK(cs_main);
-    return chainActive.Tip()->GetBlockHash().GetHex();
+    CBlockIndex* tip = chainActive.Tip();
+    if (!tip)
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Chain has no tip");
+    return tip->GetBlockHash().GetHex();
 }
 
 void RPCNotifyBlockChange(bool ibd, const CBlockIndex * pindex)
@@ -1185,21 +1188,23 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     CBlockIndex* tip = chainActive.Tip();
+    if (!tip)
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Chain has no tip");
     const Consensus::Params& consensusParams = Params().GetConsensus();
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("chain",                 Params().NetworkIDString());
     obj.pushKV("blocks",                (int)chainActive.Height());
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
-    obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
+    obj.pushKV("bestblockhash",         tip->GetBlockHash().GetHex());
     UniValue diff(UniValue::VOBJ);
     diff.pushKV("proof-of-work",(double)GetDifficulty(GetNextWorkRequired(tip,consensusParams,false)));
     diff.pushKV("proof-of-stake",(double)GetDifficulty(GetNextWorkRequired(tip,consensusParams,true)));
     obj.pushKV("difficulty", diff);
-    obj.pushKV("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast());
-    obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), chainActive.Tip()));
+    obj.pushKV("mediantime",            (int64_t)tip->GetMedianTimePast());
+    obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), tip));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
-    obj.pushKV("chainwork",             chainActive.Tip()->nChainWork.GetHex());
+    obj.pushKV("chainwork",             tip->nChainWork.GetHex());
     obj.pushKV("size_on_disk",          CalculateCurrentUsage());
 
     UniValue softforks(UniValue::VARR);
@@ -1545,7 +1550,8 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
         }
     }
 
-    assert(pindex != nullptr);
+    if (!pindex)
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Chain has no tip");
 
     if (request.params[0].isNull()) {
         blockcount = std::max(0, std::min(blockcount, pindex->nHeight - 1));

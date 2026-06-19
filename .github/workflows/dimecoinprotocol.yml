@@ -2,6 +2,9 @@ name: 'Build & Check Dime Protocol(x86_64-linux-gnu): No QT & No Tests'
 
 on: [push]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-22.04

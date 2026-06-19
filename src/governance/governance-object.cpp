@@ -732,6 +732,12 @@ void CGovernanceObject::swap(CGovernanceObject& first, CGovernanceObject& second
     swap(first.fCachedEndorsed, second.fCachedEndorsed);
     swap(first.fDirtyCache, second.fDirtyCache);
     swap(first.fExpired, second.fExpired);
+    swap(first.fCachedLocalValidity, second.fCachedLocalValidity);
+    swap(first.strLocalValidityError, second.strLocalValidityError);
+    swap(first.fUnparsable, second.fUnparsable);
+    swap(first.mapCurrentMNVotes, second.mapCurrentMNVotes);
+    swap(first.mapOrphanVotes, second.mapOrphanVotes);
+    swap(first.fileVotes, second.fileVotes);
 }
 
 void CGovernanceObject::CheckOrphanVotes(CConnman& connman)

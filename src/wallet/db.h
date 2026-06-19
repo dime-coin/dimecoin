@@ -34,6 +34,7 @@ private:
     // Don't change into fs::path, as that can result in
     // shutdown problems/crashes caused by a static initialized internal pointer.
     std::string strPath;
+    FILE* m_err_file = nullptr;
 
 public:
     std::unique_ptr<DbEnv> dbenv;

@@ -370,7 +370,10 @@ void CPrivateSendServer::CommitFinalTransaction(CConnman& connman)
     // create and sign masternode dstx transaction
     if(!CPrivateSend::GetDSTX(hashTx)) {
         CDarksendBroadcastTx dstxNew(finalTransaction, activeMasternode.outpoint, GetAdjustedTime());
-        dstxNew.Sign();
+        if(!dstxNew.Sign()) {
+            LogPrintf("CPrivateSendServer::CommitFinalTransaction -- ERROR: Failed to sign dstx\n");
+            return;
+        }
         CPrivateSend::AddDSTX(dstxNew);
     }
 

@@ -17,6 +17,7 @@
 #endif // ENABLE_WALLET
 #include <rpc/server.h>
 #include <util/system.h>
+#include <util/strencodings.h>
 #include <util/moneystr.h>
 #include <key_io.h>
 #include <wallet/coincontrol.h>
@@ -483,7 +484,16 @@ static UniValue masternode(const JSONRPCRequest& request)
         for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries()) {
             std::string strError;
 
-            COutPoint outpoint = COutPoint(uint256S(mne.getTxHash()), uint32_t(atoi(mne.getOutputIndex().c_str())));
+            uint32_t nOutputIndex = 0;
+            if (!ParseUInt32(mne.getOutputIndex(), &nOutputIndex)) {
+                UniValue statusObj(UniValue::VOBJ);
+                statusObj.push_back(Pair("alias", mne.getAlias()));
+                statusObj.push_back(Pair("result", "failed"));
+                statusObj.push_back(Pair("errorMessage", "Invalid output index"));
+                resultsObj.push_back(Pair("status", statusObj));
+                continue;
+            }
+            COutPoint outpoint = COutPoint(uint256S(mne.getTxHash()), nOutputIndex);
             CMasternode mn;
             bool fFound = mnodeman.Get(outpoint, mn);
             CMasternodeBroadcast mnb;
@@ -531,7 +541,9 @@ static UniValue masternode(const JSONRPCRequest& request)
         UniValue resultObj(UniValue::VARR);
 
         for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries()) {
-            COutPoint outpoint = COutPoint(uint256S(mne.getTxHash()), uint32_t(atoi(mne.getOutputIndex().c_str())));
+            uint32_t nOutputIndex = 0;
+            bool fValidOutputIndex = ParseUInt32(mne.getOutputIndex(), &nOutputIndex);
+            COutPoint outpoint = COutPoint(uint256S(mne.getTxHash()), nOutputIndex);
             CMasternode mn;
             bool fFound = mnodeman.Get(outpoint, mn);
 
@@ -544,6 +556,8 @@ static UniValue masternode(const JSONRPCRequest& request)
             mnObj.push_back(Pair("txHash", mne.getTxHash()));
             mnObj.push_back(Pair("outputIndex", mne.getOutputIndex()));
             mnObj.push_back(Pair("status", strStatus));
+            if (!fValidOutputIndex)
+                mnObj.push_back(Pair("error", "Invalid output index"));
             resultObj.push_back(mnObj);
         }
 
@@ -603,7 +617,10 @@ static UniValue masternode(const JSONRPCRequest& request)
         std::string strFilter = "";
 
         if (request.params.size() >= 2) {
-            nLast = atoi(request.params[1].get_str());
+            int32_t nLastParsed;
+            if (!ParseInt32(request.params[1].get_str(), &nLastParsed) || nLastParsed < 1 || nLastParsed > 10000)
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "count out of range (1-10000)");
+            nLast = nLastParsed;
         }
 
         if (request.params.size() == 3) {
