@@ -21,7 +21,7 @@ list.
 Communication Channels
 ----------------------
 
-Most communication about Dimecoin Core development happens on Telegram, https://t.me/dimecoinofficalpublic. 
+Most communication about Dimecoin Core development happens on Telegram, https://t.me/dimecoinofficialpublic. 
 
 Discussion about code base improvements happens in GitHub issues and on pull
 requests.
