@@ -60,6 +60,8 @@ GovernanceList::GovernanceList(const PlatformStyle *platformStyle, QWidget *pare
 
 void GovernanceList::on_voteYesButton_clicked()
 {
+    if (!walletModel) return;
+
     std::string gobjectSingle;
     {
         LOCK(cs_gobjlist);
@@ -100,6 +102,8 @@ void GovernanceList::on_voteYesButton_clicked()
 
 void GovernanceList::on_voteNoButton_clicked()
 {
+    if (!walletModel) return;
+
     std::string gobjectSingle;
     {
         LOCK(cs_gobjlist);
@@ -140,6 +144,8 @@ void GovernanceList::on_voteNoButton_clicked()
 
 void GovernanceList::on_voteAbstainButton_clicked()
 {
+    if (!walletModel) return;
+
     std::string gobjectSingle;
     {
         LOCK(cs_gobjlist);

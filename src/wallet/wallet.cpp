@@ -468,7 +468,8 @@ bool CWallet::ChangeWalletPassphrase(const SecureString& strOldWalletPassphrase,
                     return false;
                 if (!crypter.Encrypt(_vMasterKey, pMasterKey.second.vchCryptedKey))
                     return false;
-                WalletBatch(*database).WriteMasterKey(pMasterKey.first, pMasterKey.second);
+                if (!WalletBatch(*database).WriteMasterKey(pMasterKey.first, pMasterKey.second))
+                    return false;
                 if (fWasLocked)
                     Lock();
                 return true;
@@ -688,7 +689,13 @@ bool CWallet::EncryptWallet(const SecureString& strWalletPassphrase)
             encrypted_batch = nullptr;
             return false;
         }
-        encrypted_batch->WriteMasterKey(nMasterKeyMaxID, kMasterKey);
+        if (!encrypted_batch->WriteMasterKey(nMasterKeyMaxID, kMasterKey)) {
+            encrypted_batch->TxnAbort();
+            delete encrypted_batch;
+            encrypted_batch = nullptr;
+            mapMasterKeys.erase(nMasterKeyMaxID);
+            return false;
+        }
 
         if (!EncryptKeys(_vMasterKey))
         {
@@ -1854,6 +1861,9 @@ CBlockIndex* CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, CBlock
             {
                 LOCK(cs_main);
                 pindex = chainActive.Next(pindex);
+                if (!pindex) {
+                    break;
+                }
                 gvp = GuessVerificationProgress(chainParams.TxData(), pindex);
                 if (tip != chainActive.Tip()) {
                     tip = chainActive.Tip();
@@ -1876,18 +1886,25 @@ void CWallet::AbandonOrphanedCoinstakes()
 {
     // AbandonTransaction locks both cs_main and wallet's cs
 
-    for (std::pair<const uint256, CWalletTx>& item : mapWallet)
+    std::vector<uint256> vTxHash;
     {
-        const uint256& wtxid = item.first;
-        CWalletTx& wtx = item.second;
+        LOCK2(cs_main, cs_wallet);
+        for (std::pair<const uint256, CWalletTx>& item : mapWallet)
+        {
+            const uint256& wtxid = item.first;
+            CWalletTx& wtx = item.second;
 
-        int nDepth = wtx.GetDepthInMainChain();
+            int nDepth = wtx.GetDepthInMainChain();
 
-        if (nDepth == 0 && !wtx.isAbandoned() && wtx.IsCoinStake()) {
-            LogPrintf("Abandoning coinstake wtx %s\n", wtx.GetHash().ToString());
-            if (!AbandonTransaction(wtxid)) {
-                LogPrintf("Failed to abandon coinstake tx %s\n", wtx.GetHash().ToString());
+            if (nDepth == 0 && !wtx.isAbandoned() && wtx.IsCoinStake()) {
+                LogPrintf("Abandoning coinstake wtx %s\n", wtx.GetHash().ToString());
+                vTxHash.push_back(wtxid);
             }
+        }
+    }
+    for (const uint256& wtxid : vTxHash) {
+        if (!AbandonTransaction(wtxid)) {
+            LogPrintf("Failed to abandon coinstake tx %s\n", wtxid.ToString());
         }
     }
 }
@@ -2960,23 +2977,22 @@ bool CWallet::CreateTransaction(const std::vector<CRecipient>& vecSend, CTransac
     // enough, that fee sniping isn't a problem yet, but by implementing a fix
     // now we ensure code won't be written that makes assumptions about
     // nLockTime that preclude a fix later.
-    txNew.nLockTime = chainActive.Height();
-
     // Secondly occasionally randomly pick a nLockTime even further back, so
     // that transactions that are delayed after signing for whatever reason,
     // e.g. high-latency mix networks and some CoinJoin implementations, have
     // better privacy.
-    if (GetRandInt(10) == 0)
-        txNew.nLockTime = std::max(0, (int)txNew.nLockTime - GetRandInt(100));
-
-    assert(txNew.nLockTime <= (unsigned int)chainActive.Height());
-    assert(txNew.nLockTime < LOCKTIME_THRESHOLD);
     FeeCalculation feeCalc;
     CAmount nFeeNeeded;
     int nBytes;
     {
         std::set<CInputCoin> setCoins;
         LOCK2(cs_main, cs_wallet);
+        txNew.nLockTime = chainActive.Height();
+        if (GetRandInt(10) == 0)
+            txNew.nLockTime = std::max(0, (int)txNew.nLockTime - GetRandInt(100));
+
+        assert(txNew.nLockTime <= (unsigned int)chainActive.Height());
+        assert(txNew.nLockTime < LOCKTIME_THRESHOLD);
         {
             std::vector<COutput> vAvailableCoins;
             AvailableCoins(vAvailableCoins, true, &coin_control);
@@ -4015,7 +4031,7 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
     std::map<CTxDestination, CAmount> balances;
 
     {
-        LOCK(cs_wallet);
+        LOCK2(cs_main, cs_wallet);
         for (const auto& walletEntry : mapWallet)
         {
             const CWalletTx *pcoin = &walletEntry.second;

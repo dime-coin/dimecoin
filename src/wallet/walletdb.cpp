@@ -83,8 +83,12 @@ bool WalletBatch::WriteCryptedKey(const CPubKey& vchPubKey,
     if (!WriteIC(std::make_pair(std::string("ckey"), vchPubKey), vchCryptedSecret, false)) {
         return false;
     }
-    EraseIC(std::make_pair(std::string("key"), vchPubKey));
-    EraseIC(std::make_pair(std::string("wkey"), vchPubKey));
+    if (!EraseIC(std::make_pair(std::string("key"), vchPubKey))) {
+        return false;
+    }
+    if (!EraseIC(std::make_pair(std::string("wkey"), vchPubKey))) {
+        return false;
+    }
     return true;
 }
 
@@ -541,6 +545,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
     CWalletScanState wss;
     bool fNoncriticalErrors = false;
     DBErrors result = DBErrors::LOAD_OK;
+    Dbc* pcursor = nullptr;
 
     LOCK(pwallet->cs_wallet);
     try {
@@ -553,7 +558,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
         }
 
         // Get cursor
-        Dbc* pcursor = m_batch.GetCursor();
+        pcursor = m_batch.GetCursor();
         if (!pcursor)
         {
             LogPrintf("Error getting wallet database cursor\n");
@@ -571,6 +576,7 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
             else if (ret != 0)
             {
                 LogPrintf("Error reading next record from wallet database\n");
+                pcursor->close();
                 return DBErrors::CORRUPT;
             }
 
@@ -595,11 +601,16 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
                 LogPrintf("%s\n", strErr);
         }
         pcursor->close();
+        pcursor = nullptr;
     }
     catch (const boost::thread_interrupted&) {
+        if (pcursor)
+            pcursor->close();
         throw;
     }
     catch (...) {
+        if (pcursor)
+            pcursor->close();
         result = DBErrors::CORRUPT;
     }
 
@@ -646,6 +657,7 @@ DBErrors WalletBatch::FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CW
 {
     DBErrors result = DBErrors::LOAD_OK;
 
+    Dbc* pcursor = nullptr;
     try {
         int nMinVersion = 0;
         if (m_batch.Read((std::string)"minversion", nMinVersion))
@@ -655,7 +667,7 @@ DBErrors WalletBatch::FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CW
         }
 
         // Get cursor
-        Dbc* pcursor = m_batch.GetCursor();
+        pcursor = m_batch.GetCursor();
         if (!pcursor)
         {
             LogPrintf("Error getting wallet database cursor\n");
@@ -673,6 +685,7 @@ DBErrors WalletBatch::FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CW
             else if (ret != 0)
             {
                 LogPrintf("Error reading next record from wallet database\n");
+                pcursor->close();
                 return DBErrors::CORRUPT;
             }
 
@@ -690,11 +703,16 @@ DBErrors WalletBatch::FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CW
             }
         }
         pcursor->close();
+        pcursor = nullptr;
     }
     catch (const boost::thread_interrupted&) {
+        if (pcursor)
+            pcursor->close();
         throw;
     }
     catch (...) {
+        if (pcursor)
+            pcursor->close();
         result = DBErrors::CORRUPT;
     }
 

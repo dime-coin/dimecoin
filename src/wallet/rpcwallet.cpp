@@ -4127,6 +4127,7 @@ static UniValue setstakesplitthreshold(const JSONRPCRequest& request)
                 HelpExampleCli("setstakesplitthreshold", "5000") + HelpExampleRpc("setstakesplitthreshold", "5000"));
 
     CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) return NullUniValue;
 
     uint64_t nStakeSplitThreshold = request.params[0].get_int();
     if (pwallet->IsLocked())
@@ -4163,6 +4164,7 @@ static UniValue getstakesplitthreshold(const JSONRPCRequest& request)
                 HelpExampleCli("getstakesplitthreshold", "") + HelpExampleRpc("getstakesplitthreshold", ""));
 
     CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) return NullUniValue;
 
     return int(pwallet->nStakeSplitThreshold);
 }
@@ -4187,10 +4189,13 @@ UniValue listminting(const JSONRPCRequest& request)
 
     UniValue ret(UniValue::VARR);
 
-    const CBlockIndex *p = GetLastBlockIndex(chainActive.Tip(), true);
-    const Consensus::Params& consensusParams = Params().GetConsensus();
-
-    double difficulty = (double)GetDifficulty(GetNextWorkRequired(p,consensusParams,true));
+    double difficulty;
+    {
+        LOCK(cs_main);
+        const CBlockIndex *p = GetLastBlockIndex(chainActive.Tip(), true);
+        const Consensus::Params& consensusParams = Params().GetConsensus();
+        difficulty = (double)GetDifficulty(GetNextWorkRequired(p,consensusParams,true));
+    }
     int64_t nStakeMinAge = Params().GetConsensus().nStakeMinAge;
 
     std::unique_ptr<interfaces::Wallet> iwallet = interfaces::MakeWallet(*pwallet);

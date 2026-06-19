@@ -383,31 +383,36 @@ public:
             nUBuckets ^= (1 << 30);
         }
 
-        if (nNew > ADDRMAN_NEW_BUCKET_COUNT * ADDRMAN_BUCKET_SIZE) {
+        if (nNew < 0 || nNew > ADDRMAN_NEW_BUCKET_COUNT * ADDRMAN_BUCKET_SIZE || nNew > (int)MAX_SIZE) {
             throw std::ios_base::failure("Corrupt CAddrMan serialization, nNew exceeds limit.");
         }
 
-        if (nTried > ADDRMAN_TRIED_BUCKET_COUNT * ADDRMAN_BUCKET_SIZE) {
+        if (nTried < 0 || nTried > ADDRMAN_TRIED_BUCKET_COUNT * ADDRMAN_BUCKET_SIZE || nTried > (int)MAX_SIZE) {
             throw std::ios_base::failure("Corrupt CAddrMan serialization, nTried exceeds limit.");
         }
 
         // Deserialize entries from the new table.
-        for (int n = 0; n < nNew; n++) {
-            CAddrInfo &info = mapInfo[n];
-            s >> info;
-            mapAddr[info] = n;
-            info.nRandomPos = vRandom.size();
-            vRandom.push_back(n);
-            if (nVersion != 1 || nUBuckets != ADDRMAN_NEW_BUCKET_COUNT) {
-                // In case the new table data cannot be used (nVersion unknown, or bucket count wrong),
-                // immediately try to give them a reference based on their primary source address.
-                int nUBucket = info.GetNewBucket(nKey);
-                int nUBucketPos = info.GetBucketPosition(nKey, true, nUBucket);
-                if (vvNew[nUBucket][nUBucketPos] == -1) {
-                    vvNew[nUBucket][nUBucketPos] = n;
-                    info.nRefCount++;
+        try {
+            for (int n = 0; n < nNew; n++) {
+                CAddrInfo &info = mapInfo[n];
+                s >> info;
+                mapAddr[info] = n;
+                info.nRandomPos = vRandom.size();
+                vRandom.push_back(n);
+                if (nVersion != 1 || nUBuckets != ADDRMAN_NEW_BUCKET_COUNT) {
+                    // In case the new table data cannot be used (nVersion unknown, or bucket count wrong),
+                    // immediately try to give them a reference based on their primary source address.
+                    int nUBucket = info.GetNewBucket(nKey);
+                    int nUBucketPos = info.GetBucketPosition(nKey, true, nUBucket);
+                    if (vvNew[nUBucket][nUBucketPos] == -1) {
+                        vvNew[nUBucket][nUBucketPos] = n;
+                        info.nRefCount++;
+                    }
                 }
             }
+        } catch (...) {
+            Clear();
+            throw;
         }
         nIdCount = nNew;
 

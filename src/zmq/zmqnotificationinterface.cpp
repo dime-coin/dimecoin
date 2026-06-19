@@ -104,7 +104,9 @@ bool CZMQNotificationInterface::Initialize()
         else
         {
             LogPrint(BCLog::ZMQ, "  Notifier %s failed (address = %s)\n", notifier->GetType(), notifier->GetAddress());
-            break;
+            i = notifiers.erase(i);
+            delete notifier;
+            return false;
         }
     }
 

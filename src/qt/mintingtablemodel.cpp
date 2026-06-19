@@ -292,6 +292,7 @@ MintingTableModel::MintingTableModel(WalletModel *parent) :
         walletModel(parent),
         mintingInterval(10),
         priv(new MintingTablePriv(walletModel, this)),
+        mintingProxyModel(nullptr),
         cachedNumBlocks(0)
 {
     columns << tr("Transaction") <<  tr("Address") << tr("Age") << tr("Balance") << tr("CoinDay") << tr("MintProbability");
@@ -318,7 +319,8 @@ void MintingTableModel::updateTransaction(const QString &hash, int status)
     updated.SetHex(hash.toStdString());
 
     priv->updateWallet(updated, status);
-    mintingProxyModel->invalidate(); // Force deletion of empty rows
+    if (mintingProxyModel)
+        mintingProxyModel->invalidate(); // Force deletion of empty rows
 }
 
 void MintingTableModel::updateAge()

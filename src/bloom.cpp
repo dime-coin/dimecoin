@@ -18,13 +18,25 @@
 #define LN2SQUARED 0.4804530139182014246671025263266649717305529515945455
 #define LN2 0.6931471805599453094172321214581765680755001343602552
 
+static unsigned int SanitizeBloomFilterElements(const unsigned int nElements)
+{
+    return std::max(1U, nElements);
+}
+
+static double SanitizeBloomFilterFPRate(const double nFPRate)
+{
+    if (!(nFPRate > 0.0)) return 0.000001;
+    if (!(nFPRate < 1.0)) return 0.999999;
+    return nFPRate;
+}
+
 CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, const unsigned int nTweakIn, unsigned char nFlagsIn) :
     /**
      * The ideal size for a bloom filter with a given number of elements and false positive rate is:
      * - nElements * log(fp rate) / ln(2)^2
      * We ignore filter parameters which will create a bloom filter larger than the protocol limits
      */
-    vData(std::min((unsigned int)(-1  / LN2SQUARED * nElements * log(nFPRate)), MAX_BLOOM_FILTER_SIZE * 8) / 8),
+    vData(std::max(1U, std::min((unsigned int)(-1  / LN2SQUARED * SanitizeBloomFilterElements(nElements) * log(SanitizeBloomFilterFPRate(nFPRate))), MAX_BLOOM_FILTER_SIZE * 8) / 8)),
     /**
      * The ideal number of hash functions is filter size * ln(2) / number of elements
      * Again, we ignore filter parameters which will create a bloom filter with more hash functions than the protocol limits
@@ -32,7 +44,7 @@ CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, c
      */
     isFull(false),
     isEmpty(true),
-    nHashFuncs(std::min((unsigned int)(vData.size() * 8 / nElements * LN2), MAX_HASH_FUNCS)),
+    nHashFuncs(std::max(1U, std::min((unsigned int)(vData.size() * 8 / SanitizeBloomFilterElements(nElements) * LN2), MAX_HASH_FUNCS))),
     nTweak(nTweakIn),
     nFlags(nFlagsIn)
 {
@@ -40,10 +52,10 @@ CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, c
 
 // Private constructor used by CRollingBloomFilter
 CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, const unsigned int nTweakIn) :
-    vData((unsigned int)(-1  / LN2SQUARED * nElements * log(nFPRate)) / 8),
+    vData(std::max(1U, (unsigned int)(-1  / LN2SQUARED * SanitizeBloomFilterElements(nElements) * log(SanitizeBloomFilterFPRate(nFPRate))) / 8)),
     isFull(false),
     isEmpty(true),
-    nHashFuncs((unsigned int)(vData.size() * 8 / nElements * LN2)),
+    nHashFuncs(std::max(1U, (unsigned int)(vData.size() * 8 / SanitizeBloomFilterElements(nElements) * LN2))),
     nTweak(nTweakIn),
     nFlags(BLOOM_UPDATE_NONE)
 {
@@ -215,12 +227,14 @@ void CBloomFilter::UpdateEmptyFull()
 
 CRollingBloomFilter::CRollingBloomFilter(const unsigned int nElements, const double fpRate)
 {
-    double logFpRate = log(fpRate);
+    const unsigned int nSanitizedElements = SanitizeBloomFilterElements(nElements);
+    const double sanitizedFpRate = SanitizeBloomFilterFPRate(fpRate);
+    double logFpRate = log(sanitizedFpRate);
     /* The optimal number of hash functions is log(fpRate) / log(0.5), but
      * restrict it to the range 1-50. */
     nHashFuncs = std::max(1, std::min((int)round(logFpRate / log(0.5)), 50));
     /* In this rolling bloom filter, we'll store between 2 and 3 generations of nElements / 2 entries. */
-    nEntriesPerGeneration = (nElements + 1) / 2;
+    nEntriesPerGeneration = (nSanitizedElements + 1) / 2;
     uint32_t nMaxElements = nEntriesPerGeneration * 3;
     /* The maximum fpRate = pow(1.0 - exp(-nHashFuncs * nMaxElements / nFilterBits), nHashFuncs)
      * =>          pow(fpRate, 1.0 / nHashFuncs) = 1.0 - exp(-nHashFuncs * nMaxElements / nFilterBits)

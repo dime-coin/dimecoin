@@ -805,6 +805,9 @@ bool CMasternodePing::CheckAndUpdate(CMasternode* pmn, bool fFromNewBroadcast, i
 
     if (!CheckSignature(pmn->pubKeyMasternode, nDos)) return false;
 
+    if (fSentinelIsCurrent)
+        mnodeman.UpdateWatchdogVoteTime(vin.prevout, sigTime);
+
     // so, ping seems to be ok
 
     // if we are still syncing and there was no known ping for this mn for quite a while

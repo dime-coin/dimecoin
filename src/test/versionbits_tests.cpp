@@ -233,8 +233,6 @@ BOOST_AUTO_TEST_CASE(versionbits_test)
 
 BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
 {
-    return;
-
     // Check that ComputeBlockVersion will set the appropriate bit correctly
     // on mainnet.
     const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);

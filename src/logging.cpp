@@ -253,6 +253,9 @@ void BCLog::Logger::LogPrintStr(const std::string &str)
         {
 
             RotateLogs();
+            if (!m_fileout) {
+                return;
+            }
 
             // reopen the log file, if requested
             if (m_reopen_file) {

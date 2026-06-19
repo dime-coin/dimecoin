@@ -856,9 +856,6 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, const std::string& strCommand,
         // see if we have this Masternode
         CMasternode* pmn = Find(mnp.vin.prevout);
 
-        if(pmn && mnp.fSentinelIsCurrent)
-            UpdateWatchdogVoteTime(mnp.vin.prevout, mnp.sigTime);
-
         // too late, new MNANNOUNCE is required
         if(pmn && pmn->IsExpired()) return;
 
@@ -1092,12 +1089,11 @@ void CMasternodeMan::CheckSameAddr()
             }
             pprevMasternode = pmn;
         }
-    }
-
-    // ban duplicates
-    for(CMasternode* pmn : vBan) {
-        LogPrintf("CMasternodeMan::CheckSameAddr -- increasing PoSe ban score for masternode %s\n", pmn->vin.prevout.ToString());
-        pmn->IncreasePoSeBanScore();
+        // ban duplicates
+        for(CMasternode* pmn : vBan) {
+            LogPrintf("CMasternodeMan::CheckSameAddr -- increasing PoSe ban score for masternode %s\n", pmn->vin.prevout.ToString());
+            pmn->IncreasePoSeBanScore();
+        }
     }
 }
 

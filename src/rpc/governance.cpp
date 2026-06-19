@@ -20,6 +20,7 @@
 #include <messagesigner.h>
 #include <rpc/server.h>
 #include <util/system.h>
+#include <util/strencodings.h>
 #include <util/moneystr.h>
 #include <consensus/validation.h>
 #ifdef ENABLE_WALLET
@@ -150,8 +151,12 @@ UniValue gobject(const JSONRPCRequest& request)
 
         std::string strRevision = request.params[2].get_str();
         std::string strTime = request.params[3].get_str();
-        int nRevision = boost::lexical_cast<int>(strRevision);
-        int nTime = boost::lexical_cast<int>(strTime);
+        int nRevision = 0;
+        if (!ParseInt32(strRevision, &nRevision))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid revision");
+        int64_t nTime = 0;
+        if (!ParseInt64(strTime, &nTime))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid time");
         std::string strData = request.params[4].get_str();
 
         // CREATE A NEW COLLATERAL TRANSACTION FOR THIS SPECIFIC OBJECT
@@ -240,8 +245,12 @@ UniValue gobject(const JSONRPCRequest& request)
 
         std::string strRevision = request.params[2].get_str();
         std::string strTime = request.params[3].get_str();
-        int nRevision = boost::lexical_cast<int>(strRevision);
-        int nTime = boost::lexical_cast<int>(strTime);
+        int nRevision = 0;
+        if (!ParseInt32(strRevision, &nRevision))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid revision");
+        int64_t nTime = 0;
+        if (!ParseInt64(strTime, &nTime))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid time");
         std::string strData = request.params[4].get_str();
 
         CGovernanceObject govobj(hashParent, nRevision, nTime, txidFee, strData);
@@ -555,7 +564,7 @@ UniValue gobject(const JSONRPCRequest& request)
             if(!CMessageSigner::GetKeysFromSecret(mne.getPrivKey(), keyMasternode, pubKeyMasternode)) {
                 nFailed++;
                 statusObj.push_back(Pair("result", "failed"));
-                statusObj.push_back(Pair("errorMessage", strprintf("Invalid masternode key %s.", mne.getPrivKey())));
+                statusObj.push_back(Pair("errorMessage", "Invalid masternode key for alias " + mne.getAlias()));
                 resultsObj.push_back(Pair(mne.getAlias(), statusObj));
                 continue;
             }
@@ -827,7 +836,9 @@ UniValue gobject(const JSONRPCRequest& request)
         if (request.params.size() == 4) {
             uint256 txid = ParseHashV(request.params[2], "Masternode Collateral hash");
             std::string strVout = request.params[3].get_str();
-            uint32_t vout = boost::lexical_cast<uint32_t>(strVout);
+            uint32_t vout = 0;
+            if (!ParseUInt32(strVout, &vout))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid vout index");
             mnCollateralOutpoint = COutPoint(txid, vout);
         }
 
@@ -1020,4 +1031,3 @@ void RegisterGovernanceRPCCommands(CRPCTable &t)
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
         t.appendCommand(commands[vcidx].name, &commands[vcidx]);
 }
-

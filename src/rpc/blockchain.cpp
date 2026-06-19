@@ -353,6 +353,8 @@ static UniValue getdifficulty(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     CBlockIndex* tip = chainActive.Tip();
+    if (!tip)
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "No chain tip available");
     const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("proof-of-work",(double)GetDifficulty(GetNextWorkRequired(tip,consensusParams,false)));
@@ -858,7 +860,7 @@ static void ApplyStats(CCoinsStats &stats, CHashWriter& ss, const uint256& hash,
 {
     assert(!outputs.empty());
     ss << hash;
-    ss << VARINT(outputs.begin()->second.nHeight * 2 + outputs.begin()->second.fCoinBase ? 1u : 0u);
+    ss << VARINT(outputs.begin()->second.nHeight * 2 + (outputs.begin()->second.fCoinBase ? 1u : 0u));
     stats.nTransactions++;
     for (const auto& output : outputs) {
         ss << VARINT(output.first + 1);
@@ -882,7 +884,10 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     stats.hashBlock = pcursor->GetBestBlock();
     {
         LOCK(cs_main);
-        stats.nHeight = LookupBlockIndex(stats.hashBlock)->nHeight;
+        const CBlockIndex* pindex = LookupBlockIndex(stats.hashBlock);
+        if (!pindex)
+            return false;
+        stats.nHeight = pindex->nHeight;
     }
     ss << stats.hashBlock;
     uint256 prevkey;
@@ -1299,7 +1304,10 @@ static UniValue getchaintips(const JSONRPCRequest& request)
     }
 
     // Always report the currently active tip.
-    setTips.insert(chainActive.Tip());
+    if (chainActive.Tip())
+        setTips.insert(chainActive.Tip());
+    else
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Chain has no tip");
 
     int nBranchMin = -1;
     int nCountMax = INT_MAX;

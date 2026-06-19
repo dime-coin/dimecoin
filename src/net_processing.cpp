@@ -75,6 +75,7 @@ static constexpr int STALE_RELAY_AGE_LIMIT = 30 * 24 * 60 * 60;
 /// Age after which a block is considered historical for purposes of rate
 /// limiting block relay. Set to one week, denominated in seconds.
 static constexpr int HISTORICAL_BLOCK_AGE = 7 * 24 * 60 * 60;
+static constexpr size_t MAX_UNKNOWN_PARENT_BLOCKS = 16;
 
 struct COrphanTx {
     // When modifying, adapt the copy of this definition in tests/DoS_tests.
@@ -690,9 +691,10 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats) {
 
 static void AddToCompactExtraTransactions(const CTransactionRef& tx) EXCLUSIVE_LOCKS_REQUIRED(g_cs_orphans)
 {
-    size_t max_extra_txn = gArgs.GetArg("-blockreconstructionextratxn", DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN);
-    if (max_extra_txn <= 0)
+    int64_t extra_txn_arg = gArgs.GetArg("-blockreconstructionextratxn", DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN);
+    if (extra_txn_arg <= 0)
         return;
+    size_t max_extra_txn = static_cast<size_t>(extra_txn_arg);
     if (!vExtraTxnForCompact.size())
         vExtraTxnForCompact.resize(max_extra_txn);
     vExtraTxnForCompact[vExtraTxnForCompactIt] = std::make_pair(tx->GetWitnessHash(), tx);
@@ -2881,30 +2883,36 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         LogPrint(BCLog::NET, "received block %s peer=%d\n", pblock->GetHash().ToString(), pfrom->GetId());
 
         bool forceProcessing = false;
+        bool processBlock = false;
         const uint256 hash(pblock->GetHash());
 
-        auto it = mapBlockIndex.find(pblock->hashPrevBlock);
-        if (it != mapBlockIndex.end() && ((it->second->nStatus & BLOCK_HAVE_DATA) == 0))
         {
-            LogPrint(BCLog::NET, "Received block out of order: %s\n", pblock->GetHash().ToString());
-            if (mapBlocksInFlight.count(pblock->hashPrevBlock))
+            LOCK(cs_main);
+            auto it = mapBlockIndex.find(pblock->hashPrevBlock);
+            if (it != mapBlockIndex.end() && ((it->second->nStatus & BLOCK_HAVE_DATA) == 0))
             {
-                LOCK(cs_main);
-                mapBlocksUnknownParent.insert(std::make_pair(pblock->hashPrevBlock, pblock));
-                MarkBlockAsReceived(pblock->hashPrevBlock); // invalidate to send again.
+                LogPrint(BCLog::NET, "Received block out of order: %s\n", pblock->GetHash().ToString());
+                if (mapBlocksInFlight.count(pblock->hashPrevBlock))
+                {
+                    if (mapBlocksUnknownParent.size() < MAX_UNKNOWN_PARENT_BLOCKS)
+                        mapBlocksUnknownParent.insert(std::make_pair(pblock->hashPrevBlock, pblock));
+                    MarkBlockAsReceived(pblock->hashPrevBlock); // invalidate to send again.
+                }
             }
-        }
-        else
-        {
+            else
             {
-                LOCK(cs_main);
                 // Also always process if we requested the block explicitly, as we may
                 // need it even though it is not a candidate for a new best tip.
                 forceProcessing |= MarkBlockAsReceived(hash);
                 // mapBlockSource is only used for sending reject messages and DoS scores,
                 // so the race between here and cs_main in ProcessNewBlock is fine.
                 mapBlockSource.emplace(hash, std::make_pair(pfrom->GetId(), true));
+                processBlock = true;
             }
+        }
+
+        if (processBlock)
+        {
 
             bool fNewBlock = false;
             ProcessNewBlock(chainparams, pblock, forceProcessing, &fNewBlock);
@@ -2918,18 +2926,25 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 {
                     uint256 head = queue.front();
                     queue.pop_front();
-                    auto it = mapBlocksUnknownParent.find(head);
-                    if (it != std::end(mapBlocksUnknownParent))
+                    std::shared_ptr<CBlock> pblockrecursive;
+                    bool forceProcessing = false;
                     {
-                        std::shared_ptr<CBlock> pblockrecursive = it->second;
+                        LOCK(cs_main);
+                        auto it = mapBlocksUnknownParent.find(head);
+                        if (it != std::end(mapBlocksUnknownParent))
+                        {
+                            pblockrecursive = it->second;
+                            mapBlocksUnknownParent.erase(it);
+                        }
+                    }
+                    if (pblockrecursive)
+                    {
                         auto recursiveHash = pblockrecursive->GetHash();
                         LogPrint(BCLog::NET, "%s: Processing out of order child %s of %s\n", __func__, recursiveHash.ToString(),
                                  head.ToString());
 
-                        bool forceProcessing = false;
                         {
                             LOCK(cs_main);
-                            mapBlocksUnknownParent.erase(it);
                             forceProcessing = MarkBlockAsReceived(recursiveHash);
                         }
                         ProcessNewBlock(chainparams, pblockrecursive, forceProcessing, &fNewBlock);

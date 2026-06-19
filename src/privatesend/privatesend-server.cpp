@@ -35,6 +35,7 @@ void CPrivateSendServer::ProcessMessage(CNode* pfrom, std::string& strCommand, C
     if(!masternodeSync.IsBlockchainSynced()) return;
 
     if(strCommand == NetMsgType::DSACCEPT) {
+        LOCK(cs_darksend);
 
         if(pfrom->nVersion < MIN_PRIVATESEND_PEER_PROTO_VERSION) {
             LogPrintf("DSACCEPT -- incompatible version! nVersion: %d\n", pfrom->nVersion);
@@ -140,6 +141,7 @@ void CPrivateSendServer::ProcessMessage(CNode* pfrom, std::string& strCommand, C
         }
 
     } else if(strCommand == NetMsgType::DSVIN) {
+        LOCK(cs_darksend);
 
         if(pfrom->nVersion < MIN_PRIVATESEND_PEER_PROTO_VERSION) {
             LogPrintf("DSVIN -- incompatible version! nVersion: %d\n", pfrom->nVersion);
@@ -249,6 +251,7 @@ void CPrivateSendServer::ProcessMessage(CNode* pfrom, std::string& strCommand, C
         }
 
     } else if(strCommand == NetMsgType::DSSIGNFINALTX) {
+        LOCK(cs_darksend);
 
         if(pfrom->nVersion < MIN_PRIVATESEND_PEER_PROTO_VERSION) {
             LogPrintf("DSSIGNFINALTX -- incompatible version! nVersion: %d\n", pfrom->nVersion);

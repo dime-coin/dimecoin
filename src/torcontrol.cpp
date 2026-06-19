@@ -576,6 +576,10 @@ void TorController::authchallenge_cb(TorControlConnection& _conn, const TorContr
 {
     if (reply.code == 250) {
         LogPrint(BCLog::TOR, "tor: SAFECOOKIE authentication challenge successful\n");
+        if (reply.lines.empty()) {
+            LogPrintf("tor: Missing AUTHCHALLENGE reply\n");
+            return;
+        }
         std::pair<std::string,std::string> l = SplitTorReplyLine(reply.lines[0]);
         if (l.first == "AUTHCHALLENGE") {
             std::map<std::string,std::string> m = ParseTorReplyMapping(l.second);
@@ -646,6 +650,7 @@ void TorController::protocolinfo_cb(TorControlConnection& _conn, const TorContro
         if (!torpassword.empty()) {
             if (methods.count("HASHEDPASSWORD")) {
                 LogPrint(BCLog::TOR, "tor: Using HASHEDPASSWORD authentication\n");
+                boost::replace_all(torpassword, "\\", "\\\\");
                 boost::replace_all(torpassword, "\"", "\\\"");
                 _conn.Command("AUTHENTICATE \"" + torpassword + "\"", boost::bind(&TorController::auth_cb, this, boost::placeholders::_1, boost::placeholders::_2));
             } else {

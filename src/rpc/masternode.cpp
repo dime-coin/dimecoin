@@ -399,6 +399,7 @@ static UniValue masternode(const JSONRPCRequest& request)
         {
             LOCK(cs_main);
             pindex = chainActive.Tip();
+            if(!pindex) return NullUniValue;
         }
         nHeight = pindex->nHeight + (strCommand == "current" ? 1 : 10);
         mnodeman.UpdateLastPaid(pindex);
@@ -552,7 +553,6 @@ static UniValue masternode(const JSONRPCRequest& request)
             UniValue mnObj(UniValue::VOBJ);
             mnObj.push_back(Pair("alias", mne.getAlias()));
             mnObj.push_back(Pair("address", mne.getIp()));
-            mnObj.push_back(Pair("privateKey", mne.getPrivKey()));
             mnObj.push_back(Pair("txHash", mne.getTxHash()));
             mnObj.push_back(Pair("outputIndex", mne.getOutputIndex()));
             mnObj.push_back(Pair("status", strStatus));

@@ -2070,15 +2070,20 @@ void CConnman::ThreadMnbRequestConnections()
 
         OpenNetworkConnection(CAddress(p.first, NODE_NETWORK), false, nullptr, NULL, false, false, false, true);
 
-        LOCK(cs_vNodes);
+        CNode *pnode = nullptr;
+        {
+            LOCK(cs_vNodes);
 
-        CNode *pnode = FindNode(p.first);
-        if(!pnode || pnode->fDisconnect) continue;
+            pnode = FindNode(p.first);
+            if(!pnode || pnode->fDisconnect) continue;
+            pnode->AddRef();
 
-        LogPrint(BCLog::NET, "ThreadMnbRequestConnections -- adding node: peer=%d addr=%s nRefCount=%d fNetworkNode=%d fInbound=%d fMasternode=%d\n",
-                   pnode->id, pnode->addr.ToString(), pnode->GetRefCount(), pnode->fNetworkNode, pnode->fInbound, pnode->fMasternode);
+            LogPrint(BCLog::NET, "ThreadMnbRequestConnections -- adding node: peer=%d addr=%s nRefCount=%d fNetworkNode=%d fInbound=%d fMasternode=%d\n",
+                       pnode->id, pnode->addr.ToString(), pnode->GetRefCount(), pnode->fNetworkNode, pnode->fInbound, pnode->fMasternode);
 
-        grant.MoveTo(pnode->grantMasternodeOutbound);
+            pnode->grantMasternodeOutbound.Release();
+            grant.MoveTo(pnode->grantMasternodeOutbound);
+        }
 
         // compile request vector
         std::vector<CInv> vToFetch;
@@ -2093,6 +2098,10 @@ void CConnman::ThreadMnbRequestConnections()
 
         // ask for data
         PushMessage(pnode, CNetMsgMaker(pnode->GetSendVersion()).Make(NetMsgType::GETDATA, vToFetch));
+        {
+            LOCK(cs_vNodes);
+            pnode->Release();
+        }
     }
 }
 

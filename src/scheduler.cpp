@@ -80,7 +80,10 @@ void CScheduler::serviceQueue()
                 // Unlock before calling f, so it can reschedule itself or another task
                 // without deadlocking:
                 reverse_lock<boost::unique_lock<boost::mutex> > rlock(lock);
-                f();
+                try {
+                    f();
+                } catch (...) {
+                }
             }
         } catch (...) {
             --nThreadsServicingQueue;
