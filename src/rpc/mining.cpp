@@ -670,7 +670,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         aMutable.push_back("version/force");
     }
 
-    CAmount coinbaseValue = GetBlockSubsidy(pindexPrev->nHeight + 1, Params().GetConsensus());
+    CAmount coinbaseValue = pblock->vtx[0]->GetValueOut();
 
     result.pushKV("previousblockhash", pblock->hashPrevBlock.GetHex());
     result.pushKV("transactions", transactions);
@@ -709,7 +709,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         CTxDestination mnAddress;
         if (!mnpayments.GetBlockPayee(pindexPrev->nHeight + 1, mnScript)) {
             masternode_info_t mnInfo;
-            if (!mnodeman.GetNextMasternodeInQueueForPayment(pindexPrev->nHeight + 1, true, mnCount, mnInfo))
+            if (mnodeman.GetNextMasternodeInQueueForPayment(pindexPrev->nHeight + 1, true, mnCount, mnInfo))
                 mnScript = GetScriptForDestination(mnInfo.pubKeyCollateralAddress.GetID());
         }
 

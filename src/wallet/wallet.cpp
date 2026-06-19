@@ -91,7 +91,7 @@ CWallet* GetWallet(const std::string& name)
     return nullptr;
 }
 
-const uint32_t BIP32_HARDENED_KEY_LIMIT = 0x80000180;
+const uint32_t BIP32_HARDENED_KEY_LIMIT = 0x80000000;
 
 const uint256 CMerkleTx::ABANDON_HASH(uint256S("0000000000000000000000000000000000000000000000000000000000000001"));
 
@@ -378,7 +378,7 @@ bool CWallet::AddWatchOnly(const CScript& dest)
 
 CAmount GetStakeReward(CAmount blockReward, unsigned int percentage)
 {
-    return (blockReward / 100) * percentage;
+    return blockReward * percentage / 100;
 }
 
 bool CWallet::AddWatchOnly(const CScript& dest, int64_t nCreateTime)
@@ -423,9 +423,10 @@ bool CWallet::Unlock(const SecureString& strWalletPassphrase, bool stakingOnly)
                 return false;
             if (!crypter.Decrypt(pMasterKey.second.vchCryptedKey, _vMasterKey))
                 continue; // try another master key
-            if (CCryptoKeyStore::Unlock(_vMasterKey))
+            if (CCryptoKeyStore::Unlock(_vMasterKey)) {
                 fWalletUnlockStakingOnly = stakingOnly;
-            return true;
+                return true;
+            }
         }
     }
     return false;
@@ -459,8 +460,8 @@ bool CWallet::ChangeWalletPassphrase(const SecureString& strOldWalletPassphrase,
                 elapsed = std::max<int64_t>(1, GetTimeMillis() - nStartTime);
                 pMasterKey.second.nDeriveIterations = (pMasterKey.second.nDeriveIterations + static_cast<unsigned int>(pMasterKey.second.nDeriveIterations * 100.0 / elapsed)) / 2;
 
-                if (pMasterKey.second.nDeriveIterations < 25000)
-                    pMasterKey.second.nDeriveIterations = 25000;
+                if (pMasterKey.second.nDeriveIterations < 200000)
+                    pMasterKey.second.nDeriveIterations = 200000;
 
                 LogPrintf("Wallet passphrase changed to an nDeriveIterations of %i\n", pMasterKey.second.nDeriveIterations);
 
@@ -660,17 +661,17 @@ bool CWallet::EncryptWallet(const SecureString& strWalletPassphrase)
 
     CCrypter crypter;
     int64_t nStartTime = GetTimeMillis();
-    crypter.SetKeyFromPassphrase(strWalletPassphrase, kMasterKey.vchSalt, 25000, kMasterKey.nDerivationMethod);
+    crypter.SetKeyFromPassphrase(strWalletPassphrase, kMasterKey.vchSalt, 200000, kMasterKey.nDerivationMethod);
     int64_t elapsed = std::max<int64_t>(1, GetTimeMillis() - nStartTime);
-    kMasterKey.nDeriveIterations = static_cast<unsigned int>(2500000.0 / elapsed);
+    kMasterKey.nDeriveIterations = static_cast<unsigned int>(20000000.0 / elapsed);
 
     nStartTime = GetTimeMillis();
     crypter.SetKeyFromPassphrase(strWalletPassphrase, kMasterKey.vchSalt, kMasterKey.nDeriveIterations, kMasterKey.nDerivationMethod);
     elapsed = std::max<int64_t>(1, GetTimeMillis() - nStartTime);
     kMasterKey.nDeriveIterations = (kMasterKey.nDeriveIterations + static_cast<unsigned int>(kMasterKey.nDeriveIterations * 100.0 / elapsed)) / 2;
 
-    if (kMasterKey.nDeriveIterations < 25000)
-        kMasterKey.nDeriveIterations = 25000;
+    if (kMasterKey.nDeriveIterations < 200000)
+        kMasterKey.nDeriveIterations = 200000;
 
     LogPrintf("Encrypting Wallet with an nDeriveIterations of %i\n", kMasterKey.nDeriveIterations);
 
@@ -2007,7 +2008,7 @@ CAmount CWalletTx::GetDebit(const isminefilter& filter) const
 CAmount CWalletTx::GetCredit(const isminefilter& filter) const
 {
     // Must wait until coinbase is safely deep enough in the chain before valuing it
-    if (IsCoinBase() && GetBlocksToMaturity() > 0)
+    if ((IsCoinBase() || IsCoinStake()) && GetBlocksToMaturity() > 0)
         return 0;
 
     CAmount credit = 0;
@@ -2057,7 +2058,7 @@ CAmount CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter
         return 0;
 
     // Must wait until coinbase is safely deep enough in the chain before valuing it
-    if (IsCoinBase() && GetBlocksToMaturity() > 0)
+    if ((IsCoinBase() || IsCoinStake()) && GetBlocksToMaturity() > 0)
         return 0;
 
     CAmount* cache = nullptr;
@@ -2098,7 +2099,7 @@ CAmount CWalletTx::GetAvailableCredit(bool fUseCache, const isminefilter& filter
 
 CAmount CWalletTx::GetImmatureWatchOnlyCredit(const bool fUseCache) const
 {
-    if (IsCoinBase() && GetBlocksToMaturity() > 0 && IsInMainChain())
+    if ((IsCoinBase() || IsCoinStake()) && GetBlocksToMaturity() > 0 && IsInMainChain())
     {
         if (fUseCache && fImmatureWatchCreditCached)
             return nImmatureWatchCreditCached;
@@ -3344,20 +3345,18 @@ bool CWallet::GetKey(const CKeyID &address, CKey& keyOut) const
     return CCryptoKeyStore::GetKey(address, keyOut);
 }
 
-void InsertAndAdjustFoundationPayment(CMutableTransaction &tx, const CTxOut &txoutFoundationPayment)
+bool InsertAndAdjustFoundationPayment(CMutableTransaction &tx, const CTxOut &txoutFoundationPayment, size_t debitOutputIndex)
 {
-    //! add it first
-    tx.vout.push_back(txoutFoundationPayment);
+    if (debitOutputIndex >= tx.vout.size())
+        return false;
 
-    //! redundant but cant hurt
-    auto it = std::find(std::begin(tx.vout), std::end(tx.vout), txoutFoundationPayment);
-    if(it != std::end(tx.vout))
-    {
-        long foundationOutIndex = std::distance(std::begin(tx.vout), it);
-        auto foundationPayment = tx.vout[foundationOutIndex].nValue;
-        long i = tx.vout.size() - 3;
-        tx.vout[i].nValue -= foundationPayment; // last vout is foundation payment.
-    }
+    const CAmount foundationPayment = txoutFoundationPayment.nValue;
+    if (tx.vout[debitOutputIndex].nValue < foundationPayment)
+        return false;
+
+    tx.vout[debitOutputIndex].nValue -= foundationPayment;
+    tx.vout.push_back(txoutFoundationPayment);
+    return true;
 }
 
 // peercoin: create coin stake transaction
@@ -3428,10 +3427,11 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CMu
             continue;
         }
 
-        CBlockIndex* pindex = mapBlockIndex[blockhash];
-        if (!pindex) {
+        auto mi = mapBlockIndex.find(blockhash);
+        if (mi == mapBlockIndex.end() || mi->second == nullptr) {
             continue;
         }
+        CBlockIndex* pindex = mi->second;
         CBlockHeader header = pindex->GetBlockHeader();
 
         bool fKernelFound = false;
@@ -3554,8 +3554,14 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CMu
         // Set output amount
         if (txNew.vout.size() == 3)
         {
-            txNew.vout[1].nValue = (nCredit / 2 / CENT) * CENT;
-            txNew.vout[2].nValue = nCredit - txNew.vout[1].nValue;
+            const CAmount nSplitValue = (nCredit / 2 / CENT) * CENT;
+            if (nSplitValue >= CENT) {
+                txNew.vout[1].nValue = nSplitValue;
+                txNew.vout[2].nValue = nCredit - txNew.vout[1].nValue;
+            } else {
+                txNew.vout[1].nValue = nCredit;
+                txNew.vout.erase(txNew.vout.begin() + 2);
+            }
         }
         else
         {
@@ -3581,10 +3587,12 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CMu
     CTxOut txoutMasternode;
     CTxOut txoutFoundationPayment;
     int nHeight = chainActive.Tip()->nHeight + 1;
+    const size_t foundationDebitOutputIndex = txNew.vout.size() == 3 ? 2 : 1;
     txoutFoundationPayment = CTxOut(GetFoundationPayment(nHeight, blockReward), GetFoundationScript());
     FillBlockPayments(txNew, nHeight, blockReward, txoutMasternode);
     AdjustMasternodePayment(txNew, txoutMasternode);
-    InsertAndAdjustFoundationPayment(txNew, txoutFoundationPayment);
+    if (!InsertAndAdjustFoundationPayment(txNew, txoutFoundationPayment, foundationDebitOutputIndex))
+        return error("CreateCoinStake : failed to adjust foundation payment");
     LogPrintf("CreateCoinStake -- nBlockHeight %d blockReward %lld txoutMasternode %s txNew %s", nHeight, blockReward, txoutMasternode.ToString(), txNew.ToString());
     return true;
 }

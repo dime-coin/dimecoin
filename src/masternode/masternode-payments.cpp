@@ -215,11 +215,6 @@ void CMasternodePayments::ProcessMessage(CNode* pfrom, const std::string& strCom
             return;
         }
 
-        if(!CanVote(vote.vinMasternode.prevout, vote.nBlockHeight)) {
-            LogPrintf("MASTERNODEPAYMENTVOTE -- masternode already voted, masternode=%s\n", vote.vinMasternode.prevout.ToString());
-            return;
-        }
-
         masternode_info_t mnInfo;
         if(!mnodeman.GetMasternodeInfo(vote.vinMasternode.prevout, mnInfo)) {
             // mn was not found, so we can't check vote, some info is probably missing
@@ -244,6 +239,11 @@ void CMasternodePayments::ProcessMessage(CNode* pfrom, const std::string& strCom
             // but there is nothing we can do if vote info itself is outdated
             // (i.e. it was signed by a mn which changed its key),
             // so just quit here.
+            return;
+        }
+
+        if(!CanVote(vote.vinMasternode.prevout, vote.nBlockHeight)) {
+            LogPrintf("MASTERNODEPAYMENTVOTE -- masternode already voted, masternode=%s\n", vote.vinMasternode.prevout.ToString());
             return;
         }
 

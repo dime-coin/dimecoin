@@ -155,7 +155,7 @@ bool CGovernanceObject::ProcessVote(CNode* pfrom,
     }
 
     int64_t nNow = GetAdjustedTime();
-    int64_t nVoteTimeUpdate = voteInstance.nTime;
+    int64_t nVoteTimeUpdate = nNow;
     if(governance.AreRateChecksEnabled()) {
         int64_t nTimeDelta = nNow - voteInstance.nTime;
         if(nTimeDelta < GOVERNANCE_UPDATE_MIN) {
@@ -289,7 +289,6 @@ uint256 CGovernanceObject::GetHash() const
     ss << nTime;
     ss << strData;
     ss << vinMasternode;
-    ss << vchSig;
     // fee_tx is left out on purpose
     uint256 h1 = ss.GetHash();
 

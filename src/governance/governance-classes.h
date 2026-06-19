@@ -165,6 +165,7 @@ public:
 
     int GetStatus() { return nStatus; }
     void SetStatus(int nStatusIn) { nStatus = nStatusIn; }
+    const uint256& GetGovernanceObjectHash() const { return nGovObjHash; }
 
     // IS THIS TRIGGER ALREADY EXECUTED?
     bool IsExecuted() { return nStatus == SEEN_OBJECT_EXECUTED; }

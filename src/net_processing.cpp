@@ -1941,6 +1941,20 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                   pfrom->nStartingHeight, addrMe.ToString(), pfrom->GetId(),
                   remoteAddr);
 
+        int64_t nMinimumPeerTime = 0;
+        {
+            LOCK(cs_main);
+            if (chainActive.Genesis()) {
+                nMinimumPeerTime = chainActive.Genesis()->GetBlockTime();
+            }
+        }
+        if (nTime < nMinimumPeerTime || nTime > GetAdjustedTime() + MAX_FUTUREDRIFT_POW) {
+            LogPrintf("receive version message: peer=%d sent invalid time=%d\n", pfrom->GetId(), nTime);
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 20);
+            return false;
+        }
+
         int64_t nTimeOffset = nTime - GetTime();
         pfrom->nTimeOffset = nTimeOffset;
         AddTimeData(pfrom->addr, nTimeOffset);

@@ -16,6 +16,8 @@
 
 #include <univalue.h>
 
+#include <limits>
+
 // DECLARE GLOBAL VARIABLES FOR GOVERNANCE CLASSES
 CGovernanceTriggerManager triggerman;
 
@@ -376,7 +378,9 @@ bool CSuperblockManager::GetBestSuperblock(CSuperblock_sptr& pSuperblockRet, int
 
         int nTempYesCount = pObj->GetAbsoluteYesCount(VOTE_SIGNAL_FUNDING);
 //        DBG( cout << "GetBestSuperblock nTempYesCount = " << nTempYesCount << endl; );
-        if(nTempYesCount > nYesCount) {
+        if(nTempYesCount > nYesCount ||
+                (nTempYesCount == nYesCount && nTempYesCount > 0 && pSuperblockRet &&
+                 pSuperblock->GetGovernanceObjectHash() < pSuperblockRet->GetGovernanceObjectHash())) {
             nYesCount = nTempYesCount;
             pSuperblockRet = pSuperblock;
 //            DBG( cout << "GetBestSuperblock Valid superblock found, pSuperblock set" << endl; );
@@ -536,6 +540,11 @@ CAmount CSuperblock::GetPaymentsLimit(int nBlockHeight)
     // some part of all blocks issued during the cycle goes to superblock, see GetBlockSubsidy
     CAmount nSuperblockPartOfSubsidy = GetBlockSubsidy(nBlockHeight - 1, consensusParams, true);
 
+    if(nSuperblockPartOfSubsidy > 0 &&
+            consensusParams.nSuperblockCycle > std::numeric_limits<CAmount>::max() / nSuperblockPartOfSubsidy) {
+        return MAX_MONEY;
+    }
+
     CAmount nPaymentsLimit = nSuperblockPartOfSubsidy * consensusParams.nSuperblockCycle;
 
     LogPrint(BCLog::GOBJECT, "CSuperblock::GetPaymentsLimit -- Valid superblock height %d, payments max %lld\n", nBlockHeight, nPaymentsLimit);
@@ -694,7 +703,7 @@ bool CSuperblock::IsValid(const CTransactionRef& txNew, int nBlockHeight, CAmoun
         if(!GetPayment(i, payment)) {
             // This shouldn't happen so log a warning
             LogPrintf("CSuperblock::IsValid -- WARNING: Failed to find payment: %d of %d total payments\n", i, nPayments);
-            continue;
+            return false;
         }
 
         bool fPaymentMatch = false;

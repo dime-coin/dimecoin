@@ -112,7 +112,7 @@ unsigned int Lwma3GetNextWorkRequired(const CBlockIndex* pindexLast)
 
     const int lwma3fixheight = 3358350;
     if (height < lwma3fixheight && ((previousDiff * 67) / 100 > nextTarget)) {
-        nextTarget = (previousDiff * 67);
+        nextTarget = (previousDiff * 67) / 100;
     }
 
     if (height >= lwma3fixheight && (nextTarget < (previousDiff * 67) / 100)) {

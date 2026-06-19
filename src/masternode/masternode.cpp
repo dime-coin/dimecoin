@@ -448,7 +448,21 @@ bool CMasternodeBroadcast::SimpleCheck(int& nDos)
         return false;
     }
 
-    // make sure signature isn't in the future (past is OK)
+    int64_t nMinimumSigTime = 0;
+    {
+        LOCK(cs_main);
+        if (chainActive.Genesis()) {
+            nMinimumSigTime = chainActive.Genesis()->GetBlockTime();
+        }
+    }
+
+    // make sure signature time is sane
+    if (sigTime < nMinimumSigTime) {
+        LogPrintf("CMasternodeBroadcast::SimpleCheck -- Signature rejected, too far into the past: masternode=%s\n", vin.prevout.ToString());
+        nDos = 1;
+        return false;
+    }
+
     if (sigTime > GetAdjustedTime() + 60 * 60) {
         LogPrintf("CMasternodeBroadcast::SimpleCheck -- Signature rejected, too far into the future: masternode=%s\n", vin.prevout.ToString());
         nDos = 1;
@@ -634,7 +648,7 @@ bool CMasternodeBroadcast::Sign(const CKey& keyCollateralAddress)
 
     sigTime = GetAdjustedTime();
 
-    strMessage = addr.ToString(false) + boost::lexical_cast<std::string>(sigTime) +
+    strMessage = vin.prevout.ToStringShort() + addr.ToString(false) + boost::lexical_cast<std::string>(sigTime) +
                     pubKeyCollateralAddress.GetID().ToString() + pubKeyMasternode.GetID().ToString() +
                     boost::lexical_cast<std::string>(nProtocolVersion);
 
@@ -657,7 +671,7 @@ bool CMasternodeBroadcast::CheckSignature(int& nDos)
     std::string strError = "";
     nDos = 0;
 
-    strMessage = addr.ToString(false) + boost::lexical_cast<std::string>(sigTime) +
+    strMessage = vin.prevout.ToStringShort() + addr.ToString(false) + boost::lexical_cast<std::string>(sigTime) +
                     pubKeyCollateralAddress.GetID().ToString() + pubKeyMasternode.GetID().ToString() +
                     boost::lexical_cast<std::string>(nProtocolVersion);
 

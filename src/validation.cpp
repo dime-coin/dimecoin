@@ -1228,7 +1228,6 @@ static const int64_t nBlockRewardMinimumCoin = 1 * COIN;
 CAmount decayBlockReward(int nowHeight, const Consensus::Params& params)
 {
    CAmount nSubsidy = 15400 * COIN;
-   const double dailyDecay = 0.99978;
    const int blocksDaily = 86400 / params.nPosTargetSpacing;
 
    //! lets er.. recurse
@@ -1236,11 +1235,11 @@ CAmount decayBlockReward(int nowHeight, const Consensus::Params& params)
    while (blocksPassed > 0) {
       blocksPassed -= blocksDaily;
       if (blocksPassed > 0) {
-          nSubsidy *= dailyDecay;
+          nSubsidy = (nSubsidy * 99978) / 100000;
       }
    }
 
-   return std::floor((nSubsidy / COIN) * COIN);
+   return (nSubsidy / COIN) * COIN;
 }
 
 CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParams, bool fSuperblockPartOnly)
@@ -1280,7 +1279,7 @@ CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParam
         nSubsidy = nBlockRewardStartCoin * 8; // 8096 DIME, which is the current average reward amount in above distribution
         // yearly decline of production by 8%
         for (int i = Params().GetConsensus().nSubsidyHalvingInterval; i <= (nHeight - lwma3height); i += Params().GetConsensus().nSubsidyHalvingInterval) {
-            nSubsidy -= nSubsidy / 12.5;
+            nSubsidy -= nSubsidy * 2 / 25;
         }
         nSubsidy = std::max(nSubsidy, 4 * nBlockRewardStartCoin); // but not going below 4096 DIME
     }
@@ -1290,7 +1289,7 @@ CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParam
 
 CAmount GetFoundationPayment(int nHeight, CAmount blockValue)
 {
-    return blockValue * 0.10;
+    return blockValue / 10;
 }
 
 CScript GetFoundationScript()
@@ -1302,7 +1301,7 @@ CScript GetFoundationScript()
 
 CAmount GetMasternodePayment(int nHeight, CAmount blockValue)
 {
-    return blockValue * 0.45;
+    return blockValue * 9 / 20;
 }
 
 bool IsInitialBlockDownload()
@@ -1454,7 +1453,7 @@ void CChainState::InvalidBlockFound(CBlockIndex *pindex, const CValidationState 
 void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, CTxUndo &txundo, int nHeight)
 {
     // mark inputs spent
-    if (!tx.IsCoinBase() && !tx.IsCoinStake()) {
+    if (!tx.IsCoinBase()) {
         txundo.vprevout.reserve(tx.vin.size());
         for (const CTxIn &txin : tx.vin) {
             txundo.vprevout.emplace_back();
@@ -1524,10 +1523,6 @@ void ReprocessBlocks(int nBlocks)
  */
 bool CheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, bool cacheSigStore, bool cacheFullScriptStore, PrecomputedTransactionData& txdata, std::vector<CScriptCheck> *pvChecks)
 {
-    if (tx.IsCoinStake()) {
-        return true;
-    }
-
     if (!tx.IsCoinBase())
     {
         if (pvChecks)
@@ -1737,8 +1732,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     unsigned int nSizeCheck = blockUndo.vtxundo.size() + 1;
-    if (block.IsProofOfStake())
-        nSizeCheck++;
     if (nSizeCheck != block.vtx.size()) {
         error("DisconnectBlock(): block and undo data inconsistent");
         return DISCONNECT_FAILED;
@@ -1765,11 +1758,8 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
         }
 
         // restore inputs
-        if (i > 0 && !tx.IsCoinStake()) { // not coinbases
-            int nOffSet = 1;
-            if (pindex->IsProofOfStake())
-                nOffSet = 2;
-            CTxUndo &txundo = blockUndo.vtxundo[i-nOffSet];
+        if (i > 0) { // not coinbases
+            CTxUndo &txundo = blockUndo.vtxundo[i-1];
             if (txundo.vprevout.size() != tx.vin.size()) {
                 error("DisconnectBlock(): transaction and undo data inconsistent");
                 return DISCONNECT_FAILED;
@@ -2213,8 +2203,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         txdata.emplace_back(tx);
         if (!tx.IsCoinBase())
         {
-            if (!tx.IsCoinStake())
-                nFees += view.GetValueIn(tx) - tx.GetValueOut();
             nValueIn += view.GetValueIn(tx);
 
             std::vector<CScriptCheck> vChecks;
@@ -2228,7 +2216,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         nValueOut += tx.GetValueOut();
 
         CTxUndo undoDummy;
-        if (i > 0 && !tx.IsCoinStake()) {
+        if (i > 0) {
             blockundo.vtxundo.push_back(CTxUndo());
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
@@ -2256,7 +2244,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
 
     //! instead of trying to emulate the old fee schema..
-    CAmount minLegacyFee = 2.5 * COIN;
+    constexpr CAmount minLegacyFee = 5 * COIN / 2;
     CAmount expectedReward = minLegacyFee + GetBlockSubsidy(pindex->pprev->nHeight + 1, chainparams.GetConsensus());
 
     std::string strError = "";
@@ -3105,10 +3093,10 @@ bool ResetBlockFailureFlags(CBlockIndex *pindex) {
     return g_chainstate.ResetBlockFailureFlags(pindex);
 }
 
-static void AcceptProofOfStakeBlock(const CBlock &block, CBlockIndex *pindexNew)
+static bool AcceptProofOfStakeBlock(const CBlock &block, CBlockIndex *pindexNew, CValidationState& state)
 {
     if(!pindexNew)
-        return;
+        return true;
 
     if (block.IsProofOfStake()) {
         pindexNew->SetProofOfStake();
@@ -3144,9 +3132,11 @@ static void AcceptProofOfStakeBlock(const CBlock &block, CBlockIndex *pindexNew)
     pindexNew->nStakeModifierChecksum = GetStakeModifierChecksum(pindexNew);
     if (!IsTestnet() && !CheckStakeModifierCheckpoints(pindexNew->nHeight, pindexNew->nStakeModifierChecksum)) {
         LogPrintf("AcceptProofOfStakeBlock() : Rejected by stake modifier checkpoint height=%d, modifier=%s \n", pindexNew->nHeight, std::to_string(nStakeModifier));
+        return state.DoS(100, false, REJECT_CHECKPOINT, "bad-stake-modifier-checkpoint", false, "rejected by stake modifier checkpoint");
     }
 
     setDirtyBlockIndex.insert(pindexNew);
+    return true;
 }
 
 CBlockIndex* CChainState::AddToBlockIndex(const CBlockHeader& block, bool fProofOfStake)
@@ -3324,10 +3314,8 @@ static bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, 
 
 static bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
-    const bool isPoS = !block.nNonce;
-
     //! standard test for PoW headers
-    if (!isPoS && fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams)) {
+    if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams)) {
         return state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
     }
 
@@ -3556,6 +3544,9 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
     if (!pindexPrev)
         return state.DoS(100, false, REJECT_INVALID, "bad-pindex-prev", false, strprintf("current block is not genesis but has null previous"));
 
+    if (block.IsProofOfStake() && block.GetBlockTime() > GetAdjustedTime() + MAX_FUTUREDRIFT_POS)
+        return state.Invalid(false, REJECT_INVALID, "time-too-new", "proof-of-stake block timestamp too far in the future");
+
     // moved from CheckBlock() - funky behaviour there
     uint256 hashProofOfStake = uint256();
     if (block.IsProofOfStake())
@@ -3691,7 +3682,7 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
             return true;
         }
 
-        if (!CheckBlockHeader(block, state, chainparams.GetConsensus(), (block.nNonce > 0)))
+        if (!CheckBlockHeader(block, state, chainparams.GetConsensus()))
             return error("%s: Consensus::CheckBlockHeader: %s, %s", __func__, hash.ToString(), FormatStateMessage(state));
 
         // Get prev block index
@@ -3851,8 +3842,8 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
         return error("%s: %s", __func__, FormatStateMessage(state));
     }
 
-    if (pindex->nHeight >= Params().GetConsensus().nFirstPoSBlock)
-        AcceptProofOfStakeBlock(block, pindex);
+    if (pindex->nHeight >= Params().GetConsensus().nFirstPoSBlock && !AcceptProofOfStakeBlock(block, pindex, state))
+        return error("%s: %s", __func__, FormatStateMessage(state));
 
     // Header is valid/has work, merkle tree and segwit merkle tree are good...RELAY NOW
     // (but if it does not build on our best tip, let the SendMessages loop relay it)
@@ -4531,9 +4522,10 @@ bool CChainState::LoadGenesisBlock(const CChainParams& chainparams)
         CDiskBlockPos blockPos = SaveBlockToDisk(block, 0, chainparams, nullptr);
         if (blockPos.IsNull())
             return error("%s: writing genesis block to disk failed", __func__);
-        CBlockIndex *pindex = AddToBlockIndex(block);
-        AcceptProofOfStakeBlock(block, pindex);
         CValidationState state;
+        CBlockIndex *pindex = AddToBlockIndex(block);
+        if (!AcceptProofOfStakeBlock(block, pindex, state))
+            return error("%s: genesis block not accepted (%s)", __func__, FormatStateMessage(state));
         if (!ReceivedBlockTransactions(block, state, pindex, blockPos, chainparams.GetConsensus()))
             return error("%s: genesis block not accepted (%s)", __func__, FormatStateMessage(state));
     } catch (const std::runtime_error& e) {
