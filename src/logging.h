@@ -73,6 +73,12 @@ namespace BCLog {
         std::list<std::string> m_msgs_before_open;
 
         /**
+         * Set when log rotation has failed in a way that repeating it would not
+         * fix. Guarded by m_file_mutex.
+         */
+        bool m_rotation_disabled = false;
+
+        /**
          * m_started_new_line is a state variable that will suppress printing of
          * the timestamp when multiple calls are made that don't end in a
          * newline.
@@ -84,6 +90,7 @@ namespace BCLog {
 
         std::string LogTimestampStr(const std::string& str);
         bool OpenDebugLogHelper();
+        void BufferBeforeOpen(const std::string& str);
         void RotateLogs();
 
     public:

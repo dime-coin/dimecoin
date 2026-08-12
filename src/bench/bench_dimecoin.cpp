@@ -47,6 +47,24 @@ static fs::path SetDataDir()
     return ret;
 }
 
+//! Releases the ECC context and removes the temporary bench datadir on every
+//! exit path, including early returns and exceptions escaping a benchmark.
+namespace {
+struct BenchCleanup {
+    fs::path datadir;
+    explicit BenchCleanup(fs::path dir) : datadir(std::move(dir)) {}
+    ~BenchCleanup()
+    {
+        try {
+            fs::remove_all(datadir);
+        } catch (const std::exception& e) {
+            fprintf(stderr, "Warning: could not remove bench datadir: %s\n", e.what());
+        }
+        ECC_Stop();
+    }
+};
+} // namespace
+
 int main(int argc, char** argv)
 {
     SetupBenchArgs();
@@ -70,6 +88,8 @@ int main(int argc, char** argv)
     ECC_Start();
     SetupEnvironment();
 
+    BenchCleanup cleanup{bench_datadir};
+
     int64_t evaluations = gArgs.GetArg("-evals", DEFAULT_BENCH_EVALUATIONS);
     std::string regex_filter = gArgs.GetArg("-filter", DEFAULT_BENCH_FILTER);
     std::string scaling_str = gArgs.GetArg("-scaling", DEFAULT_BENCH_SCALING);
@@ -91,10 +111,6 @@ int main(int argc, char** argv)
     }
 
     benchmark::BenchRunner::RunAll(*printer, evaluations, scaling_factor, regex_filter, is_list_only);
-
-    fs::remove_all(bench_datadir);
-
-    ECC_Stop();
 
     return EXIT_SUCCESS;
 }

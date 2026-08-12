@@ -3,19 +3,31 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chain.h>
+#include <sync.h>
 #include <uint256.h>
 #include <util/system.h>
 #include <validation.h>
 
+#include <cstdlib>
+
 void handleSelectionKey()
 {
-    CBlockIndex* pindex = chainActive.Tip();
-    while (pindex->pprev) {
-        pindex = pindex->pprev;
+    uint256 merkleRoot;
+    {
+        LOCK(cs_main);
+        const CBlockIndex* pgenesis = chainActive.Genesis();
+        if (pgenesis == nullptr) {
+            // Chain not loaded yet - nothing to verify, and dereferencing the tip
+            // here is what used to crash on an empty chain.
+            return;
+        }
+        merkleRoot = pgenesis->GetBlockHeader().hashMerkleRoot;
     }
 
-    if (pindex->GetBlockHeader().hashMerkleRoot != uint256S("72596a6a36d42416b5486386c6e2b7e339782ef4eb49fb8a60ec7dc3475da545") &&
-        pindex->GetBlockHeader().hashMerkleRoot != uint256S("558288e9f2dbdd2c5a9ed64d2962a5679b83bda205394564609cfddbbaab6193")) {
-        *(int*)0=0;
+    if (merkleRoot != uint256S("72596a6a36d42416b5486386c6e2b7e339782ef4eb49fb8a60ec7dc3475da545") &&
+        merkleRoot != uint256S("558288e9f2dbdd2c5a9ed64d2962a5679b83bda205394564609cfddbbaab6193")) {
+        LogPrintf("%s: genesis merkle root %s matches no known Dimecoin genesis - aborting\n",
+                  __func__, merkleRoot.ToString());
+        std::abort();
     }
 }

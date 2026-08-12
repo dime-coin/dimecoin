@@ -46,7 +46,7 @@ GovernanceList::GovernanceList(const PlatformStyle *platformStyle, QWidget *pare
     ui->tableWidgetGobjects->setColumnWidth(7, columnFund);
 
 
-    contextMenu = new QMenu();
+    contextMenu = new QMenu(this);
     connect(ui->tableWidgetGobjects, SIGNAL(customContextMenuRequested(const QPoint&)), this, SLOT(showContextMenu(const QPoint&)));
     connect(ui->tableWidgetGobjects, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(on_GovernanceButton_clicked()));
 
@@ -60,6 +60,7 @@ GovernanceList::GovernanceList(const PlatformStyle *platformStyle, QWidget *pare
 
 void GovernanceList::on_voteYesButton_clicked()
 {
+    if (!walletModel) return;
     std::string gobjectSingle;
     {
         LOCK(cs_gobjlist);
@@ -100,6 +101,7 @@ void GovernanceList::on_voteYesButton_clicked()
 
 void GovernanceList::on_voteNoButton_clicked()
 {
+    if (!walletModel) return;
     std::string gobjectSingle;
     {
         LOCK(cs_gobjlist);
@@ -140,6 +142,7 @@ void GovernanceList::on_voteNoButton_clicked()
 
 void GovernanceList::on_voteAbstainButton_clicked()
 {
+    if (!walletModel) return;
     std::string gobjectSingle;
     {
         LOCK(cs_gobjlist);

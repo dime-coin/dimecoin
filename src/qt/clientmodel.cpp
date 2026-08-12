@@ -89,10 +89,14 @@ int ClientModel::getNumConnections(unsigned int flags) const
 QString ClientModel::getMasternodeCountString() const
 {
     // return tr("Total: %1 (PS compatible: %2 / Enabled: %3) (IPv4: %4, IPv6: %5, TOR: %6)").arg(QString::number((int)mnodeman.size()))
+    //! One call, one consistent snapshot. Calling getNumMasternodes() once per
+    //  field re-read the masternode list three times and could display counts
+    //  taken from three different states of it.
+    const interfaces::MasternodeCountInfo mnCount = m_node.getNumMasternodes();
     return tr("Total: %1 (PS compatible: %2 / Enabled: %3)")
-            .arg(QString::number((int)m_node.getNumMasternodes().size))
-            .arg(QString::number((int)m_node.getNumMasternodes().countEnabledProtVersion))
-            .arg(QString::number((int)m_node.getNumMasternodes().countEnabled));
+            .arg(QString::number((int)mnCount.size))
+            .arg(QString::number((int)mnCount.countEnabledProtVersion))
+            .arg(QString::number((int)mnCount.countEnabled));
             // .arg(QString::number((int)mnodeman.CountByIP(NET_IPV4)))
             // .arg(QString::number((int)mnodeman.CountByIP(NET_IPV6)))
             // .arg(QString::number((int)mnodeman.CountByIP(NET_ONION)));

@@ -29,9 +29,34 @@ void CSVModelWriter::addColumn(const QString &title, int column, int role)
     columns.append(col);
 }
 
+// A spreadsheet application treats a field starting with '=', '+', '@' or '-'
+// as a formula, which makes CSV export a code-execution vector for any
+// user-controlled text (labels, addresses, comments). Fields that would be
+// interpreted that way are prefixed with a single quote. A leading '-' is only
+// escaped when the field also contains formula characters, so that ordinary
+// negative amounts continue to export unchanged.
+static bool needsFormulaGuard(const QString &value)
+{
+    if (value.isEmpty())
+        return false;
+    const QChar first = value.at(0);
+    if (first == '=' || first == '+' || first == '@' || first == '\t' || first == '\r')
+        return true;
+    if (first == '-') {
+        for (int i = 1; i < value.size(); i++) {
+            const QChar c = value.at(i);
+            if (c.isLetter() || c == '|' || c == '!' || c == '(' || c == ')')
+                return true;
+        }
+    }
+    return false;
+}
+
 static void writeValue(QTextStream &f, const QString &value)
 {
     QString escaped = value;
+    if (needsFormulaGuard(escaped))
+        escaped.prepend('\'');
     escaped.replace('"', "\"\"");
     f << "\"" << escaped << "\"";
 }

@@ -142,11 +142,6 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
     {
         return StakingOnlyUnlocked;
     }
-    
-    if (isStakingOnlyUnlocked()) 
-    {
-        return StakingOnlyUnlocked;
-    }
 
     QSet<QString> setAddress; // Used to detect duplicates
     int nAddresses = 0;
@@ -252,11 +247,6 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction &tran
         return StakingOnlyUnlocked;
     }
 
-    if (isStakingOnlyUnlocked())
-    {
-        return StakingOnlyUnlocked;
-    }
-
     {
         std::vector<std::pair<std::string, std::string>> vOrderForm;
         for (const SendCoinsRecipient &rcp : transaction.getRecipients())
@@ -353,18 +343,6 @@ WalletModel::EncryptionStatus WalletModel::getEncryptionStatus() const
     else if(m_wallet->isLocked())
     {
         return Locked;
-    }
-    else if(m_wallet->isLockedForStaking()) 
-    {
-        return UnlockedForStakingOnly;
-    }
-    else if(m_wallet->isLockedForStaking()) 
-    {
-        return UnlockedForStakingOnly;
-    }
-    else if(m_wallet->isLockedForStaking()) 
-    {
-        return UnlockedForStakingOnly;
     }
     else if(m_wallet->isLockedForStaking()) 
     {

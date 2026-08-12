@@ -32,11 +32,16 @@
 #include <unordered_set>
 #include <vector>
 
+// Boost 1.73 and newer only expose the global _1, _2, ... bind placeholders
+// when this is defined, and it has no effect unless it precedes every
+// Boost.Bind include. In-tree call sites all use the qualified
+// boost::placeholders:: form, so this is only a safety net for third-party
+// headers.
+#define BOOST_BIND_GLOBAL_PLACEHOLDERS 1
+
 #include <boost/bind/bind.hpp>
 #include <boost/signals2/signal.hpp>
 #include <boost/thread/condition_variable.hpp> // for boost::thread_interrupted
-
-#define BOOST_BIND_GLOBAL_PLACEHOLDERS 1
 
 // Application startup time (used for uptime calculation)
 int64_t GetStartupTime();

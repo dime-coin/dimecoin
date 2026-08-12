@@ -17,7 +17,8 @@ expand_path() {
   echo "$(cd "${1}" && pwd -P)"
 }
 
-BDB_PREFIX="$(expand_path ${1})/db4"; shift;
+SCRIPT_DIR="$(expand_path "$(dirname "${0}")")"
+BDB_PREFIX="$(expand_path "${1}")/db4"; shift;
 BDB_VERSION='db-4.8.30.NC'
 BDB_HASH='12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef'
 BDB_URL="https://download.oracle.com/berkeley-db/${BDB_VERSION}.tar.gz"
@@ -64,11 +65,17 @@ http_get "${BDB_URL}" "${BDB_VERSION}.tar.gz" "${BDB_HASH}"
 tar -xzvf ${BDB_VERSION}.tar.gz -C "$BDB_PREFIX"
 cd "${BDB_PREFIX}/${BDB_VERSION}/"
 
-# Apply a patch necessary when building with clang and c++11 (see https://community.oracle.com/thread/3952592)
-CLANG_CXX11_PATCH_URL='https://gist.githubusercontent.com/LnL7/5153b251fd525fe15de69b67e63a6075/raw/7778e9364679093a32dec2908656738e16b6bdcb/clang.patch'
-CLANG_CXX11_PATCH_HASH='7a9a47b03fd5fb93a16ef42235fa9512db9b0829cfc3bdf90edd3ec1f44d637c'
-http_get "${CLANG_CXX11_PATCH_URL}" clang.patch "${CLANG_CXX11_PATCH_HASH}"
-patch -p2 < clang.patch
+# Apply a patch necessary when building with clang and c++11, and with GCC 4.9
+# and newer, where BDB's __atomic_compare_exchange collides with the compiler
+# builtin of the same name (see https://community.oracle.com/thread/3952592).
+# The patch is vendored in-tree so the build does not depend on a third-party
+# host remaining reachable.
+BDB_PATCH="${SCRIPT_DIR}/patches/db-4.8.30-atomic.patch"
+if [ ! -f "${BDB_PATCH}" ]; then
+  echo "ERROR: cannot find required patch ${BDB_PATCH}" >&2
+  exit 1
+fi
+patch -p2 < "${BDB_PATCH}"
 
 cd build_unix/
 

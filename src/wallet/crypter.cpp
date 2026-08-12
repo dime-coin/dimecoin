@@ -13,6 +13,7 @@
 
 #include <string>
 #include <vector>
+#include <limits>
 
 int CCrypter::BytesToKeySHA512AES(const std::vector<unsigned char>& chSalt, const SecureString& strKeyData, int count, unsigned char *key,unsigned char *iv) const
 {
@@ -77,13 +78,22 @@ bool CCrypter::Encrypt(const CKeyingMaterial& vchPlaintext, std::vector<unsigned
     if (!fKeySet)
         return false;
 
+    // The backend takes and returns the length as int. Refuse a size that would
+    // not survive the conversion rather than handing it a negative length.
+    if (vchPlaintext.size() > static_cast<size_t>(std::numeric_limits<int>::max()) - AES_BLOCKSIZE)
+        return false;
+
     // max ciphertext len for a n bytes of plaintext is
     // n + AES_BLOCKSIZE bytes
     vchCiphertext.resize(vchPlaintext.size() + AES_BLOCKSIZE);
 
     AES256CBCEncrypt enc(vchKey.data(), vchIV.data(), true);
-    size_t nLen = enc.Encrypt(&vchPlaintext[0], vchPlaintext.size(), vchCiphertext.data());
-    if(nLen < vchPlaintext.size())
+    // data() rather than &v[0]: indexing element 0 of an empty vector is
+    // undefined behaviour, and a zero-length input reaches here legitimately.
+    int nLen = enc.Encrypt(vchPlaintext.data(), static_cast<int>(vchPlaintext.size()), vchCiphertext.data());
+    // A negative return assigned straight to size_t previously wrapped to a huge
+    // value, which passed the length test below and then resized to it.
+    if (nLen < 0 || static_cast<size_t>(nLen) < vchPlaintext.size())
         return false;
     vchCiphertext.resize(nLen);
 
@@ -95,14 +105,16 @@ bool CCrypter::Decrypt(const std::vector<unsigned char>& vchCiphertext, CKeyingM
     if (!fKeySet)
         return false;
 
-    // plaintext will always be equal to or lesser than length of ciphertext
-    int nLen = vchCiphertext.size();
+    // Same int-width guard as Encrypt().
+    if (vchCiphertext.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
+        return false;
 
-    vchPlaintext.resize(nLen);
+    // plaintext will always be equal to or lesser than length of ciphertext
+    vchPlaintext.resize(vchCiphertext.size());
 
     AES256CBCDecrypt dec(vchKey.data(), vchIV.data(), true);
-    nLen = dec.Decrypt(vchCiphertext.data(), vchCiphertext.size(), &vchPlaintext[0]);
-    if(nLen == 0)
+    int nLen = dec.Decrypt(vchCiphertext.data(), static_cast<int>(vchCiphertext.size()), vchPlaintext.data());
+    if (nLen <= 0)
         return false;
     vchPlaintext.resize(nLen);
     return true;
@@ -311,7 +323,13 @@ bool CCryptoKeyStore::EncryptKeys(CKeyingMaterial& vMasterKeyIn)
     if (!mapCryptedKeys.empty() || IsCrypted())
         return false;
 
-    fUseCrypto = true;
+    // Two phases, so that a failure part-way through cannot leave the store
+    // holding a mixture of converted and unconverted entries with no way back.
+    // Phase one computes everything and mutates no shared state; phase two
+    // publishes the results and is unwound completely if any step fails.
+    std::vector<std::pair<CPubKey, std::vector<unsigned char>>> vConverted;
+    vConverted.reserve(mapKeys.size());
+
     for (KeyMap::value_type& mKey : mapKeys)
     {
         const CKey &key = mKey.second;
@@ -320,9 +338,22 @@ bool CCryptoKeyStore::EncryptKeys(CKeyingMaterial& vMasterKeyIn)
         std::vector<unsigned char> vchCryptedSecret;
         if (!EncryptSecret(vMasterKeyIn, vchSecret, vchPubKey.GetHash(), vchCryptedSecret))
             return false;
-        if (!AddCryptedKey(vchPubKey, vchCryptedSecret))
-            return false;
+        vConverted.emplace_back(vchPubKey, std::move(vchCryptedSecret));
     }
+
+    fUseCrypto = true;
+    for (const auto& converted : vConverted)
+    {
+        if (!AddCryptedKey(converted.first, converted.second))
+        {
+            // Roll back to the pre-call state. mapKeys is still intact because it
+            // is only cleared once every entry has been accepted.
+            mapCryptedKeys.clear();
+            fUseCrypto = false;
+            return false;
+        }
+    }
+
     mapKeys.clear();
     return true;
 }

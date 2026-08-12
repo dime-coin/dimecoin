@@ -29,6 +29,9 @@
 #include <QScrollBar>
 #include <QSettings>
 #include <QTextDocument>
+#include <array>
+
+#include <limits>
 
 static const std::array<int, 9> confTargets = { {2, 4, 6, 12, 24, 48, 144, 504, 1008} };
 int getConfTargetForIndex(int index) {
@@ -432,10 +435,15 @@ SendCoinsEntry *SendCoinsDialog::addEntry()
     entry->clear();
     entry->setFocus();
     ui->scrollAreaWidgetContents->resize(ui->scrollAreaWidgetContents->sizeHint());
-    qApp->processEvents();
     QScrollBar* bar = ui->scrollArea->verticalScrollBar();
-    if(bar)
-        bar->setSliderPosition(bar->maximum());
+    if(bar) {
+        // Defer scrolling to bottom until the resize has propagated through
+        // the layout. Calling qApp->processEvents() here re-entered the event
+        // loop while the entries layout was mid-mutation, letting unrelated
+        // slots run at an inconsistent point.
+        QMetaObject::invokeMethod(bar, "setValue", Qt::QueuedConnection,
+                                  Q_ARG(int, std::numeric_limits<int>::max()));
+    }
 
     updateTabsAndLabels();
     return entry;

@@ -15,13 +15,13 @@ merging pull requests as well as a "lead maintainer" who is responsible for the
 release cycle, overall merging, moderation and appointment of maintainers.
 
 If you're looking for somewhere to start contributing, check out the
-[first issue](https://github.com/dime-coin/dimecoin-evo/issues)
+[first issue](https://github.com/dime-coin/dimecoin/issues)
 list.
 
 Communication Channels
 ----------------------
 
-Most communication about Dimecoin Core development happens on Telegram, https://t.me/dimecoinofficalpublic. 
+Most communication about Dimecoin Core development happens on Telegram, https://t.me/dimecoinofficialpublic.
 
 Discussion about code base improvements happens in GitHub issues and on pull
 requests.

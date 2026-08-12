@@ -38,7 +38,7 @@ CGovernanceObject::CGovernanceObject()
   fExpired(false),
   fUnparsable(false),
   mapCurrentMNVotes(),
-  mapOrphanVotes(),
+  mapOrphanVotes(MAX_ORPHAN_VOTES_PER_OBJECT),
   fileVotes()
 {
     // PARSE JSON DATA STORAGE (STRDATA)
@@ -66,7 +66,7 @@ CGovernanceObject::CGovernanceObject(uint256 nHashParentIn, int nRevisionIn, int
   fExpired(false),
   fUnparsable(false),
   mapCurrentMNVotes(),
-  mapOrphanVotes(),
+  mapOrphanVotes(MAX_ORPHAN_VOTES_PER_OBJECT),
   fileVotes()
 {
     // PARSE JSON DATA STORAGE (STRDATA)
@@ -155,7 +155,7 @@ bool CGovernanceObject::ProcessVote(CNode* pfrom,
     }
 
     int64_t nNow = GetAdjustedTime();
-    int64_t nVoteTimeUpdate = voteInstance.nTime;
+    int64_t nVoteTimeUpdate = nNow;
     if(governance.AreRateChecksEnabled()) {
         int64_t nTimeDelta = nNow - voteInstance.nTime;
         if(nTimeDelta < GOVERNANCE_UPDATE_MIN) {

@@ -169,8 +169,12 @@ class NodeImpl : public Node
     }
     MasternodeCountInfo getNumMasternodes() override
     {
-        MasternodeCountInfo mnCount(mnodeman.size(), mnodeman.CountEnabled(PROTOCOL_VERSION), mnodeman.CountEnabled());
-        return mnCount;
+        //! Take all three counts under one lock: reading them through separate
+        //  calls lets the list change in between, so the numbers could describe
+        //  different states of the masternode list.
+        int nSize = 0, nEnabledProto = 0, nEnabled = 0;
+        mnodeman.GetCountsSnapshot(nSize, nEnabledProto, nEnabled, PROTOCOL_VERSION);
+        return MasternodeCountInfo(nSize, nEnabledProto, nEnabled);
     }
     int64_t getLastBlockTime() override
     {
@@ -224,6 +228,9 @@ class NodeImpl : public Node
     bool getUnspentOutput(const COutPoint& output, Coin& coin) override
     {
         LOCK(::cs_main);
+        if (::pcoinsTip == nullptr) {
+            return false;
+        }
         return ::pcoinsTip->GetCoin(output, coin);
     }
     std::vector<std::unique_ptr<Wallet>> getWallets() override
@@ -257,7 +264,11 @@ class NodeImpl : public Node
     std::unique_ptr<Handler> handleLoadWallet(LoadWalletFn fn) override
     {
         CHECK_WALLET(
-            return MakeHandler(::uiInterface.LoadWallet.connect([fn](CWallet* wallet) { fn(MakeWallet(*wallet)); })));
+            return MakeHandler(::uiInterface.LoadWallet.connect([fn](CWallet* wallet) {
+                if (wallet) {
+                    fn(MakeWallet(*wallet));
+                }
+            })));
     }
     std::unique_ptr<Handler> handleNotifyNumConnectionsChanged(NotifyNumConnectionsChangedFn fn) override
     {
@@ -278,6 +289,9 @@ class NodeImpl : public Node
     std::unique_ptr<Handler> handleNotifyBlockTip(NotifyBlockTipFn fn) override
     {
         return MakeHandler(::uiInterface.NotifyBlockTip.connect([fn](bool initial_download, const CBlockIndex* block) {
+            if (block == nullptr) {
+                return;
+            }
             fn(initial_download, block->nHeight, block->GetBlockTime(),
                 GuessVerificationProgress(Params().TxData(), block));
         }));
@@ -286,12 +300,15 @@ class NodeImpl : public Node
     {
         return MakeHandler(
             ::uiInterface.NotifyHeaderTip.connect([fn](bool initial_download, const CBlockIndex* block) {
+                if (block == nullptr) {
+                    return;
+                }
                 fn(initial_download, block->nHeight, block->GetBlockTime(),
                     GuessVerificationProgress(Params().TxData(), block));
             }));
     }
 
-    std::unique_ptr<Handler> handleNotifyAdditionalDataSyncProgressChanged(NotifyAdditionalDataSyncProressChangedFn fn)
+    std::unique_ptr<Handler> handleNotifyAdditionalDataSyncProgressChanged(NotifyAdditionalDataSyncProressChangedFn fn) override
     {
         return MakeHandler(::uiInterface.NotifyAdditionalDataSyncProgressChanged.connect(fn));
     }

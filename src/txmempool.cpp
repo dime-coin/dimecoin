@@ -518,7 +518,7 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
                     continue;
                 const Coin &coin = pcoins->AccessCoin(txin.prevout);
                 if (nCheckFrequency != 0) assert(!coin.IsSpent());
-                if (coin.IsSpent() || (coin.IsCoinBase() && ((signed long)nMemPoolHeight) - coin.nHeight < COINBASE_MATURITY)) {
+                if (coin.IsSpent() || (coin.IsCoinBase() && ((int64_t)nMemPoolHeight) - coin.nHeight < COINBASE_MATURITY)) {
                     txToRemove.insert(it);
                     break;
                 }
@@ -724,8 +724,8 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
     for (auto it = mapNextTx.cbegin(); it != mapNextTx.cend(); it++) {
         uint256 hash = it->second->GetHash();
         indexed_transaction_set::const_iterator it2 = mapTx.find(hash);
-        const CTransaction& tx = it2->GetTx();
         assert(it2 != mapTx.end());
+        const CTransaction& tx = it2->GetTx();
         assert(&tx == it->second);
     }
 
@@ -832,7 +832,14 @@ void CTxMemPool::PrioritiseTransaction(const uint256& hash, const CAmount& nFeeD
     {
         LOCK(cs);
         CAmount &delta = mapDeltas[hash];
-        delta += nFeeDelta;
+        // Clamp the caller-supplied delta and the accumulated delta to the valid CAmount range
+        // to prevent signed overflow in downstream ancestor/descendant fee accumulators.
+        const CAmount nClampedInput = std::max<CAmount>(-MAX_MONEY, std::min<CAmount>(MAX_MONEY, nFeeDelta));
+        CAmount newDelta = delta + nClampedInput;
+        if (newDelta > MAX_MONEY) newDelta = MAX_MONEY;
+        else if (newDelta < -MAX_MONEY) newDelta = -MAX_MONEY;
+        const CAmount nEffectiveDelta = newDelta - delta;
+        delta = newDelta;
         txiter it = mapTx.find(hash);
         if (it != mapTx.end()) {
             mapTx.modify(it, update_fee_delta(delta));
@@ -842,14 +849,14 @@ void CTxMemPool::PrioritiseTransaction(const uint256& hash, const CAmount& nFeeD
             std::string dummy;
             CalculateMemPoolAncestors(*it, setAncestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, dummy, false);
             for (txiter ancestorIt : setAncestors) {
-                mapTx.modify(ancestorIt, update_descendant_state(0, nFeeDelta, 0));
+                mapTx.modify(ancestorIt, update_descendant_state(0, nEffectiveDelta, 0));
             }
             // Now update all descendants' modified fees with ancestors
             setEntries setDescendants;
             CalculateDescendants(it, setDescendants);
             setDescendants.erase(it);
             for (txiter descendantIt : setDescendants) {
-                mapTx.modify(descendantIt, update_ancestor_state(0, nFeeDelta, 0, 0));
+                mapTx.modify(descendantIt, update_ancestor_state(0, nEffectiveDelta, 0, 0));
             }
             ++nTransactionsUpdated;
         }

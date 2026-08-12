@@ -79,5 +79,6 @@ std::string GetWarnings(const std::string& strFor)
 
 bool GetfLargeWorkInvalidChainFound()
 {
+    LOCK(cs_warnings);
     return fLargeWorkInvalidChainFound;
 }

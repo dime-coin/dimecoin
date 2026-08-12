@@ -89,6 +89,7 @@ void CMasternodePayments::Clear()
     LOCK2(cs_mapMasternodeBlocks, cs_mapMasternodePaymentVotes);
     mapMasternodeBlocks.clear();
     mapMasternodePaymentVotes.clear();
+    mapUnverifiedVoteAttempts.clear();
 }
 
 bool CMasternodePayments::CanVote(COutPoint outMasternode, int nBlockHeight)
@@ -189,24 +190,42 @@ void CMasternodePayments::ProcessMessage(CNode* pfrom, const std::string& strCom
         // Ignore any payments messages until masternode list is synced
         if(!masternodeSync.IsMasternodeListSynced()) return;
 
-        {
-            LOCK(cs_mapMasternodePaymentVotes);
-            if(mapMasternodePaymentVotes.count(nHash)) {
-                LogPrint(BCLog::MNPAYMENTS, "MASTERNODEPAYMENTVOTE -- hash=%s, nHeight=%d seen\n", nHash.ToString(), nCachedBlockHeight);
-                return;
-            }
-
-            // Avoid processing same vote multiple times
-            mapMasternodePaymentVotes[nHash] = vote;
-            // but first mark vote as non-verified,
-            // AddPaymentVote() below should take care of it if vote is actually ok
-            mapMasternodePaymentVotes[nHash].MarkAsNotVerified();
-        }
-
+        // Range-check before touching the vote map: a vote for a far-future height would otherwise
+        // leave a placeholder that CheckAndRemove() never purges (its age test is negative for
+        // heights above the tip), letting a peer grow the map without bound via unique hashes.
         int nFirstBlock = nCachedBlockHeight - GetStorageLimit();
         if(vote.nBlockHeight < nFirstBlock || vote.nBlockHeight > nCachedBlockHeight+20) {
             LogPrint(BCLog::MNPAYMENTS, "MASTERNODEPAYMENTVOTE -- vote out of range: nFirstBlock=%d, nBlockHeight=%d, nHeight=%d\n", nFirstBlock, vote.nBlockHeight, nCachedBlockHeight);
             return;
+        }
+
+        {
+            LOCK(cs_mapMasternodePaymentVotes);
+            auto it = mapMasternodePaymentVotes.find(nHash);
+            if(it != mapMasternodePaymentVotes.end()) {
+                if(it->second.IsVerified()) {
+                    LogPrint(BCLog::MNPAYMENTS, "MASTERNODEPAYMENTVOTE -- hash=%s, nHeight=%d seen\n", nHash.ToString(), nCachedBlockHeight);
+                    return;
+                }
+
+                // Stale non-verified placeholder. The earlier attempt failed for a reason that may
+                // since have resolved (most commonly: the masternode list was not synced yet), so
+                // drop it and let this delivery re-run full validation - but only a bounded number
+                // of times, otherwise replaying one vote is a free CPU amplifier.
+                int& nAttempts = mapUnverifiedVoteAttempts[nHash];
+                if(nAttempts >= MNPAYMENTS_MAX_VOTE_REVALIDATIONS) {
+                    LogPrint(BCLog::MNPAYMENTS, "MASTERNODEPAYMENTVOTE -- hash=%s, nHeight=%d revalidation limit reached\n", nHash.ToString(), nCachedBlockHeight);
+                    return;
+                }
+                ++nAttempts;
+                mapMasternodePaymentVotes.erase(it);
+            }
+
+            // Avoid processing the same vote multiple times: insert a placeholder marked as
+            // non-verified so concurrent/duplicate deliveries short-circuit above.
+            // AddPaymentVote() below replaces it with the verified vote if validation succeeds.
+            mapMasternodePaymentVotes[nHash] = vote;
+            mapMasternodePaymentVotes[nHash].MarkAsNotVerified();
         }
 
         std::string strError = "";
@@ -436,7 +455,7 @@ bool CMasternodeBlockPayees::IsTransactionValid(const CTransactionRef& txNew) co
         return true;
     }
 
-    LogPrintf("CMasternodeBlockPayees::IsTransactionValid -- ERROR: Missing required payment, possible payees: '%s', amount: %f DIME\n", strPayeesPossible, (float)nMasternodePayment/COIN);
+    LogPrint(BCLog::MNPAYMENTS, "CMasternodeBlockPayees::IsTransactionValid -- Missing required payment, possible payees: '%s', amount: %f DIME\n", strPayeesPossible, (float)nMasternodePayment/COIN);
     return false;
 }
 
@@ -503,6 +522,19 @@ void CMasternodePayments::CheckAndRemove()
             ++it;
         }
     }
+
+    // Drop re-validation accounting for votes that are gone or already verified, so the map
+    // cannot outgrow the vote map it shadows.
+    auto itAttempts = mapUnverifiedVoteAttempts.begin();
+    while(itAttempts != mapUnverifiedVoteAttempts.end()) {
+        auto itVote = mapMasternodePaymentVotes.find(itAttempts->first);
+        if(itVote == mapMasternodePaymentVotes.end() || itVote->second.IsVerified()) {
+            mapUnverifiedVoteAttempts.erase(itAttempts++);
+        } else {
+            ++itAttempts;
+        }
+    }
+
     LogPrintf("CMasternodePayments::CheckAndRemove -- %s\n", ToString());
 }
 
@@ -844,12 +876,26 @@ void CMasternodePayments::RequestLowDataPaymentBlocks(CNode* pnode, CConnman& co
 
 std::string CMasternodePayments::ToString() const
 {
+    LOCK2(cs_mapMasternodeBlocks, cs_mapMasternodePaymentVotes);
+
     std::ostringstream info;
 
-    info << "Votes: " << (int)mapMasternodePaymentVotes.size() <<
-            ", Blocks: " << (int)mapMasternodeBlocks.size();
+    info << "Votes: " << CountToInt(mapMasternodePaymentVotes.size()) <<
+            ", Blocks: " << CountToInt(mapMasternodeBlocks.size());
 
     return info.str();
+}
+
+int CMasternodePayments::GetBlockCount()
+{
+    LOCK(cs_mapMasternodeBlocks);
+    return CountToInt(mapMasternodeBlocks.size());
+}
+
+int CMasternodePayments::GetVoteCount()
+{
+    LOCK(cs_mapMasternodePaymentVotes);
+    return CountToInt(mapMasternodePaymentVotes.size());
 }
 
 bool CMasternodePayments::IsEnoughData()
@@ -885,6 +931,16 @@ void AdjustMasternodePayment(CMutableTransaction &tx, const CTxOut &txoutMastern
     {
         long mnPaymentOutIndex = std::distance(std::begin(tx.vout), it);
         auto masternodePayment = tx.vout[mnPaymentOutIndex].nValue;
+        // Defensive: all current callers guarantee tx.vout.size() >= 2 once the masternode
+        // payment has been found in vout. Bail out rather than dereferencing an out-of-range
+        // index if a future caller ever violates that invariant -- tx.vout.size() is unsigned,
+        // so size()-2 with size<2 underflows and tx.vout[i] would be undefined behaviour.
+        // Same defect shape as the foundation-payment adjustment (bug #129).
+        if (tx.vout.size() < 2) {
+            LogPrintf("%s: unexpected vout layout (size=%u); skipping masternode adjustment\n",
+                      __func__, static_cast<unsigned int>(tx.vout.size()));
+            return;
+        }
         long i = tx.vout.size() - 2;
         tx.vout[i].nValue -= masternodePayment; // last vout is mn payment.
     }

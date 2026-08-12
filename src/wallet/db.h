@@ -39,6 +39,8 @@ public:
     std::unique_ptr<DbEnv> dbenv;
     std::map<std::string, int> mapFileUseCount;
     std::map<std::string, Db*> mapDb;
+    //! Handle for the BDB error log passed to DbEnv::set_errfile; owned here so it can be closed.
+    FILE* m_errfile = nullptr;
 
     BerkeleyEnvironment(const fs::path& env_directory);
     ~BerkeleyEnvironment();
@@ -328,8 +330,19 @@ public:
         int ret = pcursor->get(&datKey, &datValue, fFlags);
         if (ret != 0)
             return ret;
-        else if (datKey.get_data() == nullptr || datValue.get_data() == nullptr)
+        else if (datKey.get_data() == nullptr || datValue.get_data() == nullptr) {
+            // BerkeleyDB allocated with DB_DBT_MALLOC, so whichever buffer did
+            // come back is ours to release.
+            if (datKey.get_data() != nullptr) {
+                memory_cleanse(datKey.get_data(), datKey.get_size());
+                free(datKey.get_data());
+            }
+            if (datValue.get_data() != nullptr) {
+                memory_cleanse(datValue.get_data(), datValue.get_size());
+                free(datValue.get_data());
+            }
             return 99999;
+        }
 
         // Convert to streams
         ssKey.SetType(SER_DISK);

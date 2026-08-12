@@ -11,6 +11,7 @@
 #include <txmempool.h>
 
 #include <stdint.h>
+#include <atomic>
 #include <memory>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -24,7 +25,7 @@ class CConnman;
 namespace Consensus { struct Params; };
 
 static const bool DEFAULT_PRINTPRIORITY = false;
-extern int64_t nLastCoinStakeSearchInterval;
+extern std::atomic<int64_t> nLastCoinStakeSearchInterval;
 
 struct CBlockTemplate
 {

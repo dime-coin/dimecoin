@@ -98,7 +98,9 @@ SplashScreen::~SplashScreen()
 bool SplashScreen::eventFilter(QObject * obj, QEvent * ev) {
     if (ev->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(ev);
-        if(keyEvent->text()[0] == 'q') {
+        // text() is empty for modifier-only key presses, so indexing it
+        // directly is out of range.
+        if (keyEvent->text().startsWith(QLatin1Char('q'))) {
             m_node.startShutdown();
         }
     }

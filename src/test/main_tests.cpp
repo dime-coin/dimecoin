@@ -17,9 +17,11 @@ BOOST_FIXTURE_TEST_SUITE(main_tests, TestingSetup)
 //! types to define test data in
 typedef std::pair<int, CAmount> subsidyEntry;
 std::vector<subsidyEntry> subsidyChecks;
+std::vector<subsidyEntry> posSubsidyChecks;
 
 void initSubsidyCheckData()
 {
+	subsidyChecks.clear();
 	subsidyChecks.push_back({100, 350000000});
 	subsidyChecks.push_back({2351, 310272});
 	subsidyChecks.push_back({3701, 644096});
@@ -124,14 +126,24 @@ void initSubsidyCheckData()
 	subsidyChecks.push_back({4510001, 6933});
 	subsidyChecks.push_back({4780001, 6933});
 	subsidyChecks.push_back({4838051, 6933});
-	subsidyChecks.push_back({5000051, 6379});
-	subsidyChecks.push_back({5050001, 6379});
-	subsidyChecks.push_back({5320001, 6379});
-	subsidyChecks.push_back({5590001, 5868});
-	subsidyChecks.push_back({5784401, 5868});
-	subsidyChecks.push_back({5860001, 5868});
-	subsidyChecks.push_back({6000401, 5399});
-	subsidyChecks.push_back({6130001, 5399});
+}
+
+//! Heights at or above nFirstPoSBlock are paid by decayBlockReward(), which
+//! restarts at 15,400 DIME and decays by 0.99978 per day, so they follow a
+//! different curve from the PoW schedule above and are kept in their own set.
+//! Every height below has already been mined on mainnet, so these are recorded
+//! historical subsidies rather than projections.
+void initPosSubsidyCheckData()
+{
+	posSubsidyChecks.clear();
+	posSubsidyChecks.push_back({5000051, 15400});
+	posSubsidyChecks.push_back({5050001, 15275});
+	posSubsidyChecks.push_back({5320001, 14617});
+	posSubsidyChecks.push_back({5590001, 13988});
+	posSubsidyChecks.push_back({5784401, 13551});
+	posSubsidyChecks.push_back({5860001, 13386});
+	posSubsidyChecks.push_back({6000401, 13083});
+	posSubsidyChecks.push_back({6130001, 12809});
 }
 
 BOOST_AUTO_TEST_CASE(subsidy_limit_test)
@@ -140,12 +152,37 @@ BOOST_AUTO_TEST_CASE(subsidy_limit_test)
 	const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
 	CAmount nSum = 0;
 	for (auto l : subsidyChecks) {
+		BOOST_CHECK(l.first < chainParams->GetConsensus().nFirstPoSBlock);
 		CAmount nSubsidy = GetBlockSubsidy(l.first, chainParams->GetConsensus());
 		BOOST_CHECK_EQUAL(l.second, nSubsidy / COIN);
 		nSum += nSubsidy;
 		BOOST_CHECK(MoneyRange(nSum));
 	}
-	BOOST_CHECK_EQUAL(nSum, CAmount{39176226390769});
+	BOOST_CHECK_EQUAL(nSum, CAmount{39171472240640});
+}
+
+BOOST_AUTO_TEST_CASE(subsidy_pos_schedule_test)
+{
+	initPosSubsidyCheckData();
+	const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
+	CAmount nSum = 0;
+	for (auto l : posSubsidyChecks) {
+		BOOST_CHECK(l.first >= chainParams->GetConsensus().nFirstPoSBlock);
+		CAmount nSubsidy = GetBlockSubsidy(l.first, chainParams->GetConsensus());
+		BOOST_CHECK_EQUAL(l.second, nSubsidy / COIN);
+		nSum += nSubsidy;
+		BOOST_CHECK(MoneyRange(nSum));
+	}
+	BOOST_CHECK_EQUAL(nSum, CAmount{11210900000});
+
+	// The PoS schedule is monotonically non-increasing with height.
+	CAmount nPrev = GetBlockSubsidy(chainParams->GetConsensus().nFirstPoSBlock,
+	                                chainParams->GetConsensus());
+	for (auto l : posSubsidyChecks) {
+		CAmount nSubsidy = GetBlockSubsidy(l.first, chainParams->GetConsensus());
+		BOOST_CHECK(nSubsidy <= nPrev);
+		nPrev = nSubsidy;
+	}
 }
 
 static bool ReturnFalse() { return false; }

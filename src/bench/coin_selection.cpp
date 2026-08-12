@@ -6,6 +6,7 @@
 #include <wallet/wallet.h>
 #include <wallet/coinselection.h>
 
+#include <memory>
 #include <set>
 
 static void addCoin(const CAmount& nValue, const CWallet& wallet, std::vector<OutputGroup>& groups)
@@ -17,7 +18,13 @@ static void addCoin(const CAmount& nValue, const CWallet& wallet, std::vector<Ou
     tx.nLockTime = nextLockTime++; // so all transactions get different hashes
     tx.vout.resize(nInput + 1);
     tx.vout[nInput].nValue = nValue;
-    CWalletTx* wtx = new CWalletTx(&wallet, MakeTransactionRef(std::move(tx)));
+
+    // COutput and the resulting OutputGroup only hold a pointer, so the
+    // transactions have to outlive them; owning them here replaces a raw new
+    // that was leaked on every call.
+    static std::vector<std::unique_ptr<CWalletTx>> wtxs;
+    wtxs.emplace_back(new CWalletTx(&wallet, MakeTransactionRef(std::move(tx))));
+    CWalletTx* wtx = wtxs.back().get();
 
     int nAge = 6 * 24;
     COutput output(wtx, nInput, nAge, true /* spendable */, true /* solvable */, true /* safe */);

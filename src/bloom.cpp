@@ -13,10 +13,30 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <algorithm>
 
 
 #define LN2SQUARED 0.4804530139182014246671025263266649717305529515945455
 #define LN2 0.6931471805599453094172321214581765680755001343602552
+
+namespace {
+/**
+ * The filter-size formulas below all feed log(rate) into an expression whose
+ * result is cast to an unsigned type. That is only defined for a rate strictly
+ * between 0 and 1: at 0 the log is -inf, at or above 1 the log is non-negative
+ * and the later log(1 - exp(...)) takes the log of a non-positive number, and
+ * casting the resulting inf or NaN to an unsigned type is undefined behaviour.
+ * Every caller in the tree currently passes a safe literal, so this is a guard
+ * against a future one rather than a fix for a reachable crash. Note that the
+ * !(rate > 0) form also rejects NaN.
+ */
+double ClampFPRate(double rate)
+{
+    if (!(rate > 0.0)) return 1e-9;
+    if (rate >= 1.0) return 1.0 - 1e-9;
+    return rate;
+}
+} // namespace
 
 CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, const unsigned int nTweakIn, unsigned char nFlagsIn) :
     /**
@@ -24,7 +44,7 @@ CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, c
      * - nElements * log(fp rate) / ln(2)^2
      * We ignore filter parameters which will create a bloom filter larger than the protocol limits
      */
-    vData(std::min((unsigned int)(-1  / LN2SQUARED * nElements * log(nFPRate)), MAX_BLOOM_FILTER_SIZE * 8) / 8),
+    vData(std::max(1U, std::min((unsigned int)(-1  / LN2SQUARED * nElements * log(ClampFPRate(nFPRate))), MAX_BLOOM_FILTER_SIZE * 8) / 8)),
     /**
      * The ideal number of hash functions is filter size * ln(2) / number of elements
      * Again, we ignore filter parameters which will create a bloom filter with more hash functions than the protocol limits
@@ -32,7 +52,7 @@ CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, c
      */
     isFull(false),
     isEmpty(true),
-    nHashFuncs(std::min((unsigned int)(vData.size() * 8 / nElements * LN2), MAX_HASH_FUNCS)),
+    nHashFuncs(std::min((unsigned int)(vData.size() * 8 / std::max(1U, nElements) * LN2), MAX_HASH_FUNCS)),
     nTweak(nTweakIn),
     nFlags(nFlagsIn)
 {
@@ -40,10 +60,10 @@ CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, c
 
 // Private constructor used by CRollingBloomFilter
 CBloomFilter::CBloomFilter(const unsigned int nElements, const double nFPRate, const unsigned int nTweakIn) :
-    vData((unsigned int)(-1  / LN2SQUARED * nElements * log(nFPRate)) / 8),
+    vData(std::max(1U, (unsigned int)(-1  / LN2SQUARED * nElements * log(ClampFPRate(nFPRate))) / 8)),
     isFull(false),
     isEmpty(true),
-    nHashFuncs((unsigned int)(vData.size() * 8 / nElements * LN2)),
+    nHashFuncs((unsigned int)(vData.size() * 8 / std::max(1U, nElements) * LN2)),
     nTweak(nTweakIn),
     nFlags(BLOOM_UPDATE_NONE)
 {
@@ -215,12 +235,12 @@ void CBloomFilter::UpdateEmptyFull()
 
 CRollingBloomFilter::CRollingBloomFilter(const unsigned int nElements, const double fpRate)
 {
-    double logFpRate = log(fpRate);
+    double logFpRate = log(ClampFPRate(fpRate));
     /* The optimal number of hash functions is log(fpRate) / log(0.5), but
      * restrict it to the range 1-50. */
     nHashFuncs = std::max(1, std::min((int)round(logFpRate / log(0.5)), 50));
     /* In this rolling bloom filter, we'll store between 2 and 3 generations of nElements / 2 entries. */
-    nEntriesPerGeneration = (nElements + 1) / 2;
+    nEntriesPerGeneration = std::max(1U, (nElements + 1) / 2);
     uint32_t nMaxElements = nEntriesPerGeneration * 3;
     /* The maximum fpRate = pow(1.0 - exp(-nHashFuncs * nMaxElements / nFilterBits), nHashFuncs)
      * =>          pow(fpRate, 1.0 / nHashFuncs) = 1.0 - exp(-nHashFuncs * nMaxElements / nFilterBits)
@@ -236,7 +256,10 @@ CRollingBloomFilter::CRollingBloomFilter(const unsigned int nElements, const dou
      * treated as set in generation 1, 2, or 3 respectively.
      * These bits are stored in separate integers: position P corresponds to bit
      * (P & 63) of the integers data[(P >> 6) * 2] and data[(P >> 6) * 2 + 1]. */
-    data.resize(((nFilterBits + 63) / 64) << 1);
+    /* Round up to at least one 64-bit pair. insert() reduces the hash modulo
+     * data.size() >> 1 and then indexes data, so an empty vector is an
+     * out-of-bounds write rather than a merely useless filter. */
+    data.resize(std::max((size_t)2, ((size_t)((nFilterBits + 63) / 64)) << 1));
     reset();
 }
 

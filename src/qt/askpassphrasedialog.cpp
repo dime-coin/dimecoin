@@ -15,9 +15,17 @@
 
 #include <support/allocators/secure.h>
 
+#include <QByteArray>
 #include <QKeyEvent>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+
+// Copy the text of `input` into `out` without going through a plain
+// std::string (whose heap buffer is not wiped on destruction and would leave
+// the passphrase in freed memory reachable via a core dump or swap).
+// Defined below.
+static void secureAssignFromLineEdit(SecureString& out, QLineEdit* input);
 
 AskPassphraseDialog::AskPassphraseDialog(Mode _mode, QWidget *parent) :
     QDialog(parent),
@@ -89,7 +97,9 @@ AskPassphraseDialog::~AskPassphraseDialog()
 void AskPassphraseDialog::setModel(WalletModel *_model)
 {
     this->model = _model;
-    ui->stakingCheckBox->setChecked(model->isStakingOnlyUnlocked());
+    if (model) {
+        ui->stakingCheckBox->setChecked(model->isStakingOnlyUnlocked());
+    }
 }
 
 void AskPassphraseDialog::accept()
@@ -100,11 +110,19 @@ void AskPassphraseDialog::accept()
     oldpass.reserve(MAX_PASSPHRASE_SIZE);
     newpass1.reserve(MAX_PASSPHRASE_SIZE);
     newpass2.reserve(MAX_PASSPHRASE_SIZE);
-    // TODO: get rid of this .c_str() by implementing SecureString::operator=(std::string)
-    // Alternately, find a way to make this input mlock()'d to begin with.
-    oldpass.assign(ui->passEdit1->text().toStdString().c_str());
-    newpass1.assign(ui->passEdit2->text().toStdString().c_str());
-    newpass2.assign(ui->passEdit3->text().toStdString().c_str());
+    // Copy the passphrases into the secure allocator's string without
+    // materialising them in an intermediate std::string, whose heap buffer is
+    // not wiped on destruction and would leave the passphrase in freed heap
+    // memory (reachable via a core dump or swap).
+    //
+    // Best-effort cleanse of the local Qt temporaries is applied below. Note:
+    // this does not wipe the QLineEdit's internal buffer, nor any implicitly
+    // shared QString/QByteArray copies still held by Qt — those are cleared
+    // separately via secureClearPassFields(). Fully sealing every Qt copy
+    // would require deeper Qt changes and is intentionally out of scope.
+    secureAssignFromLineEdit(oldpass, ui->passEdit1);
+    secureAssignFromLineEdit(newpass1, ui->passEdit2);
+    secureAssignFromLineEdit(newpass2, ui->passEdit3);
 
     secureClearPassFields();
 
@@ -282,6 +300,26 @@ static void SecureClearQLineEdit(QLineEdit* edit)
     // Attempt to overwrite text so that they do not linger around in memory
     edit->setText(QString(" ").repeated(edit->text().size()));
     edit->clear();
+}
+
+// Copy the text of `input` into `out` (a SecureString whose buffer is
+// mlock()'d and wiped on destruction) without going through std::string.
+// The Qt-owned copies of the passphrase (in the QLineEdit and any implicitly
+// shared QString buffers) are not covered by this helper; the widget itself
+// is cleared via secureClearPassFields(). This eliminates the intermediate
+// std::string, which is heap-allocated with the default allocator and is not
+// wiped on destruction.
+static void secureAssignFromLineEdit(SecureString& out, QLineEdit* input)
+{
+    QString qstr = input->text();
+    QByteArray ba = qstr.toUtf8();
+    out.assign(ba.constData(), ba.size());
+    // Best-effort cleanse of the local QByteArray and QString buffers.
+    // Calling data() detaches from any shared copy, so this only wipes the
+    // buffer owned by these local instances — not the QLineEdit's internal
+    // storage, which is wiped by secureClearPassFields().
+    memory_cleanse(ba.data(), ba.size());
+    memory_cleanse(qstr.data(), qstr.length() * sizeof(QChar));
 }
 
 void AskPassphraseDialog::secureClearPassFields()

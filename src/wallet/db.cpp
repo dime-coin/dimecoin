@@ -19,6 +19,7 @@
 #endif
 
 #include <boost/thread.hpp>
+#include <boost/version.hpp>
 
 namespace {
 //! Make sure database has a unique fileid within the environment. If it
@@ -104,6 +105,10 @@ void BerkeleyEnvironment::Close()
     int ret = dbenv->close(0);
     if (ret != 0)
         LogPrintf("BerkeleyEnvironment::EnvShutdown: Error %d shutting down database environment: %s\n", ret, DbEnv::strerror(ret));
+    if (m_errfile) {
+        fclose(m_errfile);
+        m_errfile = nullptr;
+    }
     if (!fMockDb)
         DbEnv((u_int32_t)0).remove(strPath.c_str(), 0);
 }
@@ -154,7 +159,8 @@ bool BerkeleyEnvironment::Open(bool retry)
     dbenv->set_lg_max(1048576);
     dbenv->set_lk_max_locks(40000);
     dbenv->set_lk_max_objects(40000);
-    dbenv->set_errfile(fsbridge::fopen(pathErrorFile, "a")); /// debug
+    m_errfile = fsbridge::fopen(pathErrorFile, "a"); /// debug
+    dbenv->set_errfile(m_errfile);
     dbenv->set_flags(DB_AUTO_COMMIT, 1);
     dbenv->set_flags(DB_TXN_WRITE_NOSYNC, 1);
     dbenv->log_set_config(DB_LOG_AUTO_REMOVE, 1);
@@ -220,7 +226,7 @@ void BerkeleyEnvironment::MakeMock()
                              DB_THREAD |
                              DB_PRIVATE,
                          S_IRUSR | S_IWUSR);
-    if (ret > 0)
+    if (ret != 0)
         throw std::runtime_error(strprintf("BerkeleyEnvironment::MakeMock: Error %d opening database environment.", ret));
 
     fDbEnvInit = true;
@@ -285,13 +291,18 @@ bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, boo
                             DB_BTREE,           // Database type
                             DB_CREATE,          // Flags
                             0);
-    if (ret > 0) {
+    if (ret != 0) {
         LogPrintf("Cannot create database file %s\n", filename);
         pdbCopy->close(0);
         return false;
     }
 
     DbTxn* ptxn = env->TxnBegin();
+    if (!ptxn) {
+        LogPrintf("BerkeleyBatch::Recover: TxnBegin failed for %s\n", filename);
+        pdbCopy->close(0);
+        return false;
+    }
     for (BerkeleyEnvironment::KeyValPair& row : salvagedData)
     {
         if (recoverKVcallback)
@@ -301,13 +312,19 @@ bool BerkeleyBatch::Recover(const fs::path& file_path, void *callbackDataIn, boo
             if (!(*recoverKVcallback)(callbackDataIn, ssKey, ssValue))
                 continue;
         }
-        Dbt datKey(&row.first[0], row.first.size());
-        Dbt datValue(&row.second[0], row.second.size());
+        Dbt datKey(row.first.empty() ? nullptr : &row.first[0], row.first.size());
+        Dbt datValue(row.second.empty() ? nullptr : &row.second[0], row.second.size());
         int ret2 = pdbCopy->put(ptxn, &datKey, &datValue, DB_NOOVERWRITE);
-        if (ret2 > 0)
+        // BerkeleyDB reports its own failures as negative values, so a plain
+        // "> 0" test silently accepted them. DB_KEYEXIST is expected here:
+        // aggressive salvage can recover the same key more than once, and that
+        // must not fail the whole recovery.
+        if (ret2 != 0 && ret2 != DB_KEYEXIST)
             fSuccess = false;
     }
-    ptxn->commit(0);
+    if (ptxn->commit(0) != 0) {
+        fSuccess = false;
+    }
     pdbCopy->close(0);
 
     return fSuccess;
@@ -323,7 +340,7 @@ bool BerkeleyBatch::VerifyEnvironment(const fs::path& file_path, std::string& er
     LogPrintf("Using wallet %s\n", walletFile);
 
     // Wallet file must be a plain filename without a directory
-    if (walletFile != fs::basename(walletFile) + fs::extension(walletFile))
+    if (walletFile != fs::path(walletFile).filename().string())
     {
         errorStr = strprintf(_("Wallet %s resides outside wallet directory %s"), walletFile, walletDir.string());
         return false;
@@ -598,39 +615,42 @@ bool BerkeleyBatch::Rewrite(BerkeleyDatabase& database, const char* pszSkip)
                                             DB_BTREE,           // Database type
                                             DB_CREATE,          // Flags
                                             0);
-                    if (ret > 0) {
+                    if (ret != 0) {
                         LogPrintf("BerkeleyBatch::Rewrite: Can't create database file %s\n", strFileRes);
                         fSuccess = false;
                     }
 
                     Dbc* pcursor = db.GetCursor();
-                    if (pcursor)
-                        while (fSuccess) {
-                            CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-                            CDataStream ssValue(SER_DISK, CLIENT_VERSION);
-                            int ret1 = db.ReadAtCursor(pcursor, ssKey, ssValue);
-                            if (ret1 == DB_NOTFOUND) {
-                                pcursor->close();
-                                break;
-                            } else if (ret1 != 0) {
-                                pcursor->close();
-                                fSuccess = false;
-                                break;
-                            }
-                            if (pszSkip &&
-                                strncmp(ssKey.data(), pszSkip, std::min(ssKey.size(), strlen(pszSkip))) == 0)
-                                continue;
-                            if (strncmp(ssKey.data(), "\x07version", 8) == 0) {
-                                // Update version:
-                                ssValue.clear();
-                                ssValue << CLIENT_VERSION;
-                            }
-                            Dbt datKey(ssKey.data(), ssKey.size());
-                            Dbt datValue(ssValue.data(), ssValue.size());
-                            int ret2 = pdbCopy->put(nullptr, &datKey, &datValue, DB_NOOVERWRITE);
-                            if (ret2 > 0)
-                                fSuccess = false;
+                    if (!pcursor) {
+                        LogPrintf("BerkeleyBatch::Rewrite: Unable to create cursor for %s\n", strFile);
+                        fSuccess = false;
+                    }
+                    while (pcursor && fSuccess) {
+                        CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+                        CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+                        int ret1 = db.ReadAtCursor(pcursor, ssKey, ssValue);
+                        if (ret1 == DB_NOTFOUND) {
+                            pcursor->close();
+                            break;
+                        } else if (ret1 != 0) {
+                            pcursor->close();
+                            fSuccess = false;
+                            break;
                         }
+                        if (pszSkip &&
+                            strncmp(ssKey.data(), pszSkip, std::min(ssKey.size(), strlen(pszSkip))) == 0)
+                            continue;
+                        if (ssKey.size() >= 8 && strncmp(ssKey.data(), "\x07version", 8) == 0) {
+                            // Update version:
+                            ssValue.clear();
+                            ssValue << CLIENT_VERSION;
+                        }
+                        Dbt datKey(ssKey.data(), ssKey.size());
+                        Dbt datValue(ssValue.data(), ssValue.size());
+                        int ret2 = pdbCopy->put(nullptr, &datKey, &datValue, DB_NOOVERWRITE);
+                        if (ret2 != 0 && ret2 != DB_KEYEXIST)
+                            fSuccess = false;
+                    }
                     if (fSuccess) {
                         db.Close();
                         env->CloseDb(strFile);
@@ -774,7 +794,11 @@ bool BerkeleyDatabase::Backup(const std::string& strDest)
                         return false;
                     }
 
+#if BOOST_VERSION >= 107400
+                    fs::copy_file(pathSrc, pathDest, fs::copy_options::overwrite_existing);
+#else
                     fs::copy_file(pathSrc, pathDest, fs::copy_option::overwrite_if_exists);
+#endif
                     LogPrintf("copied %s to %s\n", strFile, pathDest.string());
                     return true;
                 } catch (const fs::filesystem_error& e) {

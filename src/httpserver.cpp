@@ -298,7 +298,12 @@ static bool ThreadHTTP(struct event_base* base)
 /** Bind HTTP server to specified addresses */
 static bool HTTPBindAddresses(struct evhttp* http)
 {
-    int defaultPort = gArgs.GetArg("-rpcport", BaseParams().RPCPort());
+    int64_t nDefaultPort = gArgs.GetArg("-rpcport", BaseParams().RPCPort());
+    if (nDefaultPort <= 0 || nDefaultPort > 0xFFFF) {
+        LogPrintf("Invalid -rpcport %d, must be in the range 1-65535.\n", nDefaultPort);
+        return false;
+    }
+    const uint16_t defaultPort = static_cast<uint16_t>(nDefaultPort);
     std::vector<std::pair<std::string, uint16_t> > endpoints;
 
     // Determine what addresses to bind to

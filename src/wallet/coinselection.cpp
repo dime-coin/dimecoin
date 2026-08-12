@@ -315,7 +315,11 @@ std::vector<CInputCoin>::iterator OutputGroup::Discard(const CInputCoin& output)
     while (it != m_outputs.end() && it->outpoint != output.outpoint) ++it;
     if (it == m_outputs.end()) return it;
     m_value -= output.effective_value;
-    effective_value -= output.effective_value;
+    // The only caller (SelectCoinsMinConf) manages effective_value explicitly
+    // by resetting it to 0 and accumulating fee-adjusted contributions of
+    // accepted coins. A discarded coin was never added, so nothing must be
+    // subtracted from effective_value. CInputCoin::effective_value is the raw
+    // nValue and would otherwise underreport the group's effective total.
     return m_outputs.erase(it);
 }
 

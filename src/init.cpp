@@ -71,7 +71,7 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/split.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/thread.hpp>
 #include <openssl/crypto.h>
@@ -454,7 +454,9 @@ void SetupServerArgs()
     gArgs.AddArg("-feefilter", strprintf("Tell other nodes to filter invs to us by our mempool min fee (default: %u)", DEFAULT_FEEFILTER), true, OptionsCategory::OPTIONS);
     gArgs.AddArg("-includeconf=<file>", "Specify additional configuration file, relative to the -datadir path (only useable from configuration file, not command line)", false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-loadblock=<file>", "Imports blocks from external blk000??.dat file on startup", false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-legacysigmagic", strprintf("Also accept masternode-layer signatures made under the alternate message magic string (default: %u). Migration aid for the accept-before-emit magic transition; signing is unaffected", DEFAULT_LEGACY_SIG_MAGIC), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-maxmempool=<n>", strprintf("Keep the transaction memory pool below <n> megabytes (default: %u)", DEFAULT_MAX_MEMPOOL_SIZE), false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-maxreorgdepth=<n>", strprintf("Refuse to reorganize more than <n> blocks below the active tip once past initial sync (default: %u, 0 = no limit)", defaultChainParams->MaxReorganizationDepth()), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-maxorphantx=<n>", strprintf("Keep at most <n> unconnectable transactions in memory (default: %u)", DEFAULT_MAX_ORPHAN_TRANSACTIONS), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-mempoolexpiry=<n>", strprintf("Do not keep transactions in the mempool longer than <n> hours (default: %u)", DEFAULT_MEMPOOL_EXPIRY), false, OptionsCategory::OPTIONS);
     gArgs.AddArg("-minimumchainwork=<hex>", strprintf("Minimum work assumed to exist on a valid chain in hex (default: %s, testnet: %s)", defaultChainParams->GetConsensus().nMinimumChainWork.GetHex(), testnetChainParams->GetConsensus().nMinimumChainWork.GetHex()), true, OptionsCategory::OPTIONS);
@@ -559,6 +561,8 @@ void SetupServerArgs()
     gArgs.AddArg("-maxtxfee=<amt>", strprintf("Maximum total fees (in %s) to use in a single wallet transaction or raw transaction; setting this too low may abort large transactions (default: %s)",
         CURRENCY_UNIT, FormatMoney(DEFAULT_TRANSACTION_MAXFEE)), false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-printpriority", strprintf("Log transaction fee per kB when mining blocks (default: %u)", DEFAULT_PRINTPRIORITY), true, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-printcoinstake", "Log the coinstake transactions considered while staking (requires -debug, default: 0)", true, OptionsCategory::DEBUG_TEST);
+    gArgs.AddArg("-printstakemodifier", "Log stake modifier computation (default: 0)", true, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-printtoconsole", "Send trace/debug info to console (default: 1 when no -daemon. To disable logging to file, set -nodebuglogfile)", false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-shrinkdebugfile", "Shrink debug.log file on client startup (default: 1 when no -debug)", false, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-uacomment=<cmt>", "Append comment to the user agent string", false, OptionsCategory::DEBUG_TEST);
@@ -603,6 +607,10 @@ void SetupServerArgs()
     gArgs.AddArg("-mnconflock=<n>", "Lock masternodes from masternode configuration file (default: %u)", false, OptionsCategory::MASTERNODE);
     gArgs.AddArg("-masternodeprivkey=<n>", "Set the masternode private key", false, OptionsCategory::MASTERNODE);
     gArgs.AddArg("-clearmncache", "Clears mncache on startup", false, OptionsCategory::MASTERNODE);
+    gArgs.AddArg("-litemode", "Disable all Dimecoin specific functionality - masternodes, InstantSend, governance (0-1, default: 0)", false, OptionsCategory::MASTERNODE);
+    gArgs.AddArg("-enableinstantsend", strprintf("Enable InstantSend, show confirmations for locked transactions (0-1, default: %u)", 1), false, OptionsCategory::MASTERNODE);
+    gArgs.AddArg("-instantsenddepth=<n>", strprintf("Show N confirmations for a successfully locked transaction (0-60, default: %u)", DEFAULT_INSTANTSEND_DEPTH), false, OptionsCategory::MASTERNODE);
+    gArgs.AddArg("-instantsendnotify=<cmd>", "Execute command when a wallet InstantSend transaction is successfully locked (%s in cmd is replaced by TxID)", false, OptionsCategory::MASTERNODE);
 
     gArgs.AddArg("-checkpointdepth", "Set block depth to checkpoint", false, OptionsCategory::CHECKPOINTING);
     gArgs.AddArg("-checkpointkey", "Set private key to sign checkpoint messages", false, OptionsCategory::CHECKPOINTING);
@@ -1327,7 +1335,8 @@ bool AppInitPrivateSend()
 #ifdef ENABLE_WALLET
     LogPrintf("Using masternode config file %s\n", GetMasternodeConfigFile().string());
 
-    auto pwalletMain = GetWallets().at(0);
+    auto vpwalletsMain = GetWallets();
+    CWallet* const pwalletMain = vpwalletsMain.empty() ? nullptr : vpwalletsMain.front();
 
     if(gArgs.GetBoolArg("-mnconflock", true) && pwalletMain && (masternodeConfig.getCount() > 0)) {
         LOCK(pwalletMain->cs_wallet);
@@ -1336,8 +1345,11 @@ bool AppInitPrivateSend()
         int outputIndex;
         for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries()) {
             mnTxHash.SetHex(mne.getTxHash());
-            outputIndex = boost::lexical_cast<unsigned int>(mne.getOutputIndex());
-            COutPoint outpoint = COutPoint(mnTxHash, outputIndex);
+            if(!ParseInt32(mne.getOutputIndex(), &outputIndex) || outputIndex < 0) {
+                LogPrintf("  %s %s - INVALID OUTPUT INDEX, was not locked\n", mne.getTxHash(), mne.getOutputIndex());
+                continue;
+            }
+            COutPoint outpoint = COutPoint(mnTxHash, (uint32_t)outputIndex);
             // don't lock non-spendable outpoint (i.e. it's already spent or it's not from this wallet at all)
             if(pwalletMain->IsMine(CTxIn(outpoint)) != ISMINE_SPENDABLE) {
                 LogPrintf("  %s %s - IS NOT SPENDABLE, was not locked\n", mne.getTxHash(), mne.getOutputIndex());
@@ -1950,8 +1962,10 @@ bool AppInitMain()
 
 #ifdef ENABLE_WALLET
     if(!fMasterNode) {
-       if(GetWallets().front() && gArgs.GetBoolArg("-staking", true)) {
-           threadGroup.create_thread(std::bind(&ThreadStakeMinter, boost::ref(chainparams), boost::ref(connman), GetWallets().front()));
+       auto vpwalletsStake = GetWallets();
+       CWallet* const pwalletStake = vpwalletsStake.empty() ? nullptr : vpwalletsStake.front();
+       if(pwalletStake && gArgs.GetBoolArg("-staking", true)) {
+           threadGroup.create_thread(std::bind(&ThreadStakeMinter, boost::ref(chainparams), boost::ref(connman), pwalletStake));
            threadGroup.create_thread(std::bind(&ThreadAbandonCoinStake));
        }
     }

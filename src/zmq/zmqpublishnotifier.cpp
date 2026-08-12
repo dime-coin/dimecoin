@@ -82,6 +82,9 @@ bool CZMQAbstractPublishNotifier::Initialize(void *pcontext)
         {
             zmqError("Failed to bind address");
             zmq_close(psocket);
+            // Leaving the closed handle behind makes the later Shutdown close
+            // it a second time.
+            psocket = nullptr;
             return false;
         }
 
@@ -102,7 +105,13 @@ bool CZMQAbstractPublishNotifier::Initialize(void *pcontext)
 
 void CZMQAbstractPublishNotifier::Shutdown()
 {
-    assert(psocket);
+    // CZMQNotificationInterface::Shutdown walks every notifier, including ones
+    // whose Initialize failed or was never reached because an earlier notifier
+    // failed first. Those have no socket, so treat this as a no-op instead of
+    // aborting the process on the way out.
+    if (!psocket) {
+        return;
+    }
 
     int count = mapPublishNotifiers.count(address);
 

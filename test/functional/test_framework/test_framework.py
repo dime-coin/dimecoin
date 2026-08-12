@@ -22,6 +22,7 @@ from .mininode import NetworkThread
 from .util import (
     MAX_NODES,
     PortSeed,
+    REGTEST_GENESIS_TIME,
     assert_equal,
     check_json_precision,
     connect_nodes_bi,
@@ -137,8 +138,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
 
         config = configparser.ConfigParser()
         config.read_file(open(self.options.configfile))
-        self.options.bitcoind = os.getenv("BITCOIND", default=config["environment"]["BUILDDIR"] + '/src/bitcoind' + config["environment"]["EXEEXT"])
-        self.options.bitcoincli = os.getenv("BITCOINCLI", default=config["environment"]["BUILDDIR"] + '/src/bitcoin-cli' + config["environment"]["EXEEXT"])
+        self.options.bitcoind = os.getenv("BITCOIND", default=config["environment"]["BUILDDIR"] + '/src/dimecoind' + config["environment"]["EXEEXT"])
+        self.options.bitcoincli = os.getenv("BITCOINCLI", default=config["environment"]["BUILDDIR"] + '/src/dimecoin-cli' + config["environment"]["EXEEXT"])
 
         os.environ['PATH'] = os.pathsep.join([
             os.path.join(config['environment']['BUILDDIR'], 'src'),
@@ -379,10 +380,11 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         blockchain.  If the cached version of the blockchain is used without
         mocktime then the mempools will not sync due to IBD.
 
-        For backward compatibility of the python scripts with previous
-        versions of the cache, this helper function sets mocktime to Jan 1,
-        2014 + (201 * 10 * 60)"""
-        self.mocktime = 1388534400 + (201 * 10 * 60)
+        The base must be at or after the regtest genesis timestamp
+        (1636592000, see CRegTestParams in src/chainparams.cpp). Bitcoin's
+        upstream value of Jan 1 2014 predates Dimecoin's genesis by years, so
+        every generated block was rejected as time-too-new."""
+        self.mocktime = REGTEST_GENESIS_TIME + 86400 + (201 * 10 * 60)
 
     def disable_mocktime(self):
         self.mocktime = 0
@@ -481,14 +483,20 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             for i in range(MAX_NODES):
                 os.rmdir(cache_path(i, 'wallets'))  # Remove empty wallets dir
                 for entry in os.listdir(cache_path(i)):
-                    if entry not in ['chainstate', 'blocks']:
-                        os.remove(cache_path(i, entry))
+                    # 'indexes' holds the txindex, which this codebase builds by
+                    # default; it belongs to the cached chain and must be kept.
+                    if entry not in ['chainstate', 'blocks', 'indexes']:
+                        path = cache_path(i, entry)
+                        if os.path.isdir(path):
+                            shutil.rmtree(path)
+                        else:
+                            os.remove(path)
 
         for i in range(self.num_nodes):
             from_dir = get_datadir_path(self.options.cachedir, i)
             to_dir = get_datadir_path(self.options.tmpdir, i)
             shutil.copytree(from_dir, to_dir)
-            initialize_datadir(self.options.tmpdir, i)  # Overwrite port/rpcport in bitcoin.conf
+            initialize_datadir(self.options.tmpdir, i)  # Overwrite port/rpcport in dimecoin.conf
 
     def _initialize_chain_clean(self):
         """Initialize empty blockchain for use by the test.

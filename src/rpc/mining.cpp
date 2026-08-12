@@ -33,6 +33,7 @@
 #include <warnings.h>
 
 #include <memory>
+#include <limits>
 #include <stdint.h>
 
 unsigned int ParseConfirmTarget(const UniValue& value)
@@ -115,9 +116,14 @@ UniValue generateBlocks(std::shared_ptr<CReserveScript> coinbaseScript, int nGen
     int nHeightEnd = 0;
     int nHeight = 0;
 
+    if (nGenerate < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "nblocks must not be negative");
+
     {   // Don't keep cs_main locked
         LOCK(cs_main);
         nHeight = chainActive.Height();
+        if (nGenerate > std::numeric_limits<int>::max() - nHeight)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "nblocks is too large");
         nHeightEnd = nHeight+nGenerate;
     }
     unsigned int nExtraNonce = 0;
@@ -178,7 +184,11 @@ static UniValue generatetoaddress(const JSONRPCRequest& request)
     int nGenerate = request.params[0].get_int();
     uint64_t nMaxTries = 1000000;
     if (!request.params[2].isNull()) {
-        nMaxTries = request.params[2].get_int();
+        const int nMaxTriesArg = request.params[2].get_int();
+        if (nMaxTriesArg < 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "maxtries must not be negative");
+        }
+        nMaxTries = (uint64_t)nMaxTriesArg;
     }
 
     CTxDestination destination = DecodeDestination(request.params[1].get_str());
@@ -218,6 +228,9 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     CBlockIndex* tip = chainActive.Tip();
+    if (!tip) {
+        throw JSONRPCError(RPC_IN_WARMUP, "No active chain tip available");
+    }
     const Consensus::Params& consensusParams = Params().GetConsensus();
 
     UniValue obj(UniValue::VOBJ);
@@ -381,9 +394,14 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
     LOCK(cs_main);
 
+    CBlockIndex* tip = chainActive.Tip();
+    if (!tip) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "No active chain tip available");
+    }
+
     //! use the fork height as conditional
     bool newBlocks = false;
-    if (chainActive.Tip()->nHeight >= Params().GetConsensus().nFirstPoSBlock) {
+    if (tip->nHeight >= Params().GetConsensus().nFirstPoSBlock) {
         newBlocks = true;
     }
 
@@ -426,7 +444,10 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
             }
 
             CBlockIndex* const pindexPrev = chainActive.Tip();
-            // TestBlockValidity only supports blocks built on the current Tip
+            if (!pindexPrev) {
+                return "inconclusive-not-best-prevblk";
+            }
+            // TestBlockValidity only supports blocks built on the current tip
             if (block.hashPrevBlock != pindexPrev->GetBlockHash())
                 return "inconclusive-not-best-prevblk";
             CValidationState state;
@@ -704,7 +725,7 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
         CTxDestination mnAddress;
         if (!mnpayments.GetBlockPayee(pindexPrev->nHeight + 1, mnScript)) {
             masternode_info_t mnInfo;
-            if (!mnodeman.GetNextMasternodeInQueueForPayment(pindexPrev->nHeight + 1, true, mnCount, mnInfo))
+            if (mnodeman.GetNextMasternodeInQueueForPayment(pindexPrev->nHeight + 1, true, mnCount, mnInfo))
                 mnScript = GetScriptForDestination(mnInfo.pubKeyCollateralAddress.GetID());
         }
 
@@ -995,15 +1016,12 @@ static UniValue setgenerate(const JSONRPCRequest& request)
                 "setgenerate generate ( genproclimit )\n"
                 "\nSet 'generate' true or false to turn generation on or off.\n"
                 "Generation is limited to 'genproclimit' processors, -1 is unlimited.\n"
-                "See the getgenerate call for the current setting.\n"
                 "\nArguments:\n"
                 "1. generate         (boolean, required) Set to true to turn on generation, false to turn off.\n"
                 "2. genproclimit     (numeric, optional) Set the processor limit for when generation is on. Can be -1 for unlimited.\n"
                 "\nExamples:\n"
                 "\nSet the generation on with a limit of one processor\n"
                 + HelpExampleCli("setgenerate", "true 1") +
-                "\nCheck the setting\n"
-                + HelpExampleCli("getgenerate", "") +
                 "\nTurn off generation\n"
                 + HelpExampleCli("setgenerate", "false") +
                 "\nUsing json rpc\n"

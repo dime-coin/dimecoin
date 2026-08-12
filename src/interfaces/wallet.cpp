@@ -78,7 +78,9 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
                                                       IsMine(wallet, result.txout_address.back()) :
                                                       ISMINE_NO);
     }
-    result.credit = wtx.GetCredit(ISMINE_ALL);
+    // Coinstake transaction rows show the reward (credit - debit) even while
+    // the generated outputs are still immature and excluded from balances.
+    result.credit = wtx.IsCoinStake() ? wallet.GetCredit(*wtx.tx, ISMINE_ALL) : wtx.GetCredit(ISMINE_ALL);
     result.debit = wtx.GetDebit(ISMINE_ALL);
     result.change = wtx.GetChange();
     result.time = wtx.GetTxTime();
@@ -91,6 +93,7 @@ WalletTx MakeWalletTx(CWallet& wallet, const CWalletTx& wtx)
 WalletTxStatus MakeWalletTxStatus(const CWalletTx& wtx)
 {
     WalletTxStatus result;
+    result.request_count = 0;
     auto mi = ::mapBlockIndex.find(wtx.hashBlock);
     CBlockIndex* block = mi != ::mapBlockIndex.end() ? mi->second : nullptr;
     result.block_height = (block ? block->nHeight : std::numeric_limits<int>::max());
@@ -110,6 +113,9 @@ WalletTxStatus MakeWalletTxStatus(const CWalletTx& wtx)
 WalletTxOut MakeWalletTxOut(CWallet& wallet, const CWalletTx& wtx, int n, int depth)
 {
     WalletTxOut result;
+    if (n < 0 || static_cast<size_t>(n) >= wtx.tx->vout.size()) {
+        return result;
+    }
     result.txout = wtx.tx->vout[n];
     result.time = wtx.GetTxTime();
     result.depth_in_main_chain = depth;
@@ -342,13 +348,14 @@ public:
     }
     WalletBalances getBalances() override
     {
+        LOCK2(::cs_main, m_wallet.cs_wallet);
         WalletBalances result;
         result.balance = m_wallet.GetBalance();
         result.unconfirmed_balance = m_wallet.GetUnconfirmedBalance();
         result.immature_balance = m_wallet.GetImmatureBalance();
         result.have_watch_only = m_wallet.HaveWatchOnly();
         if (result.have_watch_only) {
-            result.watch_only_balance = m_wallet.GetBalance();
+            result.watch_only_balance = m_wallet.GetWatchOnlyBalance();
             result.unconfirmed_watch_only_balance = m_wallet.GetUnconfirmedWatchOnlyBalance();
             result.immature_watch_only_balance = m_wallet.GetImmatureWatchOnlyBalance();
         }
@@ -421,8 +428,8 @@ public:
             auto it = m_wallet.mapWallet.find(output.hash);
             if (it != m_wallet.mapWallet.end()) {
                 int depth = it->second.GetDepthInMainChain();
-                if (depth >= 0) {
-                    result.back() = MakeWalletTxOut(m_wallet, it->second, output.n, depth);
+                if (depth >= 0 && output.n <= 0x7fffffffU) {
+                    result.back() = MakeWalletTxOut(m_wallet, it->second, static_cast<int>(output.n), depth);
                 }
             }
         }
@@ -479,11 +486,15 @@ public:
         bool fSuccess = CMasternodeBroadcast::Create(&m_wallet, strService, strKeyMasternode, strTxHash, strOutputIndex, strErrorRet, mnb);
         if(fSuccess)
         {
+            if (!g_connman) {
+                strErrorRet = "Network manager unavailable";
+                return false;
+            }
             mnodeman.UpdateMasternodeList(mnb, *g_connman);
             mnb.Relay(*g_connman);
             mnodeman.NotifyMasternodeUpdates(*g_connman);
         }
-        return true;
+        return fSuccess;
     }
     std::shared_ptr<CWallet> m_shared_wallet;
     CWallet& m_wallet;

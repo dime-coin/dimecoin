@@ -46,6 +46,10 @@ static const int64_t GOVERNANCE_WATCHDOG_EXPIRATION_TIME = 2*60*60;
 
 static const int GOVERNANCE_TRIGGER_EXPIRATION_BLOCKS = 576;
 
+// Bound per-object orphan vote cache so a peer flooding votes for unknown
+// masternodes cannot force unbounded memory growth.
+static const int MAX_ORPHAN_VOTES_PER_OBJECT = 1000;
+
 // FOR SEEN MAP ARRAYS - GOVERNANCE OBJECTS AND VOTES
 static const int SEEN_OBJECT_IS_VALID = 0;
 static const int SEEN_OBJECT_ERROR_INVALID = 1;

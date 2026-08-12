@@ -25,6 +25,10 @@ const std::string CGovernanceManager::SERIALIZATION_VERSION_STRING = "CGovernanc
 const int CGovernanceManager::MAX_TIME_FUTURE_DEVIATION = 60*60;
 const int CGovernanceManager::RELIABLE_PROPAGATION_TIME = 60;
 
+//! Upper bound on mapMasternodeOrphanObjects; per-outpoint cap alone leaves
+//  overall growth unbounded across attacker-crafted outpoints.
+static const size_t MAX_MASTERNODE_ORPHAN_OBJECTS = 5000;
+
 CGovernanceManager::CGovernanceManager()
     : nTimeLastDiff(0),
       nCachedBlockHeight(0),
@@ -210,6 +214,11 @@ void CGovernanceManager::ProcessMessage(CNode* pfrom, const std::string& strComm
                     // ask for this object again in 2 minutes
                     CInv inv(MSG_GOVERNANCE_OBJECT, govobj.GetHash());
                     pfrom->AskFor(inv);
+                    return;
+                }
+                if (mapMasternodeOrphanObjects.size() >= MAX_MASTERNODE_ORPHAN_OBJECTS) {
+                    LogPrint(BCLog::GOBJECT, "MNGOVERNANCEOBJECT -- Global orphan object limit reached (%zu), dropping object %s\n",
+                             mapMasternodeOrphanObjects.size(), strHash);
                     return;
                 }
 
@@ -930,58 +939,85 @@ bool CGovernanceManager::MasternodeRateCheck(const CGovernanceObject& govobj, bo
 
 bool CGovernanceManager::ProcessVote(CNode* pfrom, const CGovernanceVote& vote, CGovernanceException& exception, CConnman& connman)
 {
-    ENTER_CRITICAL_SECTION(cs);
-    uint256 nHashVote = vote.GetHash();
-    if(mapInvalidVotes.HasKey(nHashVote)) {
-        std::ostringstream ostr;
-        ostr << "CGovernanceManager::ProcessVote -- Old invalid vote "
-                << ", MN outpoint = " << vote.GetMasternodeOutpoint().ToString()
-                << ", governance object hash = " << vote.GetParentHash().ToString();
-        LogPrintf("%s\n", ostr.str());
-        exception = CGovernanceException(ostr.str(), GOVERNANCE_EXCEPTION_PERMANENT_ERROR, 20);
-        LEAVE_CRITICAL_SECTION(cs);
-        return false;
-    }
+    bool fRequestGovernanceObject = false;
+    uint256 nHashGovobjToRequest;
+    std::string strRequestLog;
 
-    uint256 nHashGovobj = vote.GetParentHash();
-    object_m_it it = mapObjects.find(nHashGovobj);
-    if(it == mapObjects.end()) {
-        std::ostringstream ostr;
-        ostr << "CGovernanceManager::ProcessVote -- Unknown parent object "
-             << ", MN outpoint = " << vote.GetMasternodeOutpoint().ToString()
-             << ", governance object hash = " << vote.GetParentHash().ToString();
-        exception = CGovernanceException(ostr.str(), GOVERNANCE_EXCEPTION_WARNING);
-        if(mapOrphanVotes.Insert(nHashGovobj, vote_time_pair_t(vote, GetAdjustedTime() + GOVERNANCE_ORPHAN_EXPIRATION_TIME))) {
-            LEAVE_CRITICAL_SECTION(cs);
-            RequestGovernanceObject(pfrom, nHashGovobj, connman);
+    {
+        LOCK(cs);
+        uint256 nHashVote = vote.GetHash();
+        if(mapInvalidVotes.HasKey(nHashVote)) {
+            std::ostringstream ostr;
+            ostr << "CGovernanceManager::ProcessVote -- Old invalid vote "
+                    << ", MN outpoint = " << vote.GetMasternodeOutpoint().ToString()
+                    << ", governance object hash = " << vote.GetParentHash().ToString();
             LogPrintf("%s\n", ostr.str());
+            exception = CGovernanceException(ostr.str(), GOVERNANCE_EXCEPTION_PERMANENT_ERROR, 20);
             return false;
         }
 
-        LogPrint(BCLog::GOBJECT, "%s\n", ostr.str());
-        LEAVE_CRITICAL_SECTION(cs);
-        return false;
-    }
+        uint256 nHashGovobj = vote.GetParentHash();
+        object_m_it it = mapObjects.find(nHashGovobj);
+        if(it == mapObjects.end()) {
+            std::ostringstream ostr;
+            ostr << "CGovernanceManager::ProcessVote -- Unknown parent object "
+                 << ", MN outpoint = " << vote.GetMasternodeOutpoint().ToString()
+                 << ", governance object hash = " << vote.GetParentHash().ToString();
+            exception = CGovernanceException(ostr.str(), GOVERNANCE_EXCEPTION_WARNING);
+            // If the signing masternode is already known, verify the vote
+            // signature/format before caching it as an orphan. This stops a peer from
+            // spending an orphan slot on a vote whose signature would fail at replay
+            // time anyway. When the masternode is unknown we intentionally still orphan
+            // the vote, to match the behaviour a 2.3.0 node exhibits: rejecting here
+            // would drop otherwise-valid votes that arrive just before the masternode
+            // broadcast propagates.
+            //
+            // No node penalty is attached deliberately. Validity is judged against our
+            // local masternode list, which legitimately differs between peers, so an
+            // honest relayer can present a vote we happen to score as invalid. Dropping
+            // the vote gives the full anti-DoS benefit without that partition risk.
+            if(mnodeman.Has(vote.GetMasternodeOutpoint()) && !vote.IsValid(true)) {
+                std::ostringstream ostrInvalid;
+                ostrInvalid << "CGovernanceManager::ProcessVote -- Invalid orphan vote "
+                            << ", MN outpoint = " << vote.GetMasternodeOutpoint().ToString()
+                            << ", governance object hash = " << vote.GetParentHash().ToString();
+                LogPrintf("%s\n", ostrInvalid.str());
+                exception = CGovernanceException(ostrInvalid.str(), GOVERNANCE_EXCEPTION_PERMANENT_ERROR);
+                return false;
+            }
+            if(mapOrphanVotes.Insert(nHashGovobj, vote_time_pair_t(vote, GetAdjustedTime() + GOVERNANCE_ORPHAN_EXPIRATION_TIME))) {
+                fRequestGovernanceObject = true;
+                nHashGovobjToRequest = nHashGovobj;
+                strRequestLog = ostr.str();
+            } else {
+                LogPrint(BCLog::GOBJECT, "%s\n", ostr.str());
+            }
+        } else {
+            CGovernanceObject& govobj = it->second;
 
-    CGovernanceObject& govobj = it->second;
+            if(govobj.IsSetCachedDelete() || govobj.IsSetExpired()) {
+                LogPrint(BCLog::GOBJECT, "CGovernanceObject::ProcessVote -- ignoring vote for expired or deleted object, hash = %s\n", nHashGovobj.ToString());
+                return false;
+            }
 
-    if(govobj.IsSetCachedDelete() || govobj.IsSetExpired()) {
-        LogPrint(BCLog::GOBJECT, "CGovernanceObject::ProcessVote -- ignoring vote for expired or deleted object, hash = %s\n", nHashGovobj.ToString());
-        LEAVE_CRITICAL_SECTION(cs);
-        return false;
-    }
+            bool fOk = govobj.ProcessVote(pfrom, vote, exception, connman);
+            if(fOk) {
+                mapVoteToObject.Insert(nHashVote, &govobj);
 
-    bool fOk = govobj.ProcessVote(pfrom, vote, exception, connman);
-    if(fOk) {
-        mapVoteToObject.Insert(nHashVote, &govobj);
-
-        if(govobj.GetObjectType() == GOVERNANCE_OBJECT_WATCHDOG) {
-            mnodeman.UpdateWatchdogVoteTime(vote.GetMasternodeOutpoint());
-            LogPrint(BCLog::GOBJECT, "CGovernanceObject::ProcessVote -- GOVERNANCE_OBJECT_WATCHDOG vote for %s\n", vote.GetParentHash().ToString());
+                if(govobj.GetObjectType() == GOVERNANCE_OBJECT_WATCHDOG) {
+                    mnodeman.UpdateWatchdogVoteTime(vote.GetMasternodeOutpoint());
+                    LogPrint(BCLog::GOBJECT, "CGovernanceObject::ProcessVote -- GOVERNANCE_OBJECT_WATCHDOG vote for %s\n", vote.GetParentHash().ToString());
+                }
+            }
+            return fOk;
         }
     }
-    LEAVE_CRITICAL_SECTION(cs);
-    return fOk;
+
+    if(fRequestGovernanceObject) {
+        RequestGovernanceObject(pfrom, nHashGovobjToRequest, connman);
+        LogPrintf("%s\n", strRequestLog);
+    }
+    return false;
 }
 
 void CGovernanceManager::CheckMasternodeOrphanVotes(CConnman& connman)
@@ -1023,7 +1059,7 @@ void CGovernanceManager::CheckMasternodeOrphanObjects(CConnman& connman)
         }
 
         auto it_count = mapMasternodeOrphanCounter.find(govobj.GetMasternodeVin().prevout);
-        if(--it_count->second == 0)
+        if(it_count != mapMasternodeOrphanCounter.end() && --it_count->second == 0)
             mapMasternodeOrphanCounter.erase(it_count);
 
         mapMasternodeOrphanObjects.erase(it++);

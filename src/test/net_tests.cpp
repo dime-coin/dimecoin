@@ -190,4 +190,37 @@ BOOST_AUTO_TEST_CASE(cnode_simple_test)
     BOOST_CHECK(pnode2->fFeeler == false);
 }
 
+// Regression coverage for the addnode bounds added in 2.5.5. Before this,
+// addnode accepted an unlimited number of entries of unlimited length, so a
+// caller with RPC access could grow vAddedNodes without bound.
+BOOST_AUTO_TEST_CASE(cconnman_addnode_bounds)
+{
+    CConnman connman(0x1337, 0x1337);
+
+    // An address at exactly the limit is still accepted.
+    const std::string atLimit(MAX_ADDNODE_ADDRESS_LENGTH, 'a');
+    BOOST_CHECK(connman.AddNode(atLimit));
+
+    // One character over the limit is rejected.
+    const std::string overLimit(MAX_ADDNODE_ADDRESS_LENGTH + 1, 'a');
+    BOOST_CHECK(!connman.AddNode(overLimit));
+
+    // Duplicates are still rejected, as before.
+    BOOST_CHECK(!connman.AddNode(atLimit));
+
+    BOOST_CHECK(connman.RemoveAddedNode(atLimit));
+
+    // Fill the list to capacity with distinct entries.
+    for (size_t i = 0; i < MAX_ADDNODE_ENTRIES; ++i) {
+        BOOST_CHECK(connman.AddNode(std::to_string(i) + ".example.invalid"));
+    }
+
+    // The next distinct entry is refused because the list is full.
+    BOOST_CHECK(!connman.AddNode("full.example.invalid"));
+
+    // Freeing a slot makes room again, so the cap is not a permanent lockout.
+    BOOST_CHECK(connman.RemoveAddedNode("0.example.invalid"));
+    BOOST_CHECK(connman.AddNode("full.example.invalid"));
+}
+
 BOOST_AUTO_TEST_SUITE_END()

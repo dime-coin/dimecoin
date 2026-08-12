@@ -13,6 +13,7 @@
 #include <test/test_dimecoin.h>
 
 #include <stdint.h>
+#include <limits>
 #include <vector>
 #ifndef WIN32
 #include <signal.h>
@@ -632,8 +633,21 @@ BOOST_AUTO_TEST_CASE(util_FormatMoney)
     BOOST_CHECK_EQUAL(FormatMoney(COIN*100), "100.00");
     BOOST_CHECK_EQUAL(FormatMoney(COIN*10), "10.00");
     BOOST_CHECK_EQUAL(FormatMoney(COIN), "1.00");
-    BOOST_CHECK_EQUAL(FormatMoney(COIN/10), "0.0001");
-    BOOST_CHECK_EQUAL(FormatMoney(COIN/100), "0.00001");
+    BOOST_CHECK_EQUAL(FormatMoney(COIN/10), "0.10");
+    BOOST_CHECK_EQUAL(FormatMoney(COIN/100), "0.01");
+
+    // Taking the magnitude with -n is undefined at INT64_MIN, whose positive
+    // counterpart is not representable. FormatMoney divides before negating so
+    // that this is well defined.
+    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<int64_t>::min()), "-92233720368547.75808");
+    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<int64_t>::max()), "92233720368547.75807");
+
+    // MAX_MONEY must survive a round trip through the string form. Its whole
+    // part is 11 digits, which the old ParseMoney digit guard rejected.
+    CAmount round_tripped = 0;
+    BOOST_CHECK_EQUAL(FormatMoney(MAX_MONEY), "50000000000.00");
+    BOOST_CHECK(ParseMoney(FormatMoney(MAX_MONEY), round_tripped));
+    BOOST_CHECK_EQUAL(round_tripped, MAX_MONEY);
 }
 
 BOOST_AUTO_TEST_CASE(util_ParseMoney)
@@ -678,6 +692,19 @@ BOOST_AUTO_TEST_CASE(util_ParseMoney)
 
     // Attempted 63 bit overflow should fail
     BOOST_CHECK(!ParseMoney("92233720368.54775808", ret));
+
+    // The whole-part guard used to be a flat 10 digits, inherited from an
+    // 8-decimal COIN. Dimecoin's COIN has 5 decimals, so amounts up to 14
+    // digits are representable and must parse.
+    BOOST_CHECK(ParseMoney("50000000000.00", ret)); // MAX_MONEY, 11 digits
+    BOOST_CHECK_EQUAL(ret, MAX_MONEY);
+    BOOST_CHECK(ParseMoney("92233720368547.75807", ret)); // largest CAmount
+    BOOST_CHECK_EQUAL(ret, std::numeric_limits<int64_t>::max());
+
+    // One unit past the largest CAmount must still be rejected, now by the
+    // explicit overflow check rather than by counting digits.
+    BOOST_CHECK(!ParseMoney("92233720368547.75808", ret));
+    BOOST_CHECK(!ParseMoney("99999999999999999999", ret));
 
     // Parsing negative amounts must fail
     BOOST_CHECK(!ParseMoney("-1", ret));

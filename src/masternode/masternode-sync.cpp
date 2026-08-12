@@ -179,6 +179,17 @@ void CMasternodeSync::ProcessTick(CConnman& connman)
 
     std::vector<CNode*> vNodesCopy = connman.CopyNodeVector();
 
+    // QUICK MODE (REGTEST ONLY!) -- the loop below carries a regtest fast-path, but a
+    // regtest chain is normally run with no peers at all, so that loop body never
+    // executes and the sync can never finish. With no peers there is nothing to request,
+    // so complete the sync here rather than blocking on it forever.
+    if(Params().NetworkIDString() == CBaseChainParams::REGTEST && vNodesCopy.empty())
+    {
+        nRequestedMasternodeAssets = MASTERNODE_SYNC_FINISHED;
+        connman.ReleaseNodeVector(vNodesCopy);
+        return;
+    }
+
     for(CNode* pnode : vNodesCopy)
     {
         // Don't try to sync any data from outbound "masternode" connections -

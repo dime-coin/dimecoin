@@ -425,7 +425,7 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
             std::string strTxid = uriParts[i].substr(0, uriParts[i].find('-'));
             std::string strOutput = uriParts[i].substr(uriParts[i].find('-')+1);
 
-            if (!ParseInt32(strOutput, &nOutput) || !IsHex(strTxid))
+            if (!ParseInt32(strOutput, &nOutput) || !IsHex(strTxid) || nOutput < 0)
                 return RESTERR(req, HTTP_BAD_REQUEST, "Parse error");
 
             txid.SetHex(strTxid);
@@ -484,6 +484,8 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
     std::vector<CCoin> outs;
     std::string bitmapStringRepresentation;
     std::vector<bool> hits;
+    int chain_height = 0;
+    uint256 chain_tip_hash;
     bitmap.resize((vOutPoints.size() + 7) / 8);
     {
         auto process_utxos = [&vOutPoints, &outs, &hits](const CCoinsView& view, const CTxMemPool& mempool) {
@@ -498,11 +500,22 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
         if (fCheckMemPool) {
             // use db+mempool as cache backend in case user likes to query mempool
             LOCK2(cs_main, mempool.cs);
+            // Snapshot the tip under the same lock as the UTXO reads so the
+            // response cannot mix a height from one chainstate with coins from
+            // another, and so a null tip during startup is not dereferenced.
+            const CBlockIndex* tip = chainActive.Tip();
+            if (!tip) return RESTERR(req, HTTP_INTERNAL_SERVER_ERROR, "No active chain tip available");
+            chain_height = chainActive.Height();
+            chain_tip_hash = tip->GetBlockHash();
             CCoinsViewCache& viewChain = *pcoinsTip;
             CCoinsViewMemPool viewMempool(&viewChain, mempool);
             process_utxos(viewMempool, mempool);
         } else {
             LOCK(cs_main);  // no need to lock mempool!
+            const CBlockIndex* tip = chainActive.Tip();
+            if (!tip) return RESTERR(req, HTTP_INTERNAL_SERVER_ERROR, "No active chain tip available");
+            chain_height = chainActive.Height();
+            chain_tip_hash = tip->GetBlockHash();
             process_utxos(*pcoinsTip, CTxMemPool());
         }
 
@@ -518,7 +531,7 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
         // serialize data
         // use exact same output as mentioned in Bip64
         CDataStream ssGetUTXOResponse(SER_NETWORK, PROTOCOL_VERSION);
-        ssGetUTXOResponse << chainActive.Height() << chainActive.Tip()->GetBlockHash() << bitmap << outs;
+        ssGetUTXOResponse << chain_height << chain_tip_hash << bitmap << outs;
         std::string ssGetUTXOResponseString = ssGetUTXOResponse.str();
 
         req->WriteHeader("Content-Type", "application/octet-stream");
@@ -528,7 +541,7 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
 
     case RetFormat::HEX: {
         CDataStream ssGetUTXOResponse(SER_NETWORK, PROTOCOL_VERSION);
-        ssGetUTXOResponse << chainActive.Height() << chainActive.Tip()->GetBlockHash() << bitmap << outs;
+        ssGetUTXOResponse << chain_height << chain_tip_hash << bitmap << outs;
         std::string strHex = HexStr(ssGetUTXOResponse.begin(), ssGetUTXOResponse.end()) + "\n";
 
         req->WriteHeader("Content-Type", "text/plain");
@@ -541,8 +554,8 @@ static bool rest_getutxos(HTTPRequest* req, const std::string& strURIPart)
 
         // pack in some essentials
         // use more or less the same output as mentioned in Bip64
-        objGetUTXOResponse.pushKV("chainHeight", chainActive.Height());
-        objGetUTXOResponse.pushKV("chaintipHash", chainActive.Tip()->GetBlockHash().GetHex());
+        objGetUTXOResponse.pushKV("chainHeight", chain_height);
+        objGetUTXOResponse.pushKV("chaintipHash", chain_tip_hash.GetHex());
         objGetUTXOResponse.pushKV("bitmap", bitmapStringRepresentation);
 
         UniValue utxos(UniValue::VARR);

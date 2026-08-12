@@ -468,8 +468,13 @@ void PaymentServer::handleURIConnection()
 {
     QLocalSocket *clientConnection = uriServer->nextPendingConnection();
 
-    while (clientConnection->bytesAvailable() < (int)sizeof(quint32))
-        clientConnection->waitForReadyRead();
+    while (clientConnection->bytesAvailable() < (int)sizeof(quint32)) {
+        if (!clientConnection->waitForReadyRead(BITCOIN_IPC_CONNECT_TIMEOUT)) {
+            clientConnection->disconnectFromServer();
+            clientConnection->deleteLater();
+            return;
+        }
+    }
 
     connect(clientConnection, SIGNAL(disconnected()),
             clientConnection, SLOT(deleteLater()));

@@ -56,6 +56,7 @@ void CPrivateSendClient::ProcessMessage(CNode* pfrom, std::string& strCommand, C
         LogPrint(BCLog::PRIVATESEND, "DSQUEUE -- %s new\n", dsq.ToString());
 
         if(dsq.IsExpired()) return;
+        if(dsq.nTime > GetAdjustedTime() + PRIVATESEND_QUEUE_TIMEOUT) return;
 
         masternode_info_t infoMn;
         if(!mnodeman.GetMasternodeInfo(dsq.vin.prevout, infoMn)) return;
@@ -500,10 +501,10 @@ bool CPrivateSendClient::SignFinalTransaction(const CTransaction& finalTransacti
     finalMutableTransaction = finalTransactionNew;
     LogPrintf("CPrivateSendClient::SignFinalTransaction -- finalMutableTransaction=%s", finalMutableTransaction.ToString());
 
-    // Make sure it's BIP69 compliant
-    std::shuffle(finalMutableTransaction.vin.begin(), finalMutableTransaction.vin.end(), FastRandomContext());
-    std::shuffle(finalMutableTransaction.vout.begin(), finalMutableTransaction.vout.end(), FastRandomContext());
-
+    // Do not reshuffle vin/vout here: the server delivers the final canonical
+    // ordering and we must sign that exact transaction. Reshuffling produced a
+    // different tx hash on the client and made this integrity check falsely
+    // trip. Structural sanity of our own entries is enforced below.
     if(finalMutableTransaction.GetHash() != finalTransactionNew.GetHash()) {
         LogPrintf("CPrivateSendClient::SignFinalTransaction -- WARNING! Masternode %s is not BIP69 compliant!\n", infoMixingMasternode.vin.prevout.ToString());
         UnlockCoins();
@@ -980,9 +981,19 @@ bool CPrivateSendClient::StartNewQueue(CAmount nValueMin, CAmount nBalanceNeedsA
 
             std::vector<CAmount> vecAmounts;
             GetMainWallet()->ConvertList(vecTxIn, vecAmounts);
-            // try to get a single random denom out of vecAmounts
-            while(nSessionDenom == 0) {
+            // try to get a single random denom out of vecAmounts.
+            // GetDenominationsByAmounts() returns 0 both randomly and, for non-denominated
+            // inputs, deterministically - so this must be bounded or it never terminates.
+            for (int nDenomAttempts = 0; nDenomAttempts < 100 && nSessionDenom == 0; ++nDenomAttempts) {
                 nSessionDenom = CPrivateSend::GetDenominationsByAmounts(vecAmounts);
+            }
+            if (nSessionDenom == 0) {
+                LogPrintf("CPrivateSendClient::StartNewQueue -- couldn't determine a denomination, addr=%s\n", infoMn.addr.ToString());
+                if (pnodeFound) {
+                    pnodeFound->Release();
+                }
+                nTries++;
+                continue;
             }
 
             connman.PushMessage(pnode, NetMsgType::DSACCEPT, nSessionDenom, txMyCollateral);

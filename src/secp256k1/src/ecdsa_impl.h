@@ -126,7 +126,7 @@ static int secp256k1_der_parse_integer(secp256k1_scalar *r, const unsigned char 
     }
     if ((**sig & 0x80) == 0x80) {
         /* Negative. */
-        overflow = 1;
+        return 0;
     }
     /* There is at most one leading zero byte:
      * if there were two leading zero bytes, we would have failed and returned 0

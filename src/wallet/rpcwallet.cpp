@@ -46,6 +46,8 @@
 // for minting info functions
 #include <interfaces/wallet.h>
 #include <kernelrecord.h>
+#include <cmath>
+#include <algorithm>
 #include <miner.h>
 #include <boost/lexical_cast.hpp>
 
@@ -106,7 +108,10 @@ static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
     {
         entry.pushKV("blockhash", wtx.hashBlock.GetHex());
         entry.pushKV("blockindex", wtx.nIndex);
-        entry.pushKV("blocktime", LookupBlockIndex(wtx.hashBlock)->GetBlockTime());
+        const CBlockIndex* pindex = LookupBlockIndex(wtx.hashBlock);
+        if (pindex) {
+            entry.pushKV("blocktime", pindex->GetBlockTime());
+        }
     } else {
         entry.pushKV("trusted", wtx.IsTrusted());
     }
@@ -577,6 +582,9 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
     if (!request.params[4].isNull())
     {
         amountOfSplits = request.params[4].get_int();
+        if (amountOfSplits < 1) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Amount of splits must be at least 1");
+        }
     }
 
     bool fSubtractFeeFromAmount = false;
@@ -2027,7 +2035,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
                 if (pacentry != nullptr) AcentryToJSON(*pacentry, strAccount, ret);
             }
 
-            if ((int)ret.size() >= (nCount+nFrom)) break;
+            if ((int64_t)ret.size() >= ((int64_t)nCount + (int64_t)nFrom)) break;
         }
     }
 
@@ -2035,7 +2043,7 @@ UniValue listtransactions(const JSONRPCRequest& request)
 
     if (nFrom > (int)ret.size())
         nFrom = ret.size();
-    if ((nFrom + nCount) > (int)ret.size())
+    if (((int64_t)nFrom + (int64_t)nCount) > (int64_t)ret.size())
         nCount = ret.size() - nFrom;
 
     std::vector<UniValue> arrTmp = ret.getValues();
@@ -2252,7 +2260,7 @@ static UniValue listsinceblock(const JSONRPCRequest& request)
     UniValue transactions(UniValue::VARR);
 
     for (const std::pair<uint256, CWalletTx>& pairWtx : pwallet->mapWallet) {
-        CWalletTx tx = pairWtx.second;
+        const CWalletTx& tx = pairWtx.second;
 
         if (depth == -1 || tx.GetDepthInMainChain() < depth) {
             ListTransactions(pwallet, tx, "*", 0, true, transactions, filter);
@@ -2362,7 +2370,9 @@ static UniValue gettransaction(const JSONRPCRequest& request)
     }
     const CWalletTx& wtx = it->second;
 
-    CAmount nCredit = wtx.GetCredit(filter);
+    // Preserve transaction accounting for immature coinstakes. Their outputs
+    // remain excluded from the wallet's available balance until maturity.
+    CAmount nCredit = wtx.IsCoinStake() ? pwallet->GetCredit(*wtx.tx, filter) : wtx.GetCredit(filter);
     CAmount nDebit = wtx.GetDebit(filter);
     CAmount nNet = nCredit - nDebit;
     CAmount nFee = (wtx.IsFromMe(filter) ? wtx.tx->GetValueOut() - nDebit : 0);
@@ -2514,14 +2524,15 @@ static UniValue walletpassphrase(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() != 2) {
+    if (request.fHelp || (request.params.size() != 2 && request.params.size() != 3)) {
         throw std::runtime_error(
-                    "walletpassphrase \"passphrase\" timeout\n"
+                    "walletpassphrase \"passphrase\" timeout ( stakingonly )\n"
                     "\nStores the wallet decryption key in memory for 'timeout' seconds.\n"
                     "This is needed prior to performing transactions related to private keys such as sending bitcoins\n"
                     "\nArguments:\n"
                     "1. \"passphrase\"     (string, required) The wallet passphrase\n"
                     "2. timeout            (numeric, required) The time to keep the decryption key in seconds; capped at 100000000 (~3 years).\n"
+                    "3. stakingonly        (boolean, optional, default=false) Unlock for staking only.\n"
                     "\nNote:\n"
                     "Issuing the walletpassphrase command while the wallet is already unlocked will set a new unlock\n"
                     "time that overrides the old one.\n"
@@ -3189,12 +3200,8 @@ static UniValue listunspent(const JSONRPCRequest& request)
 
     UniValue results(UniValue::VARR);
     std::vector<COutput> vecOutputs;
-    {
-        LOCK2(cs_main, pwallet->cs_wallet);
-        pwallet->AvailableCoins(vecOutputs, !include_unsafe, nullptr, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount, nMinDepth, nMaxDepth);
-    }
-
-    LOCK(pwallet->cs_wallet);
+    LOCK2(cs_main, pwallet->cs_wallet);
+    pwallet->AvailableCoins(vecOutputs, !include_unsafe, nullptr, nMinimumAmount, nMaximumAmount, nMinimumSumAmount, nMaximumCount, nMinDepth, nMaxDepth);
 
     for (const COutput& out : vecOutputs) {
         CTxDestination address;
@@ -3684,7 +3691,11 @@ UniValue generate(const JSONRPCRequest& request)
     int num_generate = request.params[0].get_int();
     uint64_t max_tries = 1000000;
     if (!request.params[1].isNull()) {
-        max_tries = request.params[1].get_int();
+        int max_tries_arg = request.params[1].get_int();
+        if (max_tries_arg < 0) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "maxtries must be non-negative");
+        }
+        max_tries = static_cast<uint64_t>(max_tries_arg);
     }
 
     std::shared_ptr<CReserveScript> coinbase_script;
@@ -4109,13 +4120,18 @@ static UniValue listlabels(const JSONRPCRequest& request)
 
 static UniValue setstakesplitthreshold(const JSONRPCRequest& request)
 {
+    CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
                 "setstakesplitthreshold value\n"
                 "\nThis will set the output size of your stakes to never be below this number\n"
 
                 "\nArguments:\n"
-                "1. value   (numeric, required) Threshold value between 1 and 999999\n"
+                "1. value   (numeric, required) Threshold value between 0 and 999999\n"
                 "\nResult:\n"
                 "{\n"
                 "  \"threshold\": n,    (numeric) Threshold value set\n"
@@ -4124,32 +4140,42 @@ static UniValue setstakesplitthreshold(const JSONRPCRequest& request)
                 "\nExamples:\n" +
                 HelpExampleCli("setstakesplitthreshold", "5000") + HelpExampleRpc("setstakesplitthreshold", "5000"));
 
-    CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
+    // Read as a signed 64-bit value: a negative argument previously wrapped to a
+    // huge unsigned value and was reported as merely "out of range".
+    const int64_t nThreshold = request.params[0].get_int64();
+    if (nThreshold < 0 || nThreshold > 999999)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Value out of range, must be between 0 and 999999");
 
-    uint64_t nStakeSplitThreshold = request.params[0].get_int();
-    if (pwallet->IsLocked())
-        throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Unlock wallet to use this feature");
-    if (nStakeSplitThreshold > 999999)
-        throw std::runtime_error("Value out of range, max allowed is 999999");
-
-    WalletBatch walletdb(pwallet->GetDBHandle());
     LOCK(pwallet->cs_wallet);
-    {
+    // Evaluate the wallet's unlock state under the same lock that guards the
+    // update, so the state cannot change between the check and the write.
+    // A staking-only unlock is deliberately accepted here: this is a staking
+    // configuration value that neither spends nor signs, and requiring a full
+    // unlock to change it would push stakers into a less protected state.
+    if (pwallet->IsLocked())
+        throw JSONRPCError(RPC_WALLET_UNLOCK_NEEDED, "Error: Please enter the wallet passphrase with walletpassphrase first.");
 
-        UniValue result(UniValue::VOBJ);
-        pwallet->nStakeSplitThreshold = nStakeSplitThreshold;
-        result.push_back(Pair("threshold", int(pwallet->nStakeSplitThreshold)));
-        //if (fFileBacked) {
-        walletdb.WriteStakeSplitThreshold(nStakeSplitThreshold);
-        result.push_back(Pair("saved", "true"));
+    // Persist before publishing the value in memory, so a failed write cannot
+    // leave the running wallet and the wallet file disagreeing.
+    WalletBatch walletdb(pwallet->GetDBHandle());
+    if (!walletdb.WriteStakeSplitThreshold((uint64_t)nThreshold))
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: Failed to write stake split threshold to wallet database");
 
-        return result;
-    }
+    pwallet->nStakeSplitThreshold = (uint64_t)nThreshold;
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("threshold", (int64_t)pwallet->nStakeSplitThreshold);
+    result.pushKV("saved", true);
+    return result;
 }
 
 // presstab HyperStake
 static UniValue getstakesplitthreshold(const JSONRPCRequest& request)
 {
+    CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
 
     if (request.fHelp || request.params.size() != 0)
         throw std::runtime_error(
@@ -4160,9 +4186,10 @@ static UniValue getstakesplitthreshold(const JSONRPCRequest& request)
                 "\nExamples:\n" +
                 HelpExampleCli("getstakesplitthreshold", "") + HelpExampleRpc("getstakesplitthreshold", ""));
 
-    CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
-
-    return int(pwallet->nStakeSplitThreshold);
+    LOCK(pwallet->cs_wallet);
+    // Returned as 64-bit: the stored value is unsigned 64-bit and narrowing it
+    // to int would misreport an out-of-range value read from the wallet file.
+    return (int64_t)pwallet->nStakeSplitThreshold;
 }
 
 UniValue listminting(const JSONRPCRequest& request)
@@ -4185,11 +4212,31 @@ UniValue listminting(const JSONRPCRequest& request)
 
     UniValue ret(UniValue::VARR);
 
+    // Hold cs_main and cs_wallet across the whole computation. The chain tip,
+    // the difficulty derived from it, and every per-output lookup below must all
+    // describe the same instant; previously each was resolved independently and
+    // the reported set could straddle a tip change.
+    LOCK2(cs_main, pwallet->cs_wallet);
+
     const CBlockIndex *p = GetLastBlockIndex(chainActive.Tip(), true);
+    if (!p) {
+        // No usable tip yet (e.g. still initialising) — nothing can be minting.
+        return ret;
+    }
     const Consensus::Params& consensusParams = Params().GetConsensus();
 
     double difficulty = (double)GetDifficulty(GetNextWorkRequired(p,consensusParams,true));
     int64_t nStakeMinAge = Params().GetConsensus().nStakeMinAge;
+
+    // UniValue silently refuses to store a non-finite double, which leaves the
+    // field empty and yields a structurally invalid JSON reply that clients
+    // cannot parse. Constrain the estimates to the range a probability can
+    // actually take so a bad estimate can never corrupt the whole response.
+    auto safeProb = [](double v) -> double {
+        if (!std::isfinite(v)) return 0.0;
+        return std::min(1.0, std::max(0.0, v));
+    };
+    const double safeDifficulty = std::isfinite(difficulty) ? difficulty : 0.0;
 
     std::unique_ptr<interfaces::Wallet> iwallet = interfaces::MakeWallet(*pwallet);
     const auto& vwtx = iwallet->getWalletTxs();
@@ -4201,7 +4248,7 @@ UniValue listminting(const JSONRPCRequest& request)
         for (auto& kr : txList) {
             if(!kr.spent) {
 
-                if(count > 0 && (int32_t)ret.size() >= count) {
+                if(count > 0 && (int64_t)ret.size() >= count) {
                     break;
                 }
 
@@ -4212,12 +4259,14 @@ UniValue listminting(const JSONRPCRequest& request)
 
                 std::string status = "immature";
                 int searchInterval = 0;
-                int attemps = 0;
+                int64_t attemps = 0;
                 if(kr.getAge() >=  minAge)
                 {
                     status = "mature";
                     searchInterval = (int)nLastCoinStakeSearchInterval;
-                    attemps = GetAdjustedTime() - kr.nTime - nStakeMinAge;
+                    // Clamped at zero: an output can never have been tried for a
+                    // negative number of seconds.
+                    attemps = std::max<int64_t>(GetAdjustedTime() - kr.nTime - nStakeMinAge, 0);
                 }
 
                 UniValue obj(UniValue::VOBJ);
@@ -4228,11 +4277,11 @@ UniValue listminting(const JSONRPCRequest& request)
                 obj.pushKV("status",                    status);
                 obj.pushKV("age-in-day",                strAge);
                 obj.pushKV("coin-day-weight",           strCoinAge);
-                obj.pushKV("proof-of-stake-difficulty", difficulty);              
-                obj.pushKV("minting-probability-10min", kr.getProbToMintWithinNMinutes(difficulty, 10));
-                obj.pushKV("minting-probability-24h",   kr.getProbToMintWithinNMinutes(difficulty, 60*24));
-                obj.pushKV("minting-probability-30d",   kr.getProbToMintWithinNMinutes(difficulty, 60*24*30));
-                obj.pushKV("minting-probability-90d",   kr.getProbToMintWithinNMinutes(difficulty, 60*24*90)); 
+                obj.pushKV("proof-of-stake-difficulty", safeDifficulty);
+                obj.pushKV("minting-probability-10min", safeProb(kr.getProbToMintWithinNMinutes(difficulty, 10)));
+                obj.pushKV("minting-probability-24h",   safeProb(kr.getProbToMintWithinNMinutes(difficulty, 60*24)));
+                obj.pushKV("minting-probability-30d",   safeProb(kr.getProbToMintWithinNMinutes(difficulty, 60*24*30)));
+                obj.pushKV("minting-probability-90d",   safeProb(kr.getProbToMintWithinNMinutes(difficulty, 60*24*90)));
                 obj.pushKV("search-interval-in-sec",    searchInterval);
                 obj.pushKV("attempts",                  attemps);
                 ret.push_back(obj); 
@@ -4295,16 +4344,16 @@ static const CRPCCommand commands[] =
   { "wallet",             "lockunspent",                      &lockunspent,                   {"unlock","transactions"} },
   { "wallet",             "sendfrom",                         &sendfrom,                      {"fromaccount","toaddress","amount","minconf","comment","comment_to"} },
   { "wallet",             "sendmany",                         &sendmany,                      {"fromaccount|dummy","amounts","minconf","comment","subtractfeefrom","replaceable","conf_target","estimate_mode"} },
-  { "wallet",             "sendtoaddress",                    &sendtoaddress,                 {"address","amount","comment","comment_to","subtractfeefromamount","replaceable","conf_target","estimate_mode"} },
+  { "wallet",             "sendtoaddress",                    &sendtoaddress,                 {"address","amount","comment","comment_to","amount_of_splits","subtractfeefromamount","replaceable","conf_target","estimate_mode"} },
   { "wallet",             "settxfee",                         &settxfee,                      {"amount"} },
   { "wallet",             "signmessage",                      &signmessage,                   {"address","message"} },
   { "wallet",             "signrawtransactionwithwallet",     &signrawtransactionwithwallet,  {"hexstring","prevtxs","sighashtype"} },
   { "wallet",             "walletlock",                       &walletlock,                    {} },
   { "wallet",             "walletpassphrasechange",           &walletpassphrasechange,        {"oldpassphrase","newpassphrase"} },
-  { "wallet",             "walletpassphrase",                 &walletpassphrase,              {"passphrase","timeout"} },
+  { "wallet",             "walletpassphrase",                 &walletpassphrase,              {"passphrase","timeout","stakingonly"} },
   { "wallet",             "removeprunedfunds",                &removeprunedfunds,             {"txid"} },
   { "wallet",             "rescanblockchain",                 &rescanblockchain,              {"start_height", "stop_height"} },
-  { "wallet",             "setstakesplitthreshold",           &setstakesplitthreshold,        {"threshold_amount"}},
+  { "wallet",             "setstakesplitthreshold",           &setstakesplitthreshold,        {"value"}},
   { "wallet",             "getstakesplitthreshold",           &getstakesplitthreshold,        {} },
   { "wallet",             "listminting",                      &listminting,                   {"count", "from"} },
   /** Account functions (deprecated) */

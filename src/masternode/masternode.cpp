@@ -568,7 +568,7 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
         if(!lockMain) {
             // not mnb fault, let it to be checked again later
             LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Failed to aquire lock, addr=%s\n", addr.ToString());
-            mnodeman.mapSeenMasternodeBroadcast.erase(GetHash());
+            mnodeman.EraseSeenBroadcast(GetHash());
             return false;
         }
 
@@ -588,7 +588,7 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
             LogPrintf("CMasternodeBroadcast::CheckOutpoint -- Masternode UTXO must have at least %d confirmations, masternode=%s\n",
                     Params().GetConsensus().nMasternodeMinimumConfirmations, vin.prevout.ToStringShort());
             // maybe we miss few blocks, let this mnb to be checked again later
-            mnodeman.mapSeenMasternodeBroadcast.erase(GetHash());
+            mnodeman.EraseSeenBroadcast(GetHash());
             return false;
         }
         // remember the hash of the block where masternode collateral had minimum required confirmations
@@ -616,6 +616,11 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
         if (mi != mapBlockIndex.end() && (*mi).second) {
             CBlockIndex* pMNIndex = (*mi).second; // block for masternode collateral tx -> 1 confirmation
             CBlockIndex* pConfIndex = chainActive[pMNIndex->nHeight + Params().GetConsensus().nMasternodeMinimumConfirmations - 1]; // block where tx got nMasternodeMinimumConfirmations
+            if (!pConfIndex) {
+                // Not enough confirmations yet or pMNIndex sits on a stale branch; let this mnb be re-checked later.
+                LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Collateral not yet mature on active chain for masternode=%s\n", vin.prevout.ToStringShort());
+                return false;
+            }
             if(pConfIndex->GetBlockTime() > sigTime) {
                 LogPrintf("CMasternodeBroadcast::CheckOutpoint -- Bad sigTime %d (%d conf block is at %d) for Masternode %s %s\n",
                           sigTime, Params().GetConsensus().nMasternodeMinimumConfirmations, pConfIndex->GetBlockTime(), vin.prevout.ToStringShort(), addr.ToString());
@@ -661,7 +666,7 @@ bool CMasternodeBroadcast::CheckSignature(int& nDos)
                     pubKeyCollateralAddress.GetID().ToString() + pubKeyMasternode.GetID().ToString() +
                     boost::lexical_cast<std::string>(nProtocolVersion);
 
-    LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckSignature -- strMessage: %s  pubKeyCollateralAddress address: %s  sig: %s\n", strMessage, EncodeDestination(pubKeyCollateralAddress.GetID()), EncodeBase64(&vchSig[0], vchSig.size()));
+    LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckSignature -- strMessage: %s  pubKeyCollateralAddress address: %s  sig: %s\n", strMessage, EncodeDestination(pubKeyCollateralAddress.GetID()), EncodeBase64(vchSig.data(), vchSig.size()));
 
     if(!CMessageSigner::VerifyMessage(pubKeyCollateralAddress, vchSig, strMessage, strError)){
         LogPrintf("CMasternodeBroadcast::CheckSignature -- Got bad Masternode announce signature, error: %s\n", strError);

@@ -908,7 +908,7 @@ static bool GetConfigOptions(std::istream& stream, std::string& error, std::vect
 fs::path GetMasternodeConfigFile()
 {
     boost::filesystem::path pathConfigFile(gArgs.GetArg("-mnconf", "masternode.conf"));
-    if (!pathConfigFile.is_complete())
+    if (!pathConfigFile.is_absolute())
         return fs::absolute(pathConfigFile, GetDataDir());
 
     return pathConfigFile;

@@ -10,14 +10,23 @@
 #include <tinyformat.h>
 #include <util/strencodings.h>
 
+#include <limits>
+
 std::string FormatMoney(const CAmount& n)
 {
     // Note: not using straight sprintf here because we do NOT want
     // localized number formatting.
-    int64_t n_abs = (n > 0 ? n : -n);
-    int64_t quotient = n_abs/COIN;
-    int64_t remainder = n_abs%COIN;
-    std::string str = strprintf("%d.%08d", quotient, remainder);
+    // Negating the value to take its magnitude is undefined for INT64_MIN,
+    // whose positive counterpart is not representable. Divide first instead:
+    // COIN > 1, so neither the quotient nor the remainder can overflow, and
+    // both are safe to negate afterwards.
+    int64_t quotient = n / COIN;
+    int64_t remainder = n % COIN;
+    if (n < 0) {
+        quotient = -quotient;
+        remainder = -remainder;
+    }
+    std::string str = strprintf("%d.%05d", quotient, remainder);
 
     // Right-trim excess zeros before the decimal point:
     int nTrim = 0;
@@ -66,11 +75,19 @@ bool ParseMoney(const char* pszIn, CAmount& nRet)
     for (; *p; p++)
         if (!isspace(*p))
             return false;
-    if (strWhole.size() > 10) // guard against 63 bit overflow
+    // The previous guard capped the whole part at 10 digits, a constant carried
+    // over from Bitcoin's 8-decimal COIN. Dimecoin's COIN has 5 decimals, so 10
+    // digits rejects perfectly valid amounts that FormatMoney will produce --
+    // MAX_MONEY alone is 50,000,000,000 DIME, which is 11 digits -- and the
+    // round trip fails. Bound the result against what int64_t can actually hold
+    // rather than inferring it from the digit count.
+    if (strWhole.size() > 19) // atoi64 itself cannot represent more than this
         return false;
     if (nUnits < 0 || nUnits > COIN)
         return false;
     int64_t nWhole = atoi64(strWhole);
+    if (nWhole < 0 || nWhole > (std::numeric_limits<int64_t>::max() - nUnits) / COIN)
+        return false;
     CAmount nValue = nWhole*COIN + nUnits;
 
     nRet = nValue;

@@ -100,9 +100,9 @@ void CInstantSend::ProcessMessage(CNode* pfrom, const std::string& strCommand, C
         LOCK(cs_instantsend);
 
         if(mapTxLockVotes.count(nVoteHash)) return;
-        mapTxLockVotes.insert(std::make_pair(nVoteHash, vote));
 
-        ProcessTxLockVote(pfrom, vote, connman);
+        if(ProcessTxLockVote(pfrom, vote, connman))
+            mapTxLockVotes.insert(std::make_pair(nVoteHash, vote));
 
         return;
     }
@@ -177,7 +177,7 @@ bool CInstantSend::CreateTxLockCandidate(const CTxLockRequestRef& txLockRequest)
             txLockCandidate.AddOutPointLock(txin.prevout);
         }
         mapTxLockCandidates.insert(std::make_pair(txHash, txLockCandidate));
-    } else if (!itLockCandidate->second.txLockRequest) {
+    } else if (!itLockCandidate->second.txLockRequest || !*itLockCandidate->second.txLockRequest) {
         // i.e. empty Transaction Lock Candidate was created earlier, let's update it with actual data
         itLockCandidate->second.txLockRequest = txLockRequest;
         if (itLockCandidate->second.IsTimedOut()) {
@@ -331,7 +331,7 @@ bool CInstantSend::ProcessTxLockVote(CNode* pfrom, CTxLockVote& vote, CConnman& 
     // will actually process only after the lock request itself has arrived
 
     std::map<uint256, CTxLockCandidate>::iterator it = mapTxLockCandidates.find(txHash);
-    if(it == mapTxLockCandidates.end() || !it->second.txLockRequest) {
+    if(it == mapTxLockCandidates.end() || !it->second.txLockRequest || !*it->second.txLockRequest) {
         if(!mapTxLockVotesOrphan.count(vote.GetHash())) {
             // start timeout countdown after the very first vote
             CreateEmptyTxLockCandidate(txHash);
@@ -674,6 +674,18 @@ void CInstantSend::CheckAndRemove()
     // remove expired candidates
     while(itLockCandidate != mapTxLockCandidates.end()) {
         CTxLockCandidate &txLockCandidate = itLockCandidate->second;
+        // An empty Transaction Lock Candidate is created when an orphan vote arrives before its lock request.
+        // Garbage-collect it after INSTANTSEND_LOCK_TIMEOUT_SECONDS so it does not persist for the lifetime of the process.
+        if(!txLockCandidate.txLockRequest || !*txLockCandidate.txLockRequest) {
+            if(txLockCandidate.IsTimedOut()) {
+                LogPrintf("CInstantSend::CheckAndRemove -- Removing timed out empty Transaction Lock Candidate: txid=%s\n",
+                        itLockCandidate->first.ToString());
+                mapTxLockCandidates.erase(itLockCandidate++);
+            } else {
+                ++itLockCandidate;
+            }
+            continue;
+        }
         uint256 txHash = txLockCandidate.GetHash();
         if(txLockCandidate.IsExpired(nCachedBlockHeight)) {
             LogPrintf("CInstantSend::CheckAndRemove -- Removing expired Transaction Lock Candidate: txid=%s\n", txHash.ToString());

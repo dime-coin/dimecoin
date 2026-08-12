@@ -6,6 +6,8 @@
 #include <timedata.h>
 #include <interfaces/wallet.h>
 #include <math.h>
+#include <cmath>
+#include <algorithm>
 #include <validation.h>
 using namespace std;
 
@@ -77,17 +79,29 @@ int64_t KernelRecord::getAge() const
 int64_t KernelRecord::getCoinAge() const
 {
     const Consensus::Params& params = Params().GetConsensus();
-    int nDayWeight = (min((unsigned int)(GetAdjustedTime() - nTime), (unsigned int)params.nStakeMaxAge) - params.nStakeMinAge) / 86400;
+    // Age arithmetic must stay signed. Mixing the unsigned age with the signed
+    // nStakeMinAge promoted the subtraction to unsigned, so any output younger
+    // than nStakeMinAge wrapped to an enormous weight instead of zero.
+    const int64_t nAge = std::min<int64_t>(GetAdjustedTime() - nTime, params.nStakeMaxAge);
+    const int64_t nDayWeight = std::max<int64_t>(nAge - params.nStakeMinAge, 0) / 86400;
     return max(nValue * nDayWeight / COIN, (int64_t) 0);
 }
 
 double KernelRecord::getProbToMintStake(double difficulty, int timeOffset) const
 {
     const Consensus::Params& params = Params().GetConsensus();
+    // A non-positive difficulty would make the target infinite below.
+    if (!(difficulty > 0) || !std::isfinite(difficulty)) {
+        return 0.0;
+    }
     double maxTarget = pow(static_cast<double>(2), 224);
     double target = maxTarget / difficulty;
-    int dayWeight = (min((unsigned int)(GetAdjustedTime() - nTime) + timeOffset, (unsigned int)params.nStakeMaxAge) - params.nStakeMinAge) / 86400;
-    uint64_t coinAge = max(nValue * dayWeight / COIN, (int64_t)0);
+    // Signed throughout for the same reason as getCoinAge(): the previous
+    // unsigned subtraction wrapped for young outputs, inflating the weight and
+    // driving the resulting probability to infinity.
+    const int64_t nAge = std::min<int64_t>((GetAdjustedTime() - nTime) + timeOffset, params.nStakeMaxAge);
+    const int64_t dayWeight = std::max<int64_t>(nAge - params.nStakeMinAge, 0) / 86400;
+    const int64_t coinAge = max(nValue * dayWeight / COIN, (int64_t)0);
     return target * coinAge / pow(static_cast<double>(2), 256);
 } 
 

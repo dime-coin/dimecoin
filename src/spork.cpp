@@ -41,6 +41,16 @@ void CSporkManager::ProcessSpork(CNode* pfrom, const std::string& strCommand, CD
 
         uint256 hash = spork.GetHash();
 
+        // Validate the fields before anything else touches them: this runs ahead of the
+        // mapSporksActive bookkeeping so a malformed spork can neither displace a live one nor
+        // consume an ECDSA recovery.
+        std::string strSporkError;
+        if (!spork.IsWellFormed(strSporkError)) {
+            LogPrintf("%s -- rejected spork from peer=%d: %s\n", __func__, pfrom->GetId(), strSporkError);
+            Misbehaving(pfrom->GetId(), 100);
+            return;
+        }
+
         std::string strLogMsg;
         {
             LOCK(cs_main);
@@ -226,6 +236,56 @@ std::string CSporkManager::GetSporkNameByID(int nSporkID)
         LogPrint(BCLog::SPORK, "CSporkManager::GetSporkNameByID -- Unknown Spork ID %d\n", nSporkID);
         return "Unknown";
     }
+}
+
+bool CSporkManager::IsValidSporkID(int nSporkID)
+{
+    using namespace Spork;
+    switch (nSporkID) {
+    case SPORK_2_INSTANTSEND_ENABLED:
+    case SPORK_3_INSTANTSEND_BLOCK_FILTERING:
+    case SPORK_5_INSTANTSEND_MAX_VALUE:
+    case SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT:
+    case SPORK_9_SUPERBLOCKS_ENABLED:
+    case SPORK_10_MASTERNODE_PAY_UPDATED_NODES:
+    case SPORK_12_RECONSIDER_BLOCKS:
+    case SPORK_13_OLD_SUPERBLOCK_FLAG:
+    case SPORK_14_REQUIRE_SENTINEL_FLAG:
+    case SPORK_15_POS_DISABLED:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool CSporkMessage::IsWellFormed(std::string& strErrorRet) const
+{
+    if (!CSporkManager::IsValidSporkID(nSporkID)) {
+        strErrorRet = strprintf("unknown spork ID %d", nSporkID);
+        return false;
+    }
+
+    if (nValue < 0 || nValue > MAX_SPORK_VALUE) {
+        strErrorRet = strprintf("spork value %d out of range [0, %d]", nValue, MAX_SPORK_VALUE);
+        return false;
+    }
+
+    // A spork cannot predate the chain it governs. Together with the ceiling below this pins
+    // nTimeSigned to a ten-digit value, which in turn makes the split of the signed payload into
+    // (nSporkID, nValue, nTimeSigned) unique instead of ambiguous.
+    const int64_t nGenesisTime = Params().GenesisBlock().GetBlockTime();
+    if (nTimeSigned < nGenesisTime) {
+        strErrorRet = strprintf("spork signed at %d, before genesis at %d", nTimeSigned, nGenesisTime);
+        return false;
+    }
+
+    const int64_t nMaxTime = GetAdjustedTime() + SPORK_TIME_MAX_FUTURE_DRIFT;
+    if (nTimeSigned > nMaxTime) {
+        strErrorRet = strprintf("spork signed at %d, too far in the future (max %d)", nTimeSigned, nMaxTime);
+        return false;
+    }
+
+    return true;
 }
 
 bool CSporkManager::SetPrivKey(std::string strPrivKey)

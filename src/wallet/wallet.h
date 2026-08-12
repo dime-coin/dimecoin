@@ -814,7 +814,7 @@ public:
 
     bool GetMasternodeOutpointAndKeys(COutPoint& outpointRet, CPubKey& pubKeyRet, CKey& keyRet, std::string strTxHash, std::string strOutputIndex);
 
-    bool fWalletUnlockStakingOnly = false;
+    std::atomic<bool> fWalletUnlockStakingOnly{false};
     /** Get a name for this wallet for logging/debugging purposes.
      */
     const std::string& GetName() const { return m_name; }
@@ -927,6 +927,8 @@ public:
     //! Adds a key to the store, and saves it to disk.
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey) override;
     bool AddKeyPubKeyWithDB(WalletBatch &batch,const CKey& key, const CPubKey &pubkey);
+    //! Drop a key from the in-memory keystore again after it failed to reach disk.
+    void ForgetKeyInMemory(const CKeyID& keyid);
     //! GetPubKey implementation that also checks the mapHdPubKeys
     bool GetPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const;
     //! GetKey implementation that can derive a HD private key on the fly
@@ -968,6 +970,9 @@ public:
     int64_t nRelockTime = 0;
 
     bool Unlock(const SecureString& strWalletPassphrase, bool stakingOnly = false);
+    /* Verify a passphrase against the wallet's master keys without altering keystore state.
+       Returns false for an unencrypted wallet, which has no passphrase to prove. */
+    bool CheckPassphrase(const SecureString& strWalletPassphrase) const;
     bool ChangeWalletPassphrase(const SecureString& strOldWalletPassphrase, const SecureString& strNewWalletPassphrase);
     bool EncryptWallet(const SecureString& strWalletPassphrase);
 

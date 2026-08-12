@@ -34,6 +34,9 @@ namespace Checkpoints {
     const CBlockIndex* AutoSelectSyncCheckpoint()
     {
         const CBlockIndex *pindexBest = chainActive.Tip();
+        // No active chain yet: the loop below would dereference pindex immediately.
+        if (!pindexBest)
+            return nullptr;
         const CBlockIndex *pindex = pindexBest;
         // Search backward for a block within max span and maturity window
         while (pindex->pprev && pindex->nHeight + nCheckpointSpan > pindexBest->nHeight)
@@ -48,6 +51,10 @@ namespace Checkpoints {
         if(nHeight)
         {
             auto pindexSync = AutoSelectSyncCheckpoint();
+            // With no chain there is no checkpoint to enforce; match the nHeight==0 case
+            // and accept rather than dereferencing a null index.
+            if (!pindexSync)
+                return true;
             return nHeight > pindexSync->nHeight;
         }
 

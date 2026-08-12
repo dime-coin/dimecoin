@@ -75,14 +75,14 @@ static inline int64_t GetPerformanceCounter()
 
 #if defined(__x86_64__) || defined(__amd64__) || defined(__i386__)
 static std::atomic<bool> hwrand_initialized{false};
-static bool rdrand_supported = false;
+static std::atomic<bool> rdrand_supported{false};
 static constexpr uint32_t CPUID_F1_ECX_RDRAND = 0x40000000;
 static void RDRandInit()
 {
     uint32_t eax, ebx, ecx, edx;
     if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) && (ecx & CPUID_F1_ECX_RDRAND)) {
         LogPrintf("Using RdRand as an additional entropy source\n");
-        rdrand_supported = true;
+        rdrand_supported.store(true, std::memory_order_relaxed);
     }
     hwrand_initialized.store(true);
 }
@@ -93,7 +93,7 @@ static void RDRandInit() {}
 static bool GetHWRand(unsigned char* ent32) {
 #if defined(__x86_64__) || defined(__amd64__) || defined(__i386__)
     assert(hwrand_initialized.load(std::memory_order_relaxed));
-    if (rdrand_supported) {
+    if (rdrand_supported.load(std::memory_order_relaxed)) {
         uint8_t ok;
         // Not all assemblers support the rdrand instruction, write it in hex.
 #ifdef __i386__
@@ -144,10 +144,14 @@ static void RandAddSeedPerfmon()
     // Seed with the entire set of perfmon data
 
     // This can take up to 2 seconds, so only do it every 10 minutes
-    static int64_t nLastPerfmon;
-    if (GetTime() < nLastPerfmon + 10 * 60)
+    static std::atomic<int64_t> nLastPerfmon{0};
+    int64_t nNow = GetTime();
+    int64_t nLast = nLastPerfmon.load(std::memory_order_relaxed);
+    if (nNow < nLast + 10 * 60)
         return;
-    nLastPerfmon = GetTime();
+    // Claim the slot; if another thread got here first, let it do the work.
+    if (!nLastPerfmon.compare_exchange_strong(nLast, nNow, std::memory_order_relaxed))
+        return;
 
     std::vector<unsigned char> vData(250000, 0);
     long ret = 0;

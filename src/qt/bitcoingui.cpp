@@ -1273,7 +1273,9 @@ void BitcoinGUI::setHDStatus(int hdEnabled)
 
 void BitcoinGUI::setStakingStatus()
 {
-    if (nLastCoinStakeSearchInterval && GetWallets().front()->MintableCoins()) {
+    auto vpwalletsStake = GetWallets();
+    CWallet* const pwalletStake = vpwalletsStake.empty() ? nullptr : vpwalletsStake.front();
+    if (nLastCoinStakeSearchInterval && pwalletStake && pwalletStake->MintableCoins()) {
         labelStakingIcon->show();
         labelStakingIcon->setPixmap(QIcon(QString(":/icons/staking_active")).pixmap(STATUSBAR_ICONSIZE, STATUSBAR_ICONSIZE));
         labelStakingIcon->setToolTip(tr("Staking is active\n"));

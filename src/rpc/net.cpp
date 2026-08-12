@@ -217,6 +217,10 @@ static UniValue addnode(const JSONRPCRequest& request)
 
     std::string strNode = request.params[0].get_str();
 
+    if (strNode.size() > MAX_ADDNODE_ADDRESS_LENGTH)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: Node address too long (maximum " +
+                           std::to_string(MAX_ADDNODE_ADDRESS_LENGTH) + " characters)");
+
     if (strCommand == "onetry")
     {
         CAddress addr;
@@ -226,8 +230,16 @@ static UniValue addnode(const JSONRPCRequest& request)
 
     if (strCommand == "add")
     {
-        if(!g_connman->AddNode(strNode))
-            throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: Node already added");
+        if (!g_connman->AddNode(strNode)) {
+            // AddNode() refuses duplicates and refuses to grow past the cap.
+            // Only inspect the list on failure so the common path stays cheap.
+            for (const AddedNodeInfo& info : g_connman->GetAddedNodeInfo()) {
+                if (info.strAddedNode == strNode)
+                    throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: Node already added");
+            }
+            throw JSONRPCError(RPC_CLIENT_NODE_CAPACITY_REACHED, "Error: Added node list is full (maximum " +
+                               std::to_string(MAX_ADDNODE_ENTRIES) + " entries)");
+        }
     }
     else if(strCommand == "remove")
     {

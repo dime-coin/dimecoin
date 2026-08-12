@@ -108,10 +108,12 @@ std::string FormatISO8601Time(int64_t nTime) {
     struct tm ts;
     time_t time_val = nTime;
 #ifdef HAVE_GMTIME_R
-    gmtime_r(&time_val, &ts);
+    if (gmtime_r(&time_val, &ts) == nullptr) {
 #else
-    gmtime_s(&ts, &time_val);
+    if (gmtime_s(&ts, &time_val) != 0) {
 #endif
+        return {};
+    }
     return strprintf("%02i:%02i:%02iZ", ts.tm_hour, ts.tm_min, ts.tm_sec);
 }
 

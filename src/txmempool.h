@@ -30,7 +30,10 @@
 class CBlockIndex;
 
 /** Fake height value used in Coin to signify they are only in the memory pool (since 0.8) */
-static const uint32_t MEMPOOL_HEIGHT = 0x7FFFFFFF;
+static const uint32_t MEMPOOL_HEIGHT = COIN_HEIGHT_MAX;
+static_assert(MEMPOOL_HEIGHT <= COIN_HEIGHT_MAX,
+              "MEMPOOL_HEIGHT must fit in Coin::nHeight, otherwise the sentinel is "
+              "truncated on assignment and mempool coins are never recognised");
 
 struct LockPoints
 {

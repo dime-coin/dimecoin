@@ -272,14 +272,14 @@ bool CGovernanceVote::IsValid(bool fSignatureCheck) const
     }
 
     // support up to 50 actions (implemented in sentinel)
-    if(nVoteSignal > MAX_SUPPORTED_VOTE_SIGNAL)
+    if(nVoteSignal < 0 || nVoteSignal > MAX_SUPPORTED_VOTE_SIGNAL)
     {
         LogPrint(BCLog::GOBJECT, "CGovernanceVote::IsValid -- Client attempted to vote on invalid signal(%d) - %s\n", nVoteSignal, GetHash().ToString());
         return false;
     }
 
     // 0=none, 1=yes, 2=no, 3=abstain. Beyond that reject votes
-    if(nVoteOutcome > 3)
+    if(nVoteOutcome < 0 || nVoteOutcome > 3)
     {
         LogPrint(BCLog::GOBJECT, "CGovernanceVote::IsValid -- Client attempted to vote on invalid outcome(%d) - %s\n", nVoteSignal, GetHash().ToString());
         return false;

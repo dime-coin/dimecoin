@@ -6,6 +6,7 @@
 #include <script/sigcache.h>
 #include <test/test_dimecoin.h>
 #include <random.h>
+#include <deque>
 #include <thread>
 
 /** Test Suite for CuckooCache
