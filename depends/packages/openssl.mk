@@ -10,6 +10,17 @@ define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
 $(package)_config_opts=--prefix=$(host_prefix) --openssldir=$(host_prefix)/etc/openssl
 $(package)_config_opts+=no-capieng
+$(package)_config_opts+=no-camellia
+$(package)_config_opts+=no-cast
+$(package)_config_opts+=no-comp
+$(package)_config_opts+=no-idea
+$(package)_config_opts+=no-md2
+$(package)_config_opts+=no-mdc2
+$(package)_config_opts+=no-rc4
+$(package)_config_opts+=no-rc5
+$(package)_config_opts+=no-seed
+$(package)_config_opts+=no-sha0
+$(package)_config_opts+=no-whirlpool
 $(package)_config_opts+=no-dso
 $(package)_config_opts+=no-dtls1
 $(package)_config_opts+=no-ec_nistp_64_gcc_128
@@ -51,7 +62,6 @@ $(package)_config_opts_i686_mingw32=mingw
 endef
 
 define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/use-termios.patch && \
   sed -i.old "/define DATE/d" util/mkbuildinf.pl && \
   sed -i.old "s|engines apps test|engines|" Makefile.org
 endef
@@ -61,6 +71,7 @@ define $(package)_config_cmds
 endef
 
 define $(package)_build_cmds
+  $(MAKE) depend
   $(MAKE) -j1 build_libs libcrypto.pc libssl.pc openssl.pc
 endef
 
