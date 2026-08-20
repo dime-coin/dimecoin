@@ -17,6 +17,7 @@
 #include <crypto/sha256.h>
 #include <primitives/transaction.h>
 #include <netbase.h>
+#include <i2p.h>
 #include <scheduler.h>
 #include <ui_interface.h>
 #include <util/strencodings.h>
@@ -454,7 +455,11 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCo
     if (addrConnect.IsValid()) {
         bool proxyConnectionFailed = false;
 
-        if (GetProxy(addrConnect.GetNetwork(), proxy)) {
+        if (addrConnect.GetNetwork() == NET_I2P) {
+            // I2P destinations are reached through the SAM proxy, not via TCP.
+            hSocket = i2p::ConnectI2P(addrConnect.GetI2PAddress(), nConnectTimeout);
+            connected = (hSocket != INVALID_SOCKET);
+        } else if (GetProxy(addrConnect.GetNetwork(), proxy)) {
             hSocket = CreateSocket(proxy.proxy);
             if (hSocket == INVALID_SOCKET) {
                 return nullptr;

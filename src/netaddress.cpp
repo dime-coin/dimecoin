@@ -12,6 +12,10 @@
 static const unsigned char pchIPv4[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff };
 static const unsigned char pchOnionCat[] = {0xFD,0x87,0xD8,0x7E,0xEB,0x43};
 
+// Prefix used to recognize I2P destinations encoded into the 16-byte address
+// space. Differs from pchOnionCat in the final byte.
+static const unsigned char pchI2PCat[] = {0xFD,0x87,0xD8,0x7E,0xEB,0x44};
+
 // 0xFD + sha256("bitcoin")[0:5]
 static const unsigned char g_internal_prefix[] = { 0xFD, 0x6B, 0x88, 0xC0, 0x87, 0x24 };
 
@@ -54,6 +58,34 @@ bool CNetAddr::SetInternal(const std::string &name)
     return true;
 }
 
+bool CNetAddr::SetI2P(const std::string& destination)
+{
+    if (destination.empty()) {
+        return false;
+    }
+    // Encode a recognizable prefix plus a digest of the destination into the
+    // 16-byte space so that equality, hashing and grouping keep working via
+    // the existing ip[]-based machinery. The real destination is kept
+    // separately for connection establishment and string representation.
+    unsigned char hash[32] = {};
+    CSHA256().Write((const unsigned char*)destination.data(), destination.size()).Finalize(hash);
+    memcpy(ip, pchI2PCat, sizeof(pchI2PCat));
+    memcpy(ip + sizeof(pchI2PCat), hash, sizeof(ip) - sizeof(pchI2PCat));
+    m_i2p = true;
+    m_i2p_destination = destination;
+    return true;
+}
+
+bool CNetAddr::IsI2P() const
+{
+    return (memcmp(ip, pchI2PCat, sizeof(pchI2PCat)) == 0);
+}
+
+std::string CNetAddr::GetI2PAddress() const
+{
+    return m_i2p_destination;
+}
+
 bool CNetAddr::SetSpecial(const std::string &strName)
 {
     if (strName.size()>6 && strName.substr(strName.size() - 6, 6) == ".onion") {
@@ -64,6 +96,13 @@ bool CNetAddr::SetSpecial(const std::string &strName)
         for (unsigned int i=0; i<16-sizeof(pchOnionCat); i++)
             ip[i + sizeof(pchOnionCat)] = vchAddr[i];
         return true;
+    }
+    // I2P: a ".i2p" hostname (e.g. "example.i2p") or a raw base64 destination.
+    if (strName.size() > 4 && strName.substr(strName.size() - 4, 4) == ".i2p") {
+        return SetI2P(strName);
+    }
+    if (strName.size() >= 100 && DecodeBase64(strName).size() >= 200) {
+        return SetI2P(strName);
     }
     return false;
 }
@@ -240,6 +279,9 @@ enum Network CNetAddr::GetNetwork() const
     if (IsInternal())
         return NET_INTERNAL;
 
+    if (IsI2P())
+        return NET_I2P;
+
     if (!IsRoutable())
         return NET_UNROUTABLE;
 
@@ -256,6 +298,8 @@ std::string CNetAddr::ToStringIP(bool fUseGetnameinfo) const
 {
     if (IsTor())
         return EncodeBase32(&ip[6], 10) + ".onion";
+    if (IsI2P())
+        return m_i2p_destination;
     if (IsInternal())
         return EncodeBase32(ip + sizeof(g_internal_prefix), sizeof(ip) - sizeof(g_internal_prefix)) + ".internal";
     if (fUseGetnameinfo)
@@ -368,6 +412,12 @@ std::vector<unsigned char> CNetAddr::GetGroup() const
         nStartByte = 6;
         nBits = 4;
     }
+    else if (IsI2P())
+    {
+        nClass = NET_I2P;
+        nStartByte = 6;
+        nBits = 32;
+    }
     // for he.net, use /36 groups
     else if (GetByte(15) == 0x20 && GetByte(14) == 0x01 && GetByte(13) == 0x04 && GetByte(12) == 0x70)
         nBits = 36;
@@ -448,6 +498,12 @@ int CNetAddr::GetReachabilityFrom(const CNetAddr *paddrPartner) const
         case NET_IPV4:   return REACH_IPV4; // Tor users can connect to IPv4 as well
         case NET_ONION:    return REACH_PRIVATE;
         }
+    case NET_I2P:
+        switch(ourNet) {
+        default:         return REACH_DEFAULT;
+        case NET_IPV4:   return REACH_IPV4; // I2P users can connect to IPv4 as well
+        case NET_I2P:    return REACH_PRIVATE;
+        }
     case NET_TEREDO:
         switch(ourNet) {
         default:          return REACH_DEFAULT;
@@ -464,6 +520,7 @@ int CNetAddr::GetReachabilityFrom(const CNetAddr *paddrPartner) const
         case NET_IPV6:    return REACH_IPV6_WEAK;
         case NET_IPV4:    return REACH_IPV4;
         case NET_ONION:     return REACH_PRIVATE; // either from Tor, or don't care about our address
+        case NET_I2P:       return REACH_PRIVATE; // either from I2P, or don't care about our address
         }
     }
 }

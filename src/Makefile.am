@@ -298,6 +298,7 @@ libdimecoin_server_a_SOURCES = \
   spork.cpp \
   timedata.cpp \
   torcontrol.cpp \
+  i2p.cpp \
   txdb.cpp \
   txmempool.cpp \
   ui_interface.cpp \
