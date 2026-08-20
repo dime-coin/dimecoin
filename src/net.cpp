@@ -457,7 +457,7 @@ CNode* CConnman::ConnectNode(CAddress addrConnect, const char *pszDest, bool fCo
 
         if (addrConnect.GetNetwork() == NET_I2P) {
             // I2P destinations are reached through the SAM proxy, not via TCP.
-            hSocket = i2p::ConnectI2P(addrConnect.GetI2PAddress(), nConnectTimeout);
+            hSocket = ConnectI2P(addrConnect.GetI2PAddress(), nConnectTimeout);
             connected = (hSocket != INVALID_SOCKET);
         } else if (GetProxy(addrConnect.GetNetwork(), proxy)) {
             hSocket = CreateSocket(proxy.proxy);
