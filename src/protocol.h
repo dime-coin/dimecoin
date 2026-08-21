@@ -244,6 +244,42 @@ extern const char *CHECKPOINT;
  * @since protocol version 70014 as described by BIP 152
  */
 extern const char *BLOCKTXN;
+/**
+ * Contains a request for BIP158 compact block filters for a range of blocks.
+ * Peer should respond with a "cfilter" message for each block in range.
+ * @since BIP 157
+ */
+extern const char *GETCFILTERS;
+/**
+ * Contains a BIP158 compact block filter for a block.
+ * Sent in response to a "getcfilters" message.
+ * @since BIP 157
+ */
+extern const char *CFILTER;
+/**
+ * Contains a request for BIP158 compact block filter headers for a range of
+ * blocks. Peer should respond with a "cfheaders" message.
+ * @since BIP 157
+ */
+extern const char *GETCFHEADERS;
+/**
+ * Contains a set of BIP158 compact block filter headers for a range of blocks.
+ * Sent in response to a "getcfheaders" message.
+ * @since BIP 157
+ */
+extern const char *CFHEADERS;
+/**
+ * Contains a request for a BIP158 compact block filter checkpoint (the filter
+ * header at a given block height). Peer should respond with a "cfcheckpt".
+ * @since BIP 157
+ */
+extern const char *GETCFCHECKPT;
+/**
+ * Contains a BIP158 compact block filter checkpoint.
+ * Sent in response to a "getcfcheckpt" message.
+ * @since BIP 157
+ */
+extern const char *CFCHECKPT;
 
 /*! Bitcoin STUFF */
 extern const char *TXLOCKREQUEST;
@@ -299,6 +335,9 @@ enum ServiceFlags : uint64_t {
     // NODE_XTHIN means the node supports Xtreme Thinblocks
     // If this is turned off then the node will not service nor make xthin requests
     NODE_XTHIN = (1 << 4),
+    // NODE_COMPACT_FILTERS means the node supports serving BIP158 compact
+    // block filters (BIP157 Neutrino light-client protocol).
+    NODE_COMPACT_FILTERS = (1 << 6),
     // NODE_NETWORK_LIMITED means the same as NODE_NETWORK with the limitation of only
     // serving the last 288 (2 day) blocks
     // See BIP159 for details on how this is implemented.

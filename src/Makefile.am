@@ -257,6 +257,7 @@ libdimecoin_server_a_SOURCES = \
   httpserver.cpp \
   index/base.cpp \
   index/txindex.cpp \
+  index/blockfilterindex.cpp \
   init.cpp \
   instantx.cpp \
   kernel.cpp \

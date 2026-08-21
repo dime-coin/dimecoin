@@ -14,6 +14,7 @@
 #include <amount.h>
 #include <base58.h>
 #include <coins.h>
+#include <undo.h>
 #include <fs.h>
 #include <protocol.h> // For CMessageHeader::MessageStartChars
 #include <policy/feerate.h>
@@ -408,6 +409,10 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus:
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus::Params& consensusParams);
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& message_start);
 bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex, const CMessageHeader::MessageStartChars& message_start);
+
+/** Read block undo data from disk for the given block index. Thin wrapper
+ *  around the internal UndoReadFromDisk used by reorgs. */
+bool ReadBlockUndo(const CBlockIndex* pindex, CBlockUndo& blockundo);
 
 /** Functions for validating blocks and updating the block tree */
 

@@ -23,6 +23,7 @@
 #include <httpserver.h>
 #include <httprpc.h>
 #include <index/txindex.h>
+#include <index/blockfilterindex.h>
 #include <key.h>
 #include <validation.h>
 #include <miner.h>
@@ -199,6 +200,8 @@ void Interrupt()
     InterruptMapPort();
     if (g_connman)
         g_connman->Interrupt();
+    if (g_filter_index)
+        g_filter_index->Interrupt();
 }
 
 static bool LoadExtensionsDataCaches()
@@ -287,10 +290,14 @@ void Shutdown()
     // using the other before destroying them.
     if (peerLogic) UnregisterValidationInterface(peerLogic.get());
     if (g_connman) g_connman->Stop();
+    if (g_filter_index) g_filter_index->Stop();
     peerLogic.reset();
     g_connman.reset();
     if (g_txindex) {
         g_txindex.reset();
+    }
+    if (g_filter_index) {
+        g_filter_index.reset();
     }
 
     StoreExtensionsDataCaches();
@@ -476,6 +483,7 @@ void SetupServerArgs()
     hidden_args.emplace_back("-sysperms");
 #endif
     gArgs.AddArg("-txindex", strprintf("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)", DEFAULT_TXINDEX), false, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-blockfilterindex", strprintf("Maintain a BIP158 compact block filter index (for BIP157 Neutrino light clients) (default: %u)", DEFAULT_BLOCKFILTERINDEX), false, OptionsCategory::OPTIONS);
 
     gArgs.AddArg("-addnode=<ip>", "Add a node to connect to and attempt to keep the connection open (see the `addnode` RPC command help for more info). This option can be specified multiple times to add multiple nodes.", false, OptionsCategory::CONNECTION);
     gArgs.AddArg("-banscore=<n>", strprintf("Threshold for disconnecting misbehaving peers (default: %u)", DEFAULT_BANSCORE_THRESHOLD), false, OptionsCategory::CONNECTION);
@@ -1633,6 +1641,11 @@ bool AppInitMain()
     if (gArgs.GetBoolArg("-txindex", DEFAULT_TXINDEX)) {
         auto txindex_db = MakeUnique<TxIndexDB>(nTxIndexCache, false, fReindex);
         g_txindex = MakeUnique<TxIndex>(std::move(txindex_db));
+    }
+
+    if (gArgs.GetBoolArg("-blockfilterindex", DEFAULT_BLOCKFILTERINDEX)) {
+        g_filter_index = MakeUnique<CBlockFilterIndex>(nTxIndexCache, false, fReindex);
+        g_filter_index->Start();
     }
 
     bool fLoaded = false;
