@@ -1587,9 +1587,22 @@ def resolve_report_path(requested, srcdir, chain, stamp):
 
 
 def main():
+    # dimecoin_qa.py lives at:
+    #   <source tree>/test/functional/dimecoin_qa.py
+    #
+    # Derive the source tree from the script location so the QA suite works
+    # from any checkout without relying on a developer-specific path.
+    default_srcdir = os.path.realpath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    )
+
     ap = argparse.ArgumentParser(description="Dimecoin QA suite")
-    ap.add_argument("--srcdir", default="~/dime253",
-                    help="Dimecoin source tree containing src/dimecoind")
+    ap.add_argument(
+        "--srcdir",
+        default=default_srcdir,
+        help="Dimecoin source tree containing src/dimecoind "
+             "(default: repository containing this script)"
+    )
     ap.add_argument("--datadir", default=None,
                     help="datadir to create (must not already exist)")
     ap.add_argument("--report", default=None,
@@ -1608,26 +1621,40 @@ def main():
                          "minutes to the run")
     args = ap.parse_args()
 
+    # Normalize an explicitly supplied --srcdir as well as the automatic
+    # default. This allows paths containing "~" and relative paths.
+    args.srcdir = os.path.realpath(os.path.expanduser(args.srcdir))
+
     if args.chain == "regtest":
         default_dir = os.path.expanduser("~/dimecoin-qa-regtest")
     else:
         default_dir = os.path.expanduser("~/dimecoin-qa-testnet")
+
     datadir = os.path.expanduser(args.datadir or default_dir)
+
     run_started = datetime.now()
-    report = resolve_report_path(args.report, args.srcdir, args.chain,
-                                 run_started.strftime("%Y%m%d-%H%M%S"))
+    report = resolve_report_path(
+        args.report,
+        args.srcdir,
+        args.chain,
+        run_started.strftime("%Y%m%d-%H%M%S")
+    )
 
     selected = None
     if args.categories:
-        selected = set(s.strip() for s in args.categories.split(",") if s.strip())
+        selected = set(
+            s.strip() for s in args.categories.split(",") if s.strip()
+        )
         unknown = selected - set(ALL_CATEGORIES)
         if unknown:
             print("Unknown categories: %s" % ", ".join(sorted(unknown)))
             print("Valid: %s" % ", ".join(ALL_CATEGORIES))
             return 2
 
-    run_unit = (not args.skip_unit
-                and (not selected or "unit-tests" in selected))
+    run_unit = (
+        not args.skip_unit
+        and (not selected or "unit-tests" in selected)
+    )
 
     print("=" * 70)
     print("Dimecoin QA Suite v%s" % SUITE_VERSION)
@@ -1644,8 +1671,15 @@ def main():
         return 2
 
     suite = Suite()
-    node = Node(args.srcdir, datadir, chain=args.chain,
-                port=args.port, rpcport=args.rpcport)
+
+    node = Node(
+        args.srcdir,
+        datadir,
+        chain=args.chain,
+        port=args.port,
+        rpcport=args.rpcport
+    )
+
     node.create_datadir()
 
     env = {
@@ -1658,6 +1692,7 @@ def main():
     }
 
     exit_code = 0
+
     try:
         print("\nStarting daemon...")
         node.start()
@@ -1665,6 +1700,7 @@ def main():
 
         info = node.rpc("getblockchaininfo")
         net = node.rpc("getnetworkinfo")
+
         env["chain"] = info.get("chain", args.chain)
         env["client version"] = net.get("subversion", "unknown")
         env["protocol version"] = net.get("protocolversion", "unknown")
@@ -1695,13 +1731,17 @@ def main():
         for cat, fn, extra in plan:
             if selected and cat not in selected:
                 continue
+
             print("\n--- %s ---" % cat)
+
             try:
                 fn(suite, node, *extra)
             except Exception as exc:
                 suite.category = cat
-                suite.fail("category '%s' raised an exception" % cat,
-                           "%s: %s" % (type(exc).__name__, exc))
+                suite.fail(
+                    "category '%s' raised an exception" % cat,
+                    "%s: %s" % (type(exc).__name__, exc)
+                )
                 traceback.print_exc()
 
             # A category that died mid-restart can leave the node down, which
@@ -1709,16 +1749,21 @@ def main():
             if not node.is_running():
                 try:
                     node.start()
-                    suite.warn("daemon was restarted after category '%s'" % cat,
-                               "the category left the node stopped")
+                    suite.warn(
+                        "daemon was restarted after category '%s'" % cat,
+                        "the category left the node stopped"
+                    )
                 except Exception as exc:
                     suite.category = cat
-                    suite.fail("could not restart daemon after '%s'" % cat,
-                               "%s: %s" % (type(exc).__name__, exc))
+                    suite.fail(
+                        "could not restart daemon after '%s'" % cat,
+                        "%s: %s" % (type(exc).__name__, exc)
+                    )
                     break
 
         # Encryption is destructive and must run after the spend tests.
         passphrase = "qa-passphrase-1"
+
         if not selected or "encryption" in selected:
             print("\n--- encryption ---")
             try:
@@ -1726,8 +1771,10 @@ def main():
                     passphrase = passphrase + "-changed"
             except Exception as exc:
                 suite.category = "encryption"
-                suite.fail("encryption battery raised an exception",
-                           "%s: %s" % (type(exc).__name__, exc))
+                suite.fail(
+                    "encryption battery raised an exception",
+                    "%s: %s" % (type(exc).__name__, exc)
+                )
                 traceback.print_exc()
 
         if not selected or "staking-unlock" in selected:
@@ -1736,8 +1783,10 @@ def main():
                 test_staking_unlock(suite, node, passphrase)
             except Exception as exc:
                 suite.category = "staking-unlock"
-                suite.fail("staking-unlock battery raised an exception",
-                           "%s: %s" % (type(exc).__name__, exc))
+                suite.fail(
+                    "staking-unlock battery raised an exception",
+                    "%s: %s" % (type(exc).__name__, exc)
+                )
                 traceback.print_exc()
 
         if not selected or "user-journey" in selected:
@@ -1746,18 +1795,22 @@ def main():
                 test_user_journey(suite, node, passphrase)
             except Exception as exc:
                 suite.category = "user-journey"
-                suite.fail("user-journey battery raised an exception",
-                           "%s: %s" % (type(exc).__name__, exc))
+                suite.fail(
+                    "user-journey battery raised an exception",
+                    "%s: %s" % (type(exc).__name__, exc)
+                )
                 traceback.print_exc()
 
     except NodeError as exc:
         suite.category = "fatal"
         suite.fail("suite aborted", str(exc))
         exit_code = 1
+
     except KeyboardInterrupt:
         suite.category = "fatal"
         suite.fail("suite interrupted by user", "")
         exit_code = 130
+
     finally:
         try:
             if node.is_running():
@@ -1776,21 +1829,35 @@ def main():
                 test_unit_tests(suite, args.srcdir)
             except Exception as exc:
                 suite.category = "unit-tests"
-                suite.fail("unit-tests battery raised an exception",
-                           "%s: %s" % (type(exc).__name__, exc))
+                suite.fail(
+                    "unit-tests battery raised an exception",
+                    "%s: %s" % (type(exc).__name__, exc)
+                )
                 traceback.print_exc()
 
         write_report(report, suite, env)
 
         counts = suite.counts()
+
         print("\n" + "=" * 70)
-        print("passed %d   failed %d   warnings %d   skipped %d   in %s"
-              % (counts[PASS], counts[FAIL], counts[WARN], counts[SKIP],
-                 format_duration(time.time() - suite.started)))
+        print(
+            "passed %d   failed %d   warnings %d   skipped %d   in %s"
+            % (
+                counts[PASS],
+                counts[FAIL],
+                counts[WARN],
+                counts[SKIP],
+                format_duration(time.time() - suite.started)
+            )
+        )
         print("report: %s" % report)
         print("=" * 70)
 
-        if not args.keep_datadir and node.owns_datadir and os.path.isdir(datadir):
+        if (
+            not args.keep_datadir
+            and node.owns_datadir
+            and os.path.isdir(datadir)
+        ):
             shutil.rmtree(datadir, ignore_errors=True)
             print("datadir removed: %s" % datadir)
 
