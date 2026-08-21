@@ -5,9 +5,12 @@
 // Based on the public domain implementation 'merged' by D. J. Bernstein
 // See https://cr.yp.to/chacha.html.
 
-#include <crypto/common.h>
 #include <crypto/chacha20.h>
+#include <crypto/common.h>
 
+#include <support/cleanse.h>
+
+#include <cassert>
 #include <string.h>
 
 constexpr static inline uint32_t rotl32(uint32_t v, int c) { return (v << c) | (v >> (32 - c)); }
@@ -176,5 +179,67 @@ void ChaCha20::Output(unsigned char* c, size_t bytes)
         }
         bytes -= 64;
         c += 64;
+    }
+}
+
+ChaCha20::ChaCha20(Span<const unsigned char> key) noexcept
+{
+    SetKey(key);
+}
+
+ChaCha20::~ChaCha20()
+{
+    memory_cleanse(input, sizeof(input));
+}
+
+void ChaCha20::SetKey(Span<const unsigned char> key) noexcept
+{
+    assert(key.size() == KEYLEN);
+    SetKey(key.data(), key.size());
+}
+
+void ChaCha20::Seek(Nonce96 nonce, uint32_t block_counter) noexcept
+{
+    // Map the 96-bit nonce + 32-bit block counter onto the 128-bit state used by Output():
+    //   input[12] = block counter (low 32 bits)
+    //   input[13] = nonce.first (the 32-bit fixed part)
+    //   input[14..15] = nonce.second (the 64-bit part)
+    input[12] = block_counter;
+    input[13] = nonce.first;
+    input[14] = (uint32_t)(nonce.second & 0xFFFFFFFF);
+    input[15] = (uint32_t)(nonce.second >> 32);
+}
+
+void ChaCha20::Keystream(Span<unsigned char> out) noexcept
+{
+    Output(out.data(), out.size());
+}
+
+void ChaCha20::Crypt(Span<const unsigned char> in, Span<unsigned char> out) noexcept
+{
+    assert(in.size() == out.size());
+    // Generate the keystream into out, then XOR the plaintext into it.
+    Output(out.data(), out.size());
+    for (size_t i = 0; i < in.size(); ++i) out[i] ^= in[i];
+}
+
+FSChaCha20::FSChaCha20(Span<const unsigned char> key, uint32_t rekey_interval) noexcept :
+    m_chacha20(key), m_rekey_interval(rekey_interval) {}
+
+void FSChaCha20::Crypt(Span<const unsigned char> input, Span<unsigned char> output) noexcept
+{
+    m_chacha20.Crypt(input, output);
+    if (++m_chunk_counter == m_rekey_interval) {
+        // Rekey by drawing a full block of keystream from a dedicated nonce, to avoid
+        // needing the ChaCha20 buffer even though we only need KEYLEN (32) bytes.
+        unsigned char one_block[ChaCha20::BLOCKLEN];
+        m_chacha20.Seek({0xFFFFFFFF, m_rekey_counter}, 0);
+        m_chacha20.Keystream(Span<unsigned char>(one_block, ChaCha20::BLOCKLEN));
+        m_chacha20.SetKey(Span<const unsigned char>(one_block, KEYLEN));
+        // Wipe the generated keystream (a copy remains inside m_chacha20, which is cleaned
+        // up once it cycles again, or is destroyed).
+        memory_cleanse(one_block, sizeof(one_block));
+        m_chunk_counter = 0;
+        ++m_rekey_counter;
     }
 }
