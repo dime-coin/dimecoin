@@ -1,14 +1,14 @@
 # Translations
 
-The Dimecoin Core project has been designed to support multiple localisations. This makes adding new phrases, and completely new languages easily achievable. For managing all application translations, Dimecoin Core uses Transifex. Bitcoin's Transifex project is referenced only as an **upstream source** for common strings; Dimecoin-specific translations are maintained separately on Dimecoin's own translation platform.
+The Dimecoin Core project has been designed to support multiple localisations. This makes adding new phrases, and completely new languages easily achievable. For shared strings, Dimecoin Core currently reuses **Bitcoin Core's Transifex project as an upstream reference**. There is no separate, verified Dimecoin translation platform yet, and Dimecoin does not currently run automated translation sync; Dimecoin-specific translation infrastructure is a future effort. This document describes the verified upstream workflow only.
 
 ### Helping to translate (using Transifex)
 
-Transifex is setup to monitor the GitHub repo for updates, and when code containing new translations is found, Transifex will process any changes. It may take several hours after a pull-request has been merged, to appear in the Transifex web interface.
+The Bitcoin Transifex project monitors the upstream Bitcoin Core repository; for Dimecoin this is a **reference** for shared strings only. Dimecoin does not currently run automated translation monitoring or sync.
 
 Multiple language support is critical in assisting Dimecoin’s global adoption, and growth. One of Dimecoin's greatest strengths is cross-border money transfers, any help making that easier is greatly appreciated.
 
-Bitcoin's Transifex project ([upstream reference](https://www.transifex.com/projects/p/bitcoin/)) can be useful for common strings, but it is **not** Dimecoin's translation platform. Contribute Dimecoin-specific translations on Dimecoin's own platform (ask the maintainers for the current project link).
+Bitcoin's Transifex project ([upstream reference](https://www.transifex.com/projects/p/bitcoin/)) is useful for common strings, but it is **not** Dimecoin's translation platform. Dimecoin-specific translations are not yet automated; coordinate with the maintainers if you want to stand up a Dimecoin translation project.
 
 ### Writing code with translations
 
@@ -36,7 +36,7 @@ QToolBar *toolbar = addToolBar(tr("Tabs toolbar"));
 
 For general PRs, you shouldn’t include any updates to the translation source files. They will be updated periodically, primarily around pre-releases, allowing time for any new phrases to be translated before public releases. This is also important in avoiding translation related merge conflicts.
 
-When an updated source file is merged into the GitHub repo, Transifex will automatically detect it (although it can take several hours). Once processed, the new strings will show up as "Remaining" in the Transifex web interface and are ready for translators.
+When an updated source file is merged into the upstream Bitcoin Core repo, Transifex will automatically detect it (although it can take several hours). For Dimecoin this is a reference workflow only; Dimecoin does not currently run this automation.
 
 To create the pull-request, use the following commands:
 
@@ -49,7 +49,7 @@ git commit
 
 Visit the [Transifex Signup](https://www.transifex.com/signup/) page to create an account. Take note of your username and password, as they will be required to configure the command-line tool.
 
-The Bitcoin translation project at [https://www.transifex.com/projects/p/bitcoin/](https://www.transifex.com/projects/p/bitcoin/) is an upstream reference only; use Dimecoin's own translation project for Dimecoin strings.
+The Bitcoin translation project at [https://www.transifex.com/projects/p/bitcoin/](https://www.transifex.com/projects/p/bitcoin/) is the upstream reference used by Dimecoin; Dimecoin does not currently have its own Transifex project.
 
 ### Installing the Transifex client command-line tool
 
@@ -69,7 +69,7 @@ token =
 username = USERNAME
 ```
 
-The `.tx/config` file shipped in the repo is part of the translation setup; you shouldn’t normally need to change it.
+The `.tx/config` file shipped in the repo currently targets the **Bitcoin upstream** project (not a Dimecoin project); you shouldn’t normally need to change it. Dimecoin translation automation is not yet configured.
 
 ### Synchronising translations
 
