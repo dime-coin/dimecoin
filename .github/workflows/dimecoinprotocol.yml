@@ -1,6 +1,9 @@
-name: 'Build & Check Dime Protocol(x86_64-linux-gnu): No QT'
+name: "Build & Check Dime Protocol(x86_64-linux-gnu): No QT"
 
-on: [push]
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 jobs:
   build:
@@ -87,4 +90,3 @@ jobs:
             **/test-suite.log
             **/tests.log
           if-no-files-found: ignore
-
