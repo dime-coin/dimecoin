@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <set>
+#include <stdexcept>
 
 #include <hash.h>
 
@@ -98,14 +99,18 @@ void WriteCompactSize(std::vector<unsigned char>& out, uint64_t n)
 
 uint64_t ReadCompactSize(const unsigned char*& p, const unsigned char* end)
 {
+    if (p >= end) throw std::runtime_error("ReadCompactSize: unexpected end of data");
     uint64_t n = *p++;
     if (n == 253) {
+        if (p + 2 > end) throw std::runtime_error("ReadCompactSize: truncated size (2 bytes)");
         n = p[0] | (uint64_t(p[1]) << 8);
         p += 2;
     } else if (n == 254) {
+        if (p + 4 > end) throw std::runtime_error("ReadCompactSize: truncated size (4 bytes)");
         n = 0;
         for (int i = 0; i < 4; ++i) n |= uint64_t(*p++) << (8 * i);
     } else if (n == 255) {
+        if (p + 8 > end) throw std::runtime_error("ReadCompactSize: truncated size (8 bytes)");
         n = 0;
         for (int i = 0; i < 8; ++i) n |= uint64_t(*p++) << (8 * i);
     }
@@ -191,9 +196,17 @@ BlockFilter::BlockFilter(BlockFilterType type, const uint256& block_hash,
                          const std::vector<unsigned char>& encoded)
     : m_type(type), m_block_hash(block_hash), m_encoded(encoded)
 {
+    if (m_encoded.empty()) {
+        m_n = 0;
+        return;
+    }
     const unsigned char* p = m_encoded.data();
     const unsigned char* end = p + m_encoded.size();
-    m_n = ReadCompactSize(p, end);
+    try {
+        m_n = ReadCompactSize(p, end);
+    } catch (const std::exception&) {
+        m_n = 0;
+    }
 }
 
 bool BlockFilter::Match(const CScript& element) const
