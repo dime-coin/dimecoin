@@ -1,0 +1,21 @@
+services:
+  electrumx:
+    image: lukechilds/electrumx:latest
+    container_name: dimecoin-electrumx
+    restart: unless-stopped
+    ports:
+      - "10061:10061" # TCP
+      - "20061:20061" # SSL
+      - "30061:30061" # WebSocket SSL
+      - "8000:8000" # RPC (optional)
+    volumes:
+      - ./electrumx.conf:/etc/electrumx.conf:ro
+      - ./dimecoin.conf:/home/electrumx/.dimecoin/dimecoin.conf:ro
+      - electrumx-db:/var/electrumx/db
+    environment:
+      DAEMON_URL: http://user:password@host.docker.internal:8332/
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  electrumx-db:
