@@ -1832,6 +1832,12 @@ bool AppInitMain()
         nLocalServices = ServiceFlags(nLocalServices | NODE_WITNESS);
     }
 
+    // Advertise BIP157 compact-filter serving support when the block filter
+    // index is enabled, so Neutrino clients know they can query us.
+    if (g_filter_index) {
+        nLocalServices = ServiceFlags(nLocalServices | NODE_COMPACT_FILTERS);
+    }
+
     // ********************************************************* Step 11: import blocks
 
     if (!CheckDiskSpace() && !CheckDiskSpace(0, true))
