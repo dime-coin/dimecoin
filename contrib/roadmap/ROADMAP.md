@@ -1,7 +1,7 @@
 # Dimecoin Revival Enablement — Phases 1–3
 
 Team-ready plan + drafts so the only remaining work is review, signalling, and running.
-All code pointers are to `dime-coin/dimecoin` `master` as of 2026-08-22.
+All code pointers are to `dime-coin/dimecoin` branch `2.4.0.0` as of 2026-08-22.
 
 ## Phase 1 — Protocol modernization
 
@@ -19,12 +19,12 @@ All code pointers are to `dime-coin/dimecoin` `master` as of 2026-08-22.
 
 ### 1.3 Modernize the Dash masternode / spork layer
 
-- Status: single `strSporkPubKey` (`src/chainparams.cpp:181,313`) — centralized control risk.
+- Status: single `strSporkPubKey` (`src/chainparams.cpp:177,307`) — centralized control risk.
 - Action: move spork keys to a community multi-sig; or replace spork/governance with a transparent treasury/DAO (Dash-proposals style). Draft: see roadmap note; detailed spec TBD with community.
 
 ### 1.4 Re-evaluate Quark PoW
 
-- Status: `HashQuark` (`src/hash.h:238`) — 6-round blake/bmw/groestl/jh/keccak/skein.
+- Status: `HashQuark` (`src/hash.h:240`) — 6-round blake/bmw/groestl/jh/keccak/skein.
 - Options: (a) keep for continuity; (b) migrate to ASIC-resistant (yespower) via hard fork; (c) merge-mine with a larger SHA256 chain.
 - Decision changes consensus → requires community vote. Leave for Phase 4 governance.
 
@@ -32,7 +32,7 @@ All code pointers are to `dime-coin/dimecoin` `master` as of 2026-08-22.
 
 ### 2.1 Electrum-DIME light wallet
 
-- Status: BIP158 block filters landed (PR #97 neutrino + #98 index). `contrib/dex/electrumx/` provides a server.
+- Status: BIP158 block filters submitted (PR #97 BIP158 filter + #98 BIP157 filter index), in review. `contrib/dex/electrumx/` provides a server.
 - Action: fork Electrum (or ElectrumX-backed light client) with Dimecoin coin params; spec: `light-wallet.md`.
 - Enables: mobile/desktop wallet with no full node.
 

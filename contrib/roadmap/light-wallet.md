@@ -22,8 +22,9 @@ BECH32_HRP = "vx"      # after SegWit (Phase 1.1)
 HEADERS_URL = None     # use ElectrumX in contrib/dex/electrumx/
 ```
 
-Point the wallet at `electrumx1.dimecoinnetwork.com:50002` (SSL) / `:50004` (ws) from
-`electrums/DIME` (after the team rebuilds them — see issue #99).
+Point the wallet at the ElectrumX server host (TODO: confirm after the team rebuilds them
+per issue #99; example `electrumx1.dimecoinnetwork.com:50002` SSL / `:50004` ws) from
+`electrums/DIME`.
 
 ## Option B — Neutrino (BIP158) mobile
 

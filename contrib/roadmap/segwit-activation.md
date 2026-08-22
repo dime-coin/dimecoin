@@ -4,7 +4,7 @@
 
 - Deployment window is **expired** in `src/chainparams.cpp`:
   - mainnet `:127-129` — `nStartTime = 1479168000` (2016-11-15), `nTimeout = 1510704000` (2017-11-15)
-  - testnet `:264-266`, regtest `:391-393` — same expired window
+  - testnet `:260-262`, regtest `:380-382` — same expired window
 - Enforcement code **is present**: `IsWitnessEnabled(consensusParams)` is used throughout `src/net_processing.cpp` (compact-block witness handling), so once the deployment locks in, segwit rules enforce automatically.
 - Result today: segwit never reached signalling threshold in the old window, so `DEPLOYMENT_SEGWIT` is neither locked-in nor active.
 
