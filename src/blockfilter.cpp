@@ -117,10 +117,32 @@ uint64_t ReadCompactSize(const unsigned char*& p, const unsigned char* end)
     return n;
 }
 
+//! High 64 bits of the 128-bit product a*b, portable to toolchains that lack
+//! a native __uint128_t (e.g. MSVC and some 32-bit/embedded compilers).
+uint64_t UmulHi(uint64_t a, uint64_t b)
+{
+    uint64_t a_lo = a & 0xffffffffULL;
+    uint64_t a_hi = a >> 32;
+    uint64_t b_lo = b & 0xffffffffULL;
+    uint64_t b_hi = b >> 32;
+
+    uint64_t lo = a_lo * b_lo;
+    uint64_t mid0 = a_hi * b_lo;
+    uint64_t mid1 = a_lo * b_hi;
+    uint64_t hi = a_hi * b_hi;
+
+    uint64_t carry = ((mid0 & 0xffffffffULL) + (mid1 & 0xffffffffULL) + (lo >> 32)) >> 32;
+    return hi + (mid0 >> 32) + (mid1 >> 32) + carry;
+}
+
 uint64_t HashToRange(const CScript& element, uint64_t F, uint64_t k0, uint64_t k1)
 {
     uint64_t h = CSipHasher(k0, k1).Write(element.data(), element.size()).Finalize();
+#if defined(__SIZEOF_INT128__)
     return (uint64_t)(((__uint128_t)h * F) >> 64);
+#else
+    return UmulHi(h, F);
+#endif
 }
 
 void GolombEncode(BitWriter& writer, uint64_t value, uint8_t P)
