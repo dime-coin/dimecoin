@@ -51,4 +51,35 @@ BOOST_AUTO_TEST_CASE(bip158_roundtrip)
     BOOST_CHECK(filter.MatchAny(elements));
 }
 
+// Regression tests for the malformed/empty-input parser hardening:
+// reconstructing a filter from untrusted wire bytes must never crash, hang, or
+// invoke undefined behaviour.
+
+BOOST_AUTO_TEST_CASE(bip158_decode_empty)
+{
+    BlockFilter filter(BlockFilterType::BASIC, uint256S("11"), std::vector<unsigned char>{});
+    BOOST_CHECK(filter.IsEmpty());
+    BOOST_CHECK(!filter.Match(CScript(ParseHex("00"))));
+}
+
+BOOST_AUTO_TEST_CASE(bip158_decode_truncated_size)
+{
+    // A length prefix that claims a multi-byte size but has no following bytes
+    // must be tolerated (no out-of-bounds read) and yield an empty filter.
+    std::vector<unsigned char> encoded = ParseHex("fd");
+    BlockFilter filter(BlockFilterType::BASIC, uint256S("11"), encoded);
+    BOOST_CHECK(filter.IsEmpty());
+    BOOST_CHECK(!filter.Match(CScript(ParseHex("00"))));
+}
+
+BOOST_AUTO_TEST_CASE(bip158_decode_truncated_body)
+{
+    // A valid element count but a body shorter than the Golomb stream it
+    // claims must not crash or hang during membership queries.
+    std::vector<unsigned char> encoded = ParseHex("0200");
+    BlockFilter filter(BlockFilterType::BASIC, uint256S("11"), encoded);
+    BOOST_CHECK(!filter.Match(CScript(ParseHex("00"))));
+    BOOST_CHECK(!filter.MatchAny(std::vector<CScript>{CScript(ParseHex("00"))}));
+}
+
 BOOST_AUTO_TEST_SUITE_END()
