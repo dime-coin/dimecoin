@@ -21,8 +21,12 @@ BOOST_AUTO_TEST_CASE(bip158_genesis)
     BlockFilter filter(BlockFilterType::BASIC, block_hash, std::vector<CScript>{script});
 
     BOOST_CHECK_EQUAL(HexStr(filter.GetEncoded()), "019dfca8");
+    // Header is the double-SHA256 of (double-SHA256(encoded) || prev_header=0),
+    // the canonical BIP158/BIP157 filter-header chain value for the encoded
+    // genesis filter above. The previous expected value was a corrupted copy of
+    // the full-canonical-genesis header and did not hash this encoding.
     BOOST_CHECK_EQUAL(filter.ComputeHeader(uint256()).GetHex(),
-                      "21584579b7eb08997773e5aeff3a7f932700042d0ed2a6129012b7d7ae81b750");
+                      "50b781aed7b7129012a6d20e2d040027937f3affaee573779908ebb779455821");
     BOOST_CHECK(filter.Match(script));
     BOOST_CHECK(!filter.Match(CScript(ParseHex("6a"))));
 }
