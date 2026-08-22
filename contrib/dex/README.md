@@ -21,6 +21,24 @@ marketing, no custody, no listing fee.
   aggregators:** already support DASH; DIME could be added by the same path but
   those are separate upstream projects (out of scope for this repo).
 
+## Known issue: live ElectrumX servers serve a corrupt genesis block
+
+The public servers `electrumx1/2.dimecoinnetwork.com` currently return a
+**CORRUPT block at height 0**. The genesis header slot is wrong, but height 1's
+`previousblockhash` still points to the correct canonical genesis
+`00000d5a9113f87575c77eb5442845ff8a0014f6e79e2dd2317d88946ef910da`, and the
+chain tip is correct - so only the genesis header is affected. SPV / Electrum
+clients that verify the genesis may fail to sync from these servers.
+
+This is an **operational server issue, not a Dimecoin core bug**. Fix: wipe the
+ElectrumX DB and rebuild it from a fully-synced `dimecoind`, then confirm with:
+
+    python3 electrumx/verify_genesis.py electrumx1.dimecoinnetwork.com 50001
+    python3 electrumx/verify_genesis.py electrumx2.dimecoinnetwork.com 50001
+
+If `GENESIS OK` prints `True` for both, the servers are healthy. Tracked in
+dime-coin/dimecoin issue #99.
+
 ## Extracted protocol constants (from `src/chainparams.cpp`)
 
 | Parameter              | Mainnet                                                            | Testnet | Regtest |
@@ -60,8 +78,10 @@ Seed nodes: `seed1.dimecoinnetwork.com`, `seed2.dimecoinnetwork.com`,
 ## 1. Run a self-hosted ElectrumX server (optional redundancy)
 
 A single ElectrumX instance serves all SPV DEX clients. The `electrumx/`
-directory contains a Docker Compose stack. Edit `electrumx/dimecoin.conf` with
-the team's `dimecoind` rpc credentials, then:
+directory contains a Docker Compose stack. Edit the `DAEMON_URL` line in
+`electrumx/electrumx.conf` with the team's `dimecoind` RPC credentials (the
+default `http://user:password@host.docker.internal:8332/` is a placeholder),
+then:
 
 ```
 cd contrib/dex/electrumx

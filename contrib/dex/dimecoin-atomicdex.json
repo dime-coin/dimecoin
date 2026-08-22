@@ -25,6 +25,6 @@
     },
     { "url": "electrumx2.dimecoinnetwork.com:50001" }
   ],
-  "status": "DIME is already in AtomicDEX's default coin list (mm2:1) and the ElectrumX servers above are live (verified ElectrumX 1.15.0), so DIME is tradeable on AtomicDEX today. This file is a copy-paste custom-enable config / reference and does not need an upstream submission to make DIME work on AtomicDEX.",
+  "status": "DIME is already in AtomicDEX's default coin list (mm2:1) and the ElectrumX servers above are live (verified ElectrumX 1.15.0), so DIME is tradeable on AtomicDEX today. NOTE: these public servers currently serve a CORRUPT block at height 0 (genesis header slot); the chain tip is correct. Wipe + rebuild their DB from a synced dimecoind and confirm with electrumx/verify_genesis.py (see contrib/dex/README.md 'Known issue', dime-coin/dimecoin #99). This file is a copy-paste custom-enable config / reference and does not need an upstream submission to make DIME work on AtomicDEX.",
   "note_rpcport": "rpcport 8332 is the Dimecoin node's real default RPC port (src/chainparamsbase.cpp:36). Some upstream coin lists show 11931 by mistake - that is the P2P port (src/chainparams.cpp:150)."
 }
