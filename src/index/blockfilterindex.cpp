@@ -3,7 +3,9 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <index/blockfilterindex.h>
+#include <coins.h>
 #include <undo.h>
+#include <util/memory.h>
 #include <util/system.h>
 #include <validation.h>
 
@@ -51,31 +53,54 @@ bool BlockFilterIndexDB::ReadHeader(const uint256& block_hash, uint256& header) 
 std::unique_ptr<CBlockFilterIndex> g_filter_index;
 
 CBlockFilterIndex::CBlockFilterIndex(size_t n_cache_size, bool f_memory, bool f_wipe)
-    : m_db(std::make_unique<BlockFilterIndexDB>(n_cache_size, f_memory, f_wipe))
+    : m_db(MakeUnique<BlockFilterIndexDB>(n_cache_size, f_memory, f_wipe))
 {
 }
 
 bool CBlockFilterIndex::WriteBlock(const CBlock& block, const CBlockIndex* pindex)
 {
-    // Read the block undo data to recover the scripts of spent outputs, which
-    // are no longer present in the UTXO set at BlockConnected time.
-    CBlockUndo block_undo;
-    if (!ReadBlockUndo(pindex, block_undo)) {
-        LogPrintf("*** %s: failed to read block undo for %s\n", __func__, pindex->GetBlockHash().ToString());
-        return false;
-    }
-
     std::vector<CScript> elements;
-    int undo_idx = 0;
-    for (const CTransactionRef& tx : block.vtx) {
-        if (!tx->IsCoinBase()) {
-            const CTxUndo& tx_undo = block_undo.vtxundo[undo_idx++];
+
+    // Recover spent-output scripts from block undo. The genesis block has no
+    // undo data and no spent inputs, so it is handled solely by the output
+    // loop below.
+    if (pindex->pprev) {
+        CBlockUndo block_undo;
+        if (!ReadBlockUndo(pindex, block_undo)) {
+            LogPrintf("*** %s: failed to read block undo for %s\n", __func__, pindex->GetBlockHash().ToString());
+            return false;
+        }
+
+        int undo_idx = 0;
+        for (const CTransactionRef& tx : block.vtx) {
+            if (tx->IsCoinBase()) continue;
+            // Dimecoin (PoW+PoS hybrid) stores a CBlockUndo entry for every
+            // transaction EXCEPT the coinbase (i == 0) and the coinstake kernel
+            // (see UpdateCoins / ConnectBlock in validation.cpp). Skip coinstake
+            // to keep undo_idx aligned with vtxundo.
+            if (tx->IsCoinStake()) {
+                // Coinstake kernel prevout scripts are not recorded in undo.
+                // Recover them from the live UTXO set if still available; if
+                // already spent they are skipped (matching Dimecoin's own
+                // omission). Known BIP158 limitation for PoS kernels.
+                for (const CTxIn& txin : tx->vin) {
+                    Coin coin;
+                    if (pcoinsTip && pcoinsTip->GetCoin(txin.prevout, coin) && !coin.out.scriptPubKey.empty()) {
+                        elements.push_back(coin.out.scriptPubKey);
+                    }
+                }
+                continue;
+            }
+            const CTxUndo& tx_undo = block_undo.vtxundo.at(undo_idx++);
             for (const Coin& prevout : tx_undo.vprevout) {
                 if (!prevout.out.scriptPubKey.empty()) {
                     elements.push_back(prevout.out.scriptPubKey);
                 }
             }
         }
+    }
+
+    for (const CTransactionRef& tx : block.vtx) {
         for (const CTxOut& out : tx->vout) {
             // Exclude OP_RETURN outputs so the filter can later be committed to
             // via a soft-fork without a circular dependency.
