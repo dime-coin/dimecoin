@@ -13,13 +13,14 @@
 
 #include <array>
 #include <cstddef>
-#include <optional>
+#include <memory>
 
 #include <crypto/chacha20.h>
 #include <crypto/chacha20poly1305.h>
 #include <key.h>
 #include <pubkey.h>
 #include <span.h>
+#include <util/memory.h>
 
 /** The BIP324 packet cipher, encapsulating its key derivation, stream cipher, and AEAD. */
 class BIP324Cipher
@@ -34,10 +35,10 @@ public:
     static constexpr unsigned char IGNORE_BIT{0x80};
 
 private:
-    std::optional<FSChaCha20> m_send_l_cipher;
-    std::optional<FSChaCha20> m_recv_l_cipher;
-    std::optional<FSChaCha20Poly1305> m_send_p_cipher;
-    std::optional<FSChaCha20Poly1305> m_recv_p_cipher;
+    std::unique_ptr<FSChaCha20> m_send_l_cipher;
+    std::unique_ptr<FSChaCha20> m_recv_l_cipher;
+    std::unique_ptr<FSChaCha20Poly1305> m_send_p_cipher;
+    std::unique_ptr<FSChaCha20Poly1305> m_recv_p_cipher;
 
     CKey m_key;
     CPubKey m_our_pubkey;
@@ -68,7 +69,7 @@ public:
     void Initialize(const CPubKey& their_pubkey, bool initiator, bool self_decrypt = false) noexcept;
 
     /** Determine whether this cipher is fully initialized. */
-    explicit operator bool() const noexcept { return m_send_l_cipher.has_value(); }
+    explicit operator bool() const noexcept { return static_cast<bool>(m_send_l_cipher); }
 
     /** Encrypt a packet. Only after Initialize().
      *

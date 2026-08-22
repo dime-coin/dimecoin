@@ -15,6 +15,7 @@
 #include <pubkey.h>
 #include <span.h>
 #include <support/cleanse.h>
+#include <util/memory.h>
 
 #include <algorithm>
 #include <assert.h>
@@ -45,13 +46,13 @@ void BIP324Cipher::Initialize(const CPubKey& their_pubkey, bool initiator, bool 
     CHKDF_HMAC_SHA256_L32 hkdf(ecdh.data(), ecdh.size(), salt);
     std::array<unsigned char, 32> hkdf_32_okm;
     hkdf.Expand32("initiator_L", hkdf_32_okm.data());
-    (side ? m_send_l_cipher : m_recv_l_cipher).emplace(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
+    (side ? m_send_l_cipher : m_recv_l_cipher) = MakeUnique<FSChaCha20>(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
     hkdf.Expand32("initiator_P", hkdf_32_okm.data());
-    (side ? m_send_p_cipher : m_recv_p_cipher).emplace(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
+    (side ? m_send_p_cipher : m_recv_p_cipher) = MakeUnique<FSChaCha20Poly1305>(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
     hkdf.Expand32("responder_L", hkdf_32_okm.data());
-    (side ? m_recv_l_cipher : m_send_l_cipher).emplace(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
+    (side ? m_recv_l_cipher : m_send_l_cipher) = MakeUnique<FSChaCha20>(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
     hkdf.Expand32("responder_P", hkdf_32_okm.data());
-    (side ? m_recv_p_cipher : m_send_p_cipher).emplace(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
+    (side ? m_recv_p_cipher : m_send_p_cipher) = MakeUnique<FSChaCha20Poly1305>(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
 
     // Derive garbage terminators from shared secret.
     hkdf.Expand32("garbage_terminators", hkdf_32_okm.data());
