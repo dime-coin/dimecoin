@@ -1,0 +1,27 @@
+{
+  "name": "Dimecoin",
+  "ticker": "DIME",
+  "parents": [],
+  "rpcport": 8332,
+  "pubtype": 15,
+  "p2shtype": 9,
+  "wiftype": 143,
+  "hdpub": "0488B21E",
+  "hdprv": "0488ADE4",
+  "bech32_hrp": "vx",
+  "txversion": 2,
+  "algorithm": "x11",
+  "p2p_port": 11931,
+  "testnet": { "rpcport": 18332, "p2p_port": 21931 },
+  "regtest": { "rpcport": 18332, "p2p_port": 31931 },
+  "seed_nodes": [
+    "seed1.dimecoinnetwork.com",
+    "seed2.dimecoinnetwork.com",
+    "node1.dimecoinnetwork.com",
+    "node2.dimecoinnetwork.com",
+    "dime-pool.dimecoinnetwork.com"
+  ],
+  "genesis_hash": "00000d5a9113f87575c77eb5442845ff8a0014f6e79e2dd2317d88946ef910da",
+  "electrum_servers": [],
+  "note": "Mirror of BasicSwap's Dash integration (Dimecoin is a Dash X11 fork). Populate `electrum_servers` with a Dimecoin ElectrumX server the team operates, then submit this file to basicswap/basicswap as `coins/dimecoin.json`. Dimecoin reuses Bitcoin's xpub/xprv prefixes (0x0488B21E / 0x0488ADE4)."
+}
