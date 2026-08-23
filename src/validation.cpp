@@ -1280,7 +1280,7 @@ CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParam
         nSubsidy = nBlockRewardStartCoin * 8; // 8096 DIME, which is the current average reward amount in above distribution
         // yearly decline of production by 8%
         for (int i = Params().GetConsensus().nSubsidyHalvingInterval; i <= (nHeight - lwma3height); i += Params().GetConsensus().nSubsidyHalvingInterval) {
-            nSubsidy -= nSubsidy / 12.5;
+            nSubsidy -= nSubsidy * 2 / 25; // yearly decline of 8% (= /12.5), integer-only
         }
         nSubsidy = std::max(nSubsidy, 4 * nBlockRewardStartCoin); // but not going below 4096 DIME
     }
@@ -1290,7 +1290,7 @@ CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParam
 
 CAmount GetFoundationPayment(int nHeight, CAmount blockValue)
 {
-    return blockValue * 0.10;
+    return blockValue / 10; // 10% foundation payment, integer-only
 }
 
 CScript GetFoundationScript()
@@ -1302,7 +1302,7 @@ CScript GetFoundationScript()
 
 CAmount GetMasternodePayment(int nHeight, CAmount blockValue)
 {
-    return blockValue * 0.45;
+    return blockValue * 9 / 20; // 45% masternode payment, integer-only
 }
 
 bool IsInitialBlockDownload()
