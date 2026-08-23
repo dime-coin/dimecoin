@@ -5,15 +5,15 @@ team a copy-paste submission. All values verified from `src/chainparams.cpp` / `
 
 ## Verified Dimecoin parameters
 
-| Field                 | Value                               | Source                                   |
-| --------------------- | ----------------------------------- | ---------------------------------------- |
-| P2PKH address version | `15` (`0x0F`)                       | `chainparams.cpp`                        |
-| P2SH address version  | `9` (`0x09`)                        | `chainparams.cpp`                        |
-| WIF prefix            | `143` (`0x8F`)                      | `chainparams.cpp`                        |
-| bech32 HRP            | `vx`                                | `chainparams.cpp` (`segwit:false` today) |
-| RPC port              | `8332`                              | `chainparamsbase.cpp:36`                 |
-| P2P port              | `11931`                             | `chainparams.cpp`                        |
-| Consensus             | PoW Quark, UTXO (Bitcoin Core fork) | `src/hash.h:238`                         |
+| Field                 | Value                                                              | Source                                   |
+| --------------------- | ------------------------------------------------------------------ | ---------------------------------------- |
+| P2PKH address version | `15` (`0x0F`)                                                      | `chainparams.cpp`                        |
+| P2SH address version  | `9` (`0x09`)                                                       | `chainparams.cpp`                        |
+| WIF prefix            | `143` (`0x8F`)                                                     | `chainparams.cpp`                        |
+| bech32 HRP            | `vx`                                                               | `chainparams.cpp` (`segwit:false` today) |
+| RPC port              | `8332`                                                             | `chainparamsbase.cpp:36`                 |
+| P2P port              | `11931`                                                            | `chainparams.cpp`                        |
+| Consensus             | hybrid PoW (Quark) / PoS with masternodes (Bitcoin Core 0.17 fork) | `src/hash.h`                             |
 
 ## SLIP44 coin type
 

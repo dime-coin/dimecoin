@@ -6,7 +6,13 @@
   - mainnet `:127-129` — `nStartTime = 1479168000` (2016-11-15), `nTimeout = 1510704000` (2017-11-15)
   - testnet `:260-262`, regtest `:380-382` — same expired window
 - Enforcement code **is present**: `IsWitnessEnabled(consensusParams)` is used throughout `src/net_processing.cpp` (compact-block witness handling), so once the deployment locks in, segwit rules enforce automatically.
-- Result today: segwit never reached signalling threshold in the old window, so `DEPLOYMENT_SEGWIT` is neither locked-in nor active.
+- Result today: segwit never reached signalling threshold in the old window, so `DEPLOYMENT_SEGWIT` is neither locked-in nor active. **SegWit was never activated on Dimecoin.**
+- Important: unlike Bitcoin, activation must be designed against Dimecoin's
+  **hybrid PoW/PoS** specifics — coinstake transactions, block signatures,
+  witness commitments, masternode/foundation payment outputs, wallet handling,
+  and **versionbits signalling for both miners AND stakers**. This is a design
+  proposal, not a one-line re-enable; get community + miner/staker sign-off
+  before setting any dates.
 
 ## What to change
 
