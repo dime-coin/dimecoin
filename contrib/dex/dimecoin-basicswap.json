@@ -12,7 +12,6 @@
     "script_address": 9,
     "key_prefix": 143,
     "hrp": "vx",
-    "bip44": 15,
     "min_amount": 100000,
     "max_amount": 10000000
   },
@@ -22,7 +21,6 @@
     "script_address": 9,
     "key_prefix": 143,
     "hrp": "vx",
-    "bip44": 1,
     "min_amount": 100000,
     "max_amount": 10000000
   },
@@ -32,10 +30,9 @@
     "script_address": 9,
     "key_prefix": 143,
     "hrp": "vx",
-    "bip44": 1,
     "min_amount": 100000,
     "max_amount": 10000000
   },
-  "status": "BasicSwap does NOT yet support DIME (it supports DASH). Enabling DIME needs an upstream coin-interface PR to tecnovert/basicswap (or particl/basicswap): add a Coins.DIME enum in basicswap/util.py, create basicswap/interface/dimecoin/chainparams.py with the params above (clone of the DASH interface), and register it in basicswap/chainparams.py. This file is the chainparams reference for that PR. bip44 15 is a placeholder - confirm the real SLIP-44 coin type before submitting.",
+  "status": "BasicSwap does NOT yet support DIME (it supports DASH). Enabling DIME needs an upstream coin-interface PR to tecnovert/basicswap (or particl/basicswap): add a Coins.DIME enum in basicswap/util.py, create basicswap/interface/dimecoin/chainparams.py with the params above (Dimecoin-specific tx version 2 + strTxComment handling, not a plain DASH clone), and register it in basicswap/chainparams.py. This file is the chainparams reference for that PR. DIME has no registered SLIP-44 coin type, so bip44 is intentionally omitted - add it only after DIME is registered with SLIP-44.",
   "note_rpcport": "rpcport 8332 is the Dimecoin node's real default RPC port (src/chainparamsbase.cpp:36)."
 }

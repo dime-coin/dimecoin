@@ -10,8 +10,11 @@
 
 ## Why this is feasible
 
-- DIME is a Bitcoin-style UTXO chain (x11). THORChain's `utxo/` shared client
-  already handles BTC, LTC, BCH, DOGE and **DASH**. DIME slots in the same way.
+- DIME is a Bitcoin-style UTXO chain (Quark, **not** X11). THORChain's `utxo/`
+  shared client already handles BTC, LTC, BCH, DOGE and **DASH**. DIME slots in
+  the same way, but note Dimecoin's transaction version 2 carries a
+  Dimecoin-specific `strTxComment` field, so a DASH client clone needs Dimecoin's
+  own transaction handling.
 - The DASH client (`bifrost/pkg/chainclients/dash/client.go`) is the direct
   template — copy it and change the constants.
 
@@ -62,7 +65,7 @@ script_address:    9    (0x09)
 wif_prefix:        143  (0x8F)
 bech32 HRP:        vx
 native segwit:     no
-algorithm:         x11
+algorithm:         Quark
 RPC port:          8332
 P2P port:          11931   (testnet 21931, regtest 31931)
 tx version:        2
@@ -78,7 +81,7 @@ seed nodes:        seed1/seed2.dimecoinnetwork.com, node1/node2.dimecoinnetwork.
 ```
 Chain Name:        Dimecoin (DIME)
 Chain Type:        UTXO
-Consensus:         PoW (x11), PoS later blocks
+Consensus:         hybrid PoW (Quark) / PoS
 Hardware Req:      (fill: ~2 vCPU / 4GB for a full node + observer)
 Year Started:      2014 (verify)
 Market Cap:        (team fills)

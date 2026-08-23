@@ -5,6 +5,9 @@ non-custodial (atomic-swap) DEXs, plus a runbook for the team. The goal is:
 the team approves this PR and runs an ElectrumX server for redundancy - no
 marketing, no custody, no listing fee.
 
+> Staging note: this PR is intended for **post-2.4.0.0**, behind the prerequisite
+> Dimecoin Electrum/backend changes. Do not merge into the 2.4.0.0 branch.
+
 ## Status (verified 2026-08-22)
 
 - **AtomicDEX (Komodo MM2): DIME is ALREADY tradeable.** DIME is in AtomicDEX's
@@ -21,23 +24,23 @@ marketing, no custody, no listing fee.
   aggregators:** already support DASH; DIME could be added by the same path but
   those are separate upstream projects (out of scope for this repo).
 
-## Known issue: live ElectrumX servers serve a corrupt genesis block
+## Light-wallet backend
 
-The public servers `electrumx1/2.dimecoinnetwork.com` currently return a
-**CORRUPT block at height 0**. The genesis header slot is wrong, but height 1's
-`previousblockhash` still points to the correct canonical genesis
-`00000d5a9113f87575c77eb5442845ff8a0014f6e79e2dd2317d88946ef910da`, and the
-chain tip is correct - so only the genesis header is affected. SPV / Electrum
-clients that verify the genesis may fail to sync from these servers.
+Dimecoin has purpose-built Electrum infrastructure:
+[`dime-coin/electrum-dimecoin`](https://github.com/dime-coin/electrum-dimecoin)
+and
+[`dime-coin/electrumx-dimecoin`](https://github.com/dime-coin/electrumx-dimecoin).
+A generic Dash/Bitcoin ElectrumX ("same shape as Dash") is **not** sufficient:
+Dimecoin uses **Quark** (not X11), and its transaction version 2 carries a
+Dimecoin-specific `strTxComment` serialization, so the backend must implement
+Dimecoin's own logic. Use the dedicated repos above rather than forking a Dash
+backend.
 
-This is an **operational server issue, not a Dimecoin core bug**. Fix: wipe the
-ElectrumX DB and rebuild it from a fully-synced `dimecoind`, then confirm with:
-
-    python3 electrumx/verify_genesis.py electrumx1.dimecoinnetwork.com 50001
-    python3 electrumx/verify_genesis.py electrumx2.dimecoinnetwork.com 50001
-
-If `GENESIS OK` prints `True` for both, the servers are healthy. Tracked in
-dime-coin/dimecoin issue #99.
+> NOTE: an earlier draft claimed the public ElectrumX servers served a corrupt
+> genesis block (dime-coin/dimecoin #99). That was a **false positive** -
+> `blockchain.block.header` returns the serialized block header, which is not
+> equal to the block hash, so a direct comparison is wrong. The servers are
+> fine; do not wipe/rebuild them for this reason.
 
 ## Extracted protocol constants (from `src/chainparams.cpp`)
 
@@ -52,7 +55,7 @@ dime-coin/dimecoin issue #99.
 | P2P port               | 11931                                                              | 21931   | 31931   |
 | RPC port               | **8332** (real default, `chainparamsbase.cpp:36`)                  | 18332   | 18332   |
 | Transaction version    | 2                                                                  | 2       | 2       |
-| PoW algorithm          | x11                                                                | x11     | x11     |
+| PoW algorithm          | Quark                                                              | Quark   | Quark   |
 | Genesis block hash     | `00000d5a9113f87575c77eb5442845ff8a0014f6e79e2dd2317d88946ef910da` |         |         |
 | Message start          | `fea503dd`                                                         |         |         |
 
@@ -89,26 +92,32 @@ docker compose up -d
 ```
 
 It exposes TCP 10061 / SSL 20061 (WebSocket 30061) and connects to the local
-`dimecoind -rpcport=8332`. ElectrumX already ships a Dimecoin-like (Bitcoin X11)
-coin definition - if the packaged version lacks it, add one using the constants
-table above (same shape as Dash). Publish the host as e.g.
+`dimecoind -rpcport=8332`. Use the Dimecoin-specific ElectrumX backend from
+`dime-coin/electrumx-dimecoin` (Dimecoin uses **Quark**, not X11, and its tx
+version 2 has a `strTxComment` field, so a Dash/Bitcoin backend clone is
+insufficient). Publish the host as e.g.
 `electrumx3.dimecoinnetwork.com:10061` and add it to `electrum_servers` in
 `dimecoin-atomicdex.json` for extra redundancy.
 
 ## 2. Enable DIME on BasicSwap (upstream PR)
 
-BasicSwap needs a coin interface. Using the DASH interface as the template:
+BasicSwap needs a coin interface. Use the DASH interface only as a _structural_
+starting point - Dimecoin cannot simply reuse a Dash backend, because Dimecoin's
+transaction version 2 carries a Dimecoin-specific `strTxComment` serialization
+that a Dash clone will not parse correctly.
 
 1. Add `DIME = <n>` to the `Coins` enum in `basicswap/util.py`.
-2. Create `basicswap/interface/dimecoin/chainparams.py` as a clone of
-   `basicswap/interface/dash/chainparams.py` with the values from
+2. Create `basicswap/interface/dimecoin/chainparams.py` based on
+   `basicswap/interface/dash/chainparams.py`, but implement Dimecoin's own
+   transaction (tx version 2 + `strTxComment`) handling. Use the values from
    `dimecoin-basicswap.json` (pubkey_address 15, script_address 9, key_prefix
    143, hrp "vx", decimal_places 5, rpcport 8332).
 3. Register it in `basicswap/chainparams.py` (`Coins.DIME: dimecoin_params`).
 4. Open the PR to `tecnovert/basicswap` (or `particl/basicswap`).
 
-`bip44: 15` in the JSON is a placeholder - confirm the real SLIP-44 coin type
-before submitting.
+DIME has **no registered SLIP-44 coin type** - do not assign one. The `bip44`
+field in `dimecoin-basicswap.json` is intentionally omitted; add it only after
+DIME is registered with SLIP-44.
 
 ## Why this is safe
 
