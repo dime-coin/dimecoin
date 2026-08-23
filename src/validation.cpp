@@ -1240,7 +1240,8 @@ CAmount decayBlockReward(int nowHeight, const Consensus::Params& params)
       }
    }
 
-   return std::floor((nSubsidy / COIN) * COIN);
+    nSubsidy = std::max(nSubsidy, 4 * nBlockRewardStartCoin); // keep the 4096 DIME floor on the PoS path too
+    return std::floor((nSubsidy / COIN) * COIN);
 }
 
 CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParams, bool fSuperblockPartOnly)
@@ -1261,7 +1262,7 @@ CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParam
     if (nHeight < lwma3height) // Old reward distribution before LWMA3 difficulty adjustment
     {
         // Subsidy is cut in half every 512000 blocks (21 days)
-        nSubsidy >>= (nHeight / Params().GetConsensus().nSubsidyHalvingInterval); //DIME
+        nSubsidy >>= (nHeight / consensusParams.nSubsidyHalvingInterval); //DIME
 
         int64_t modNumber = nHeight % 1024;
 
@@ -1279,7 +1280,7 @@ CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParam
     else { //New reward distribution that we decide to make start at same block height as LWMA3 difficulty adjustment
         nSubsidy = nBlockRewardStartCoin * 8; // 8096 DIME, which is the current average reward amount in above distribution
         // yearly decline of production by 8%
-        for (int i = Params().GetConsensus().nSubsidyHalvingInterval; i <= (nHeight - lwma3height); i += Params().GetConsensus().nSubsidyHalvingInterval) {
+        for (int i = consensusParams.nSubsidyHalvingInterval; i <= (nHeight - lwma3height); i += consensusParams.nSubsidyHalvingInterval) {
             nSubsidy -= nSubsidy / 12.5;
         }
         nSubsidy = std::max(nSubsidy, 4 * nBlockRewardStartCoin); // but not going below 4096 DIME
