@@ -609,7 +609,11 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
     // should be at least not earlier than block when masternode collateral tx got nMasternodeMinimumConfirmations
     uint256 hashBlock = uint256();
     CTransactionRef tx2;
-    GetTransaction(vin.prevout.hash, tx2, Params().GetConsensus(), hashBlock);
+    if (!GetTransaction(vin.prevout.hash, tx2, Params().GetConsensus(), hashBlock)) {
+        LogPrintf("CMasternodeBroadcast::CheckOutpoint -- Could not find collateral transaction %s for masternode=%s\n",
+                  vin.prevout.hash.ToString(), vin.prevout.ToStringShort());
+        return false;
+    }
     {
         LOCK(cs_main);
         BlockMap::iterator mi = mapBlockIndex.find(hashBlock);

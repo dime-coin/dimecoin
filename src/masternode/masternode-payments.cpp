@@ -941,6 +941,15 @@ void AdjustMasternodePayment(CMutableTransaction &tx, const CTxOut &txoutMastern
                       __func__, static_cast<unsigned int>(tx.vout.size()));
             return;
         }
+        // The masternode payout is expected to be the second-to-last output.
+        // We located it at mnPaymentOutIndex above; if a future caller changes
+        // the output ordering, bail out rather than silently subtracting from
+        // the wrong output.
+        if (mnPaymentOutIndex != tx.vout.size() - 2) {
+            LogPrintf("%s: masternode payment found at index %ld but expected %ld; skipping adjustment\n",
+                      __func__, mnPaymentOutIndex, tx.vout.size() - 2);
+            return;
+        }
         long i = tx.vout.size() - 2;
         tx.vout[i].nValue -= masternodePayment; // last vout is mn payment.
     }
