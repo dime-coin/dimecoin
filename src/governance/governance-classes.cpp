@@ -705,7 +705,7 @@ bool CSuperblock::IsValid(const CTransactionRef& txNew, int nBlockHeight, CAmoun
                              (payment.nAmount == txNew->vout[j].nValue));
 
             if (fPaymentMatch) {
-                nVoutIndex = j;
+                nVoutIndex = j + 1; // advance past the matched output so each payment maps to a distinct vout
                 break;
             }
         }
