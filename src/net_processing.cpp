@@ -1412,9 +1412,9 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
                 {
                     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                     {
-                        LOCK(cs_mapRelayDash);
-                        map<CInv, CDataStream>::iterator mi = mapRelayDash.find(inv);
-                        if (mi != mapRelayDash.end()) {
+                        LOCK(cs_mapRelayDime);
+                        map<CInv, CDataStream>::iterator mi = mapRelayDime.find(inv);
+                        if (mi != mapRelayDime.end()) {
                             ss += (*mi).second;
                             pushed = true;
                         }
@@ -4033,9 +4033,9 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
         vector<CInv> vInvWait;
         {
             bool fSendTrickle = pto->fWhitelisted;
-            if (pto->nNextInvSendDash < nNow) {
+            if (pto->nNextInvSendDime < nNow) {
                 fSendTrickle = true;
-                pto->nNextInvSendDash = PoissonNextSend(nNow, INVENTORY_BROADCAST_INTERVAL >> !pto->fInbound);
+                pto->nNextInvSendDime = PoissonNextSend(nNow, INVENTORY_BROADCAST_INTERVAL >> !pto->fInbound);
             }
             LOCK(pto->cs_inventory);
             vInv.reserve(std::min<size_t>(1000, pto->vInventoryToSend.size()));
