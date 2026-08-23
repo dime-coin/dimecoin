@@ -71,7 +71,7 @@ There are also [regression and integration tests](/test), written
 in Python, that are run automatically on the build server.
 These tests can be run (if the [test dependencies](/test) are installed) with: `test/functional/test_runner.py`
 
-The Travis CI system makes sure that every pull request is built for Windows, Linux, and macOS, and that unit/sanity tests are run automatically.
+GitHub Actions (see `.github/workflows/dimecoinprotocol.yml`) builds the Dimecoin Core daemon and runs the unit test suite automatically on each push.
 
 ### Manual Quality Assurance (QA) Testing
 
@@ -82,8 +82,4 @@ not straightforward.
 
 Translations
 ------------
-We only accept translation fixes that are submitted through [Bitcoin Core's Transifex](https://www.transifex.com/projects/p/bitcoin/) page. Translations are converted to Dimecoin periodically.
-
-Translations are periodically pulled from Transifex and merged into the git repository. See the translation process for details on how this works.
-
-Important: We do not accept translation changes as GitHub pull requests because the next pull from Transifex would automatically overwrite them again.
+Translation strings live in the Dimecoin source tree. See [doc/translation_process.md](doc/translation_process.md) for how translations are managed and contributed.
