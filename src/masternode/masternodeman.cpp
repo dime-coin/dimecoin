@@ -1134,9 +1134,8 @@ bool CMasternodeMan::SendVerifyRequest(const CAddress& addr, const std::vector<C
         return false;
     }
 
-    CNode* pnode = connman.OpenNetworkConnection(addr, false, nullptr, NULL, false, false, false, true);
-    // FXTC END
-    if(pnode == NULL) {
+    CNode* pnode = connman.OpenNetworkConnection(addr, false, nullptr, nullptr, false, false, false, true);
+    if(pnode == nullptr) {
         LogPrintf("CMasternodeMan::SendVerifyRequest -- can't connect to node to verify it, addr=%s\n", addr.ToString());
         return false;
     }
