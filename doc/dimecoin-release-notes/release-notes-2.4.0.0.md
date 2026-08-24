@@ -124,3 +124,4 @@ Direct code contributions for this release include work by:
 
 - Douglas `Dhop14` Hopping
 - Sean `Dalamar` Cusack
+- cryptobot459
