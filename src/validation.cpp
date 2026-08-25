@@ -1240,7 +1240,7 @@ CAmount decayBlockReward(int nowHeight, const Consensus::Params& params)
       }
    }
 
-    return std::floor((nSubsidy / COIN) * COIN);
+   return std::floor((nSubsidy / COIN) * COIN);
 }
 
 CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParams)
