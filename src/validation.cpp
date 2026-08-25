@@ -2705,8 +2705,8 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
  * known to be invalid (it's however far from certain to be valid).
  */
 /** Effective reorganization depth limit: the chain parameter unless overridden with
- *  -maxreorgdepth. Zero disables the limit, restoring pre-2.5.5.7 behaviour, which is the escape
- *  hatch if a legitimate deep reorg ever needs to be accepted. */
+ *  -maxreorgdepth. The chain parameter defaults to zero for mixed-version compatibility;
+ *  operators can explicitly enable a positive limit as a local safeguard. */
 static int GetMaxReorganizationDepth()
 {
     static const int nDepth = gArgs.GetArg("-maxreorgdepth", Params().MaxReorganizationDepth());
@@ -2772,12 +2772,10 @@ CBlockIndex* CChainState::FindMostWorkChain() {
             pindexTest = pindexTest->pprev;
         }
 
-        // Reject candidates that would require reorganising deeper than the chain parameters
-        // permit. nMaxReorganizationDepth was configured for all three networks but never read by
-        // anything, so a node would follow a reorg of unbounded depth - the closing move of a
-        // majority-hashrate or stake-grinding attack. Passing over the candidate here rather than
-        // failing in ActivateBestChainStep lets the search fall through to the next-best chain,
-        // which in the worst case is the tip we are already on.
+        // When explicitly enabled, reject candidates that would require reorganising deeper than
+        // the configured limit. Passing over the candidate here rather than failing in
+        // ActivateBestChainStep lets the search fall through to the next-best chain, which in the
+        // worst case is the tip we are already on.
         //
         // Deliberately not applied during initial block download: while syncing, switching
         // between candidate chains is routine and does not undo history this node ever treated as

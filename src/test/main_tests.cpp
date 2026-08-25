@@ -185,6 +185,14 @@ BOOST_AUTO_TEST_CASE(subsidy_pos_schedule_test)
 	}
 }
 
+BOOST_AUTO_TEST_CASE(max_reorganization_depth_defaults_disabled)
+{
+	for (const std::string& chain : {CBaseChainParams::MAIN, CBaseChainParams::TESTNET, CBaseChainParams::REGTEST}) {
+		const auto chainParams = CreateChainParams(chain);
+		BOOST_CHECK_EQUAL(chainParams->MaxReorganizationDepth(), 0);
+	}
+}
+
 static bool ReturnFalse() { return false; }
 static bool ReturnTrue() { return true; }
 
