@@ -1240,11 +1240,10 @@ CAmount decayBlockReward(int nowHeight, const Consensus::Params& params)
       }
    }
 
-    nSubsidy = std::max(nSubsidy, 4 * nBlockRewardStartCoin); // keep the 4096 DIME floor on the PoS path too
     return std::floor((nSubsidy / COIN) * COIN);
 }
 
-CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParams, bool fSuperblockPartOnly)
+CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParams)
 {
     const int nHeight = nPrevHeight;
     const int lwma3height = 3310000;

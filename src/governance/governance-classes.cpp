@@ -534,7 +534,7 @@ CAmount CSuperblock::GetPaymentsLimit(int nBlockHeight)
     }
 
     // some part of all blocks issued during the cycle goes to superblock, see GetBlockSubsidy
-    CAmount nSuperblockPartOfSubsidy = GetBlockSubsidy(nBlockHeight - 1, consensusParams, true);
+    CAmount nSuperblockPartOfSubsidy = GetBlockSubsidy(nBlockHeight - 1, consensusParams);
 
     CAmount nPaymentsLimit = nSuperblockPartOfSubsidy * consensusParams.nSuperblockCycle;
 

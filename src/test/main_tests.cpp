@@ -185,6 +185,23 @@ BOOST_AUTO_TEST_CASE(subsidy_pos_schedule_test)
 	}
 }
 
+BOOST_AUTO_TEST_CASE(subsidy_uses_passed_consensus_params)
+{
+	const auto chainParams = CreateChainParams(CBaseChainParams::MAIN);
+	Consensus::Params base = chainParams->GetConsensus();
+	Consensus::Params mod = base;
+	// Use a halving interval that differs from the global default so the
+	// pre-LWMA3 schedule yields a different subsidy. This guards against
+	// GetBlockSubsidy silently reading the global Params() instead of the
+	// consensusParams it is handed.
+	mod.nSubsidyHalvingInterval = base.nSubsidyHalvingInterval / 2;
+	const int nHeight = 300000; // within the old (pre-LWMA3) schedule
+	BOOST_CHECK(nHeight < base.nFirstPoSBlock);
+	CAmount withBase = GetBlockSubsidy(nHeight, base);
+	CAmount withMod = GetBlockSubsidy(nHeight, mod);
+	BOOST_CHECK(withBase != withMod);
+}
+
 static bool ReturnFalse() { return false; }
 static bool ReturnTrue() { return true; }
 
