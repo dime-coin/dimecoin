@@ -931,25 +931,6 @@ void AdjustMasternodePayment(CMutableTransaction &tx, const CTxOut &txoutMastern
     {
         long mnPaymentOutIndex = std::distance(std::begin(tx.vout), it);
         auto masternodePayment = tx.vout[mnPaymentOutIndex].nValue;
-        // Defensive: all current callers guarantee tx.vout.size() >= 2 once the masternode
-        // payment has been found in vout. Bail out rather than dereferencing an out-of-range
-        // index if a future caller ever violates that invariant -- tx.vout.size() is unsigned,
-        // so size()-2 with size<2 underflows and tx.vout[i] would be undefined behaviour.
-        // Same defect shape as the foundation-payment adjustment (bug #129).
-        if (tx.vout.size() < 2) {
-            LogPrintf("%s: unexpected vout layout (size=%u); skipping masternode adjustment\n",
-                      __func__, static_cast<unsigned int>(tx.vout.size()));
-            return;
-        }
-        // The masternode payout is expected to be the second-to-last output.
-        // We located it at mnPaymentOutIndex above; if a future caller changes
-        // the output ordering, bail out rather than silently subtracting from
-        // the wrong output.
-        if (mnPaymentOutIndex != tx.vout.size() - 2) {
-            LogPrintf("%s: masternode payment found at index %ld but expected %ld; skipping adjustment\n",
-                      __func__, mnPaymentOutIndex, tx.vout.size() - 2);
-            return;
-        }
         long i = tx.vout.size() - 2;
         tx.vout[i].nValue -= masternodePayment; // last vout is mn payment.
     }
