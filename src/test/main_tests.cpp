@@ -193,8 +193,32 @@ BOOST_AUTO_TEST_CASE(max_reorganization_depth_defaults_disabled)
 	}
 }
 
+BOOST_AUTO_TEST_CASE(regtest_hybrid_consensus_parameters)
+{
+	const auto chainParams = CreateChainParams(CBaseChainParams::REGTEST);
+	const Consensus::Params& consensus = chainParams->GetConsensus();
+
+	BOOST_CHECK_EQUAL(consensus.posStart, consensus.nFirstPoSBlock);
+	BOOST_CHECK(consensus.nFirstPoSBlock > 0);
+	BOOST_CHECK(consensus.posLimit < consensus.powLimit);
+	BOOST_CHECK(consensus.nStakeMinAge > 0);
+	BOOST_CHECK(consensus.nStakeMinDepth > 0);
+	BOOST_CHECK(chainParams->MineBlocksOnDemand());
+}
+
 static bool ReturnFalse() { return false; }
 static bool ReturnTrue() { return true; }
+
+struct CombinerAll {
+    typedef bool result_type;
+    template<typename InputIterator>
+    result_type operator()(InputIterator first, InputIterator last) const {
+        for (; first != last; ++first) {
+            if (!(*first)) return false;
+        }
+        return true;
+    }
+};
 
 BOOST_AUTO_TEST_CASE(test_combiner_all)
 {
