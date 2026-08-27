@@ -727,8 +727,22 @@ private:
     void AddToSpends(const COutPoint& outpoint, const uint256& wtxid);
     void AddToSpends(const uint256& wtxid);
 
-    /* Mark a transaction (and its in-wallet descendants) as conflicting with a particular block. */
-    void MarkConflicted(const uint256& hashBlock, const uint256& hashTx);
+    /* Mark a transaction (and its in-wallet descendants) as conflicting with a
+     * particular block. Returns false if any of the resulting writes to the wallet
+     * database failed, in which case the in-memory wallet has still been updated
+     * but the database no longer matches it. Returns true when there was nothing
+     * to do. Callers that cannot act on a failed write may ignore the result. */
+    bool MarkConflicted(const uint256& hashBlock, const uint256& hashTx);
+
+    /* Find and apply the conflicts between transactions loaded from the wallet
+     * database. This scans the whole of mapWallet rather than reacting as each
+     * transaction is loaded, so it does not depend on the Berkeley DB record
+     * order LoadWallet() happened to read them in. It must not be called while
+     * that WalletBatch's cursor is still open: MarkConflicted() writes through a
+     * WalletBatch of its own, and that write would block on the open cursor's
+     * lock. Only call once LoadWallet() has closed that cursor. Returns false if
+     * persisting any of the conflicts failed. */
+    bool MarkLoadedConflicts() EXCLUSIVE_LOCKS_REQUIRED(cs_main, cs_wallet);
 
     void SyncMetaData(std::pair<TxSpends::iterator, TxSpends::iterator>);
 

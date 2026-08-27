@@ -97,7 +97,8 @@ BITCOIN_TESTS += \
   wallet/test/accounting_tests.cpp \
   wallet/test/coinstake_credit_tests.cpp \
   wallet/test/wallet_crypto_tests.cpp \
-  wallet/test/coinselector_tests.cpp
+  wallet/test/coinselector_tests.cpp \
+  wallet/test/wallet_load_tests.cpp
 
 BITCOIN_TEST_SUITE += \
   wallet/test/wallet_test_fixture.cpp \
