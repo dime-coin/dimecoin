@@ -209,17 +209,6 @@ BOOST_AUTO_TEST_CASE(regtest_hybrid_consensus_parameters)
 static bool ReturnFalse() { return false; }
 static bool ReturnTrue() { return true; }
 
-struct CombinerAll {
-    typedef bool result_type;
-    template<typename InputIterator>
-    result_type operator()(InputIterator first, InputIterator last) const {
-        for (; first != last; ++first) {
-            if (!(*first)) return false;
-        }
-        return true;
-    }
-};
-
 BOOST_AUTO_TEST_CASE(test_combiner_all)
 {
     boost::signals2::signal<bool (), CombinerAll> Test;
