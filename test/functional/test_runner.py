@@ -168,6 +168,7 @@ EXTENDED_SCRIPTS = [
     # vv Tests less than 20m vv
     'feature_fee_estimation.py',
     # vv Tests less than 5m vv
+    'feature_hybrid_reorg.py',
     'feature_maxuploadtarget.py',
     'mempool_packages.py',
     'feature_dbcrash.py',
