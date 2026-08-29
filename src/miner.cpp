@@ -605,6 +605,68 @@ static bool ProcessBlockFound(const std::shared_ptr<const CBlock> &pblock, const
 }
 
 #ifdef ENABLE_WALLET
+PoSBlockGenerationResult GenerateProofOfStakeBlock(CWallet* pwallet, const CChainParams& chainparams, uint256& blockHash, std::string& error)
+{
+    std::shared_ptr<CReserveScript> coinbaseScript;
+    pwallet->GetScriptForMining(coinbaseScript);
+
+    if (!coinbaseScript || coinbaseScript->reserveScript.empty()) {
+        error = "No coinbase script available (staking requires a wallet key)";
+        return PoSBlockGenerationResult::FAILED;
+    }
+
+    CBlockIndex* pindexPrev = nullptr;
+    std::unique_ptr<CBlockTemplate> pblocktemplate;
+    try {
+        LOCK2(cs_main, pwallet->cs_wallet);
+        pindexPrev = chainActive.Tip();
+        if (!pindexPrev) {
+            error = "No active chain tip available";
+            return PoSBlockGenerationResult::FAILED;
+        }
+        pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(
+            pwallet, coinbaseScript->reserveScript, true, true);
+    } catch (const std::runtime_error& exception) {
+        error = exception.what();
+        return PoSBlockGenerationResult::FAILED;
+    }
+
+    if (!pblocktemplate) {
+        error = "No valid coinstake found at the current time";
+        return PoSBlockGenerationResult::NO_COINSTAKE;
+    }
+
+    auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
+    unsigned int nExtraNonce = 0;
+    {
+        LOCK(cs_main);
+        if (chainActive.Tip() != pindexPrev) {
+            error = "Chain tip changed while constructing proof-of-stake block";
+            return PoSBlockGenerationResult::FAILED;
+        }
+        IncrementExtraNonce(pblock.get(), pindexPrev, nExtraNonce);
+    }
+
+    if (!SignBlock(*pblock, *pwallet)) {
+        error = "Signing proof-of-stake block failed";
+        return PoSBlockGenerationResult::FAILED;
+    }
+
+    CValidationState state;
+    if (!TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false)) {
+        error = strprintf("Proof-of-stake block validity check failed: %s", FormatStateMessage(state));
+        return PoSBlockGenerationResult::FAILED;
+    }
+
+    if (!ProcessBlockFound(pblock, chainparams)) {
+        error = "Proof-of-stake block was stale or was not accepted";
+        return PoSBlockGenerationResult::FAILED;
+    }
+
+    blockHash = pblock->GetHash();
+    return PoSBlockGenerationResult::BLOCK_FOUND;
+}
+
 void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWallet* pwallet, bool fProofOfStake)
 {
     LogPrintf("bitcoinminer -- started\n");

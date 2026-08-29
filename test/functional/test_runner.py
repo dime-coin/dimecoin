@@ -62,6 +62,7 @@ BASE_SCRIPTS = [
     'wallet_backup.py',
     # vv Tests less than 5m vv
     'feature_block.py',
+    'feature_hybrid_chain.py --mode=random --blocks=6 --seed=42891 --pow-weight=50 --pos-weight=50',
     'feature_hybrid_pos.py',
     'rpc_fundrawtransaction.py',
     'p2p_compactblocks.py',

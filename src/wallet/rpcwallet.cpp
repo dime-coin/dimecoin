@@ -6,11 +6,14 @@
 
 #include <amount.h>
 #include <chain.h>
+#include <chainparams.h>
+#include <chainparamsbase.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <httpserver.h>
 #include <validation.h>
 #include <key_io.h>
+#include <masternode/masternode-sync.h>
 #include <net.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
@@ -42,6 +45,7 @@
 #include <univalue.h>
 
 #include <functional>
+#include <limits>
 
 // for minting info functions
 #include <interfaces/wallet.h>
@@ -3714,6 +3718,132 @@ UniValue generate(const JSONRPCRequest& request)
     return generateBlocks(coinbase_script, num_generate, max_tries, true);
 }
 
+UniValue generatepos(const JSONRPCRequest& request)
+{
+    CWallet* const pwallet = GetWalletForJSONRPCRequest(request);
+
+    if (!EnsureWalletIsAvailable(pwallet, request.fHelp)) {
+        return NullUniValue;
+    }
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2) {
+        throw std::runtime_error(
+            "generatepos nblocks ( maxtries )\n"
+            "\nGenerate proof-of-stake blocks immediately using eligible inputs from the wallet.\n"
+            "This command is available on regtest only and uses the normal block assembly,\n"
+            "coinstake, payment, signing, validation, and block-processing paths.\n"
+            "Disable background staking with -staking=0 during controlled generation.\n"
+            "\nArguments:\n"
+            "1. nblocks      (numeric, required) Number of proof-of-stake blocks to generate.\n"
+            "2. maxtries     (numeric, optional, default=1) Maximum coinstake searches at the current time.\n"
+            "\nResult:\n"
+            "[ blockhashes ]     (array) hashes of generated proof-of-stake blocks\n"
+            "\nExamples:\n"
+            "\nGenerate one proof-of-stake block\n"
+            + HelpExampleCli("generatepos", "1")
+        );
+    }
+
+    if (Params().NetworkIDString() != CBaseChainParams::REGTEST) {
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "generatepos is available on regtest only");
+    }
+
+    const int numGenerate = request.params[0].get_int();
+    if (numGenerate < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "nblocks must not be negative");
+    }
+
+    uint64_t maxTries = 1;
+    if (!request.params[1].isNull()) {
+        const int64_t maxTriesArg = request.params[1].get_int64();
+        if (maxTriesArg < 1) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "maxtries must be greater than zero");
+        }
+        maxTries = static_cast<uint64_t>(maxTriesArg);
+    }
+
+    UniValue blockHashes(UniValue::VARR);
+    if (numGenerate == 0) {
+        return blockHashes;
+    }
+
+    int currentHeight = 0;
+    {
+        LOCK(cs_main);
+        currentHeight = chainActive.Height();
+        if (numGenerate > std::numeric_limits<int>::max() - currentHeight) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "nblocks is too large");
+        }
+        if (currentHeight + 1 < Params().GetConsensus().posStart) {
+            throw JSONRPCError(
+                RPC_MISC_ERROR,
+                strprintf(
+                    "Proof of stake is not active until height %d (next block height is %d)",
+                    Params().GetConsensus().posStart,
+                    currentHeight + 1
+                )
+            );
+        }
+    }
+
+    {
+        LOCK(pwallet->cs_wallet);
+        if (pwallet->IsLocked()) {
+            throw JSONRPCError(
+                RPC_WALLET_UNLOCK_NEEDED,
+                "Error: Wallet must be unlocked, including staking-only unlock, before generating proof-of-stake blocks"
+            );
+        }
+    }
+
+    if (IsInitialBlockDownload()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot generate proof-of-stake blocks during initial block download");
+    }
+    if (!masternodeSync.IsSynced()) {
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot generate proof-of-stake blocks until masternode data is synchronized");
+    }
+    if (!pwallet->MintableCoins()) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "No mature wallet outputs are available for staking");
+    }
+    if (checkRecentMiningActivity()) {
+        throw JSONRPCError(
+            RPC_MISC_ERROR,
+            "Recent proof-of-work generation is still active; advance regtest mock time or retry later"
+        );
+    }
+
+    uint64_t attempts = 0;
+    std::string lastError;
+    while (blockHashes.size() < static_cast<size_t>(numGenerate) && attempts < maxTries && !ShutdownRequested()) {
+        ++attempts;
+        uint256 blockHash;
+        const PoSBlockGenerationResult result = GenerateProofOfStakeBlock(
+            pwallet, Params(), blockHash, lastError);
+
+        if (result == PoSBlockGenerationResult::BLOCK_FOUND) {
+            blockHashes.push_back(blockHash.GetHex());
+            SyncWithValidationInterfaceQueue();
+            continue;
+        }
+        if (result == PoSBlockGenerationResult::FAILED) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, lastError);
+        }
+    }
+
+    if (blockHashes.size() != static_cast<size_t>(numGenerate)) {
+        throw JSONRPCError(
+            RPC_MISC_ERROR,
+            strprintf(
+                "Unable to find a valid proof-of-stake block after %u attempt(s): %s",
+                attempts,
+                lastError
+            )
+        );
+    }
+
+    return blockHashes;
+}
+
 UniValue rescanblockchain(const JSONRPCRequest& request)
 {
     CWallet * const pwallet = GetWalletForJSONRPCRequest(request);
@@ -4375,6 +4505,7 @@ static const CRPCCommand commands[] =
   { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
 
   { "generating",         "generate",                         &generate,                      {"nblocks","maxtries"} },
+  { "generating",         "generatepos",                      &generatepos,                   {"nblocks","maxtries"} },
 };
 
 void RegisterWalletRPCCommands(CRPCTable &t)
