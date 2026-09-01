@@ -653,9 +653,16 @@ PoSBlockGenerationResult GenerateProofOfStakeBlock(CWallet* pwallet, const CChai
     }
 
     CValidationState state;
-    if (!TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false)) {
-        error = strprintf("Proof-of-stake block validity check failed: %s", FormatStateMessage(state));
-        return PoSBlockGenerationResult::FAILED;
+    {
+        LOCK(cs_main);
+        if (chainActive.Tip() != pindexPrev) {
+            error = "Chain tip changed while validating proof-of-stake block";
+            return PoSBlockGenerationResult::FAILED;
+        }
+        if (!TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false)) {
+            error = strprintf("Proof-of-stake block validity check failed: %s", FormatStateMessage(state));
+            return PoSBlockGenerationResult::FAILED;
+        }
     }
 
     if (!ProcessBlockFound(pblock, chainparams)) {
