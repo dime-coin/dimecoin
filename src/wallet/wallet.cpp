@@ -1126,22 +1126,52 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFlushOnClose)
 
 bool CWallet::LoadToWallet(const CWalletTx& wtxIn)
 {
+    AssertLockHeld(cs_wallet); // mapWallet
+
     uint256 hash = wtxIn.GetHash();
     CWalletTx& wtx = mapWallet.emplace(hash, wtxIn).first->second;
     wtx.BindWallet(this);
     wtxOrdered.insert(std::make_pair(wtx.nOrderPos, TxPair(&wtx, nullptr)));
     AddToSpends(hash);
-    for (const CTxIn& txin : wtx.tx->vin) {
-        auto it = mapWallet.find(txin.prevout.hash);
-        if (it != mapWallet.end()) {
-            CWalletTx& prevtx = it->second;
+    // Conflicts spotted here would only be against parents already present in
+    // mapWallet, which depends on the Berkeley DB record order LoadWallet()
+    // happened to read them in. CWallet::LoadWallet() finds them instead, once
+    // every record has been loaded, via MarkLoadedConflicts().
+
+    return true;
+}
+
+bool CWallet::MarkLoadedConflicts()
+{
+    AssertLockHeld(cs_main);
+    AssertLockHeld(cs_wallet);
+
+    // Every transaction is now in mapWallet, so unlike LoadToWallet() this scan
+    // does not depend on the Berkeley DB record order they were read in.
+    std::vector<std::pair<uint256, uint256>> load_conflicts;
+    for (const auto& item : mapWallet) {
+        const CWalletTx& wtx = item.second;
+        for (const CTxIn& txin : wtx.tx->vin) {
+            auto it = mapWallet.find(txin.prevout.hash);
+            if (it == mapWallet.end()) continue;
+            const CWalletTx& prevtx = it->second;
             if (prevtx.nIndex == -1 && !prevtx.hashUnset()) {
-                MarkConflicted(prevtx.hashBlock, wtx.GetHash());
+                // LoadToWallet() cannot call MarkConflicted(): it runs while the
+                // loading WalletBatch still has a Berkeley DB cursor open, and a
+                // nested write blocks on that cursor's lock. We are past that
+                // cursor here, so collect every root and apply it below.
+                load_conflicts.emplace_back(prevtx.hashBlock, wtx.GetHash());
             }
         }
     }
 
-    return true;
+    bool persisted = true;
+    for (const std::pair<uint256, uint256>& conflict : load_conflicts) {
+        // Apply the remaining conflicts even after one fails to be written: the
+        // in-memory wallet should still end up in the state the database describes.
+        if (!MarkConflicted(conflict.first, conflict.second)) persisted = false;
+    }
+    return persisted;
 }
 
 /**
@@ -1284,7 +1314,7 @@ bool CWallet::AbandonTransaction(const uint256& hashTx)
     return true;
 }
 
-void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
+bool CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
 {
     LOCK2(cs_main, cs_wallet);
 
@@ -1298,11 +1328,12 @@ void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
     // for example when loading the wallet during a reindex. Do nothing in that
     // case.
     if (conflictconfirms >= 0)
-        return;
+        return true;
 
     // Do not flush the wallet here for performance reasons
     WalletBatch batch(*database, "r+", false);
 
+    bool persisted = true;
     std::set<uint256> todo;
     std::set<uint256> done;
 
@@ -1322,7 +1353,7 @@ void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
             wtx.nIndex = -1;
             wtx.hashBlock = hashBlock;
             wtx.MarkDirty();
-            batch.WriteTx(wtx);
+            if (!batch.WriteTx(wtx)) persisted = false;
             // Iterate over all its outputs, and mark transactions in the wallet that spend them conflicted too
             TxSpends::const_iterator iter = mapTxSpends.lower_bound(COutPoint(now, 0));
             while (iter != mapTxSpends.end() && iter->first.hash == now) {
@@ -1341,6 +1372,7 @@ void CWallet::MarkConflicted(const uint256& hashBlock, const uint256& hashTx)
             }
         }
     }
+    return persisted;
 }
 
 void CWallet::SyncTransaction(const CTransactionRef& ptx, const CBlockIndex *pindex, int posInBlock) {
@@ -3791,6 +3823,15 @@ DBErrors CWallet::LoadWallet(bool& fFirstRunRet)
 
     fFirstRunRet = false;
     DBErrors nLoadWalletRet = WalletBatch(*database,"cr+").LoadWallet(this);
+    // WalletBatch::LoadWallet() explicitly closed the Berkeley DB cursor it read
+    // the wallet with before returning, so it is now safe to write the conflicts
+    // MarkLoadedConflicts() finds. As in walletdb.cpp, do not write back to a
+    // database that did not load cleanly; just skip conflict resolution in that case.
+    if (nLoadWalletRet == DBErrors::LOAD_OK) {
+        if (!MarkLoadedConflicts()) {
+            nLoadWalletRet = DBErrors::LOAD_FAIL;
+        }
+    }
     if (nLoadWalletRet == DBErrors::NEED_REWRITE)
     {
         if (database->Rewrite("\x04pool"))
