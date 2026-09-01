@@ -79,6 +79,21 @@ jobs:
             exit 1
           fi
 
+      - name: Run hybrid functional tests
+        timeout-minutes: 15
+        run: |
+          python3 test/functional/feature_hybrid_pos.py \
+            --tmpdir="${PWD}/ci-hybrid-pos"
+          python3 test/functional/feature_hybrid_chain.py \
+            --mode=random \
+            --blocks=6 \
+            --seed=42891 \
+            --pow-weight=50 \
+            --pos-weight=50 \
+            --tmpdir="${PWD}/ci-hybrid-chain"
+          python3 test/functional/feature_hybrid_reorg.py \
+            --tmpdir="${PWD}/ci-hybrid-reorg"
+
       - name: Upload Test Suite Logs
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -89,4 +104,5 @@ jobs:
             src/**/*.log
             **/test-suite.log
             **/tests.log
+            ci-hybrid-*/**/*.log
           if-no-files-found: ignore

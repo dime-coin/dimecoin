@@ -3735,7 +3735,7 @@ UniValue generatepos(const JSONRPCRequest& request)
             "Disable background staking with -staking=0 during controlled generation.\n"
             "\nArguments:\n"
             "1. nblocks      (numeric, required) Number of proof-of-stake blocks to generate.\n"
-            "2. maxtries     (numeric, optional, default=1) Maximum coinstake searches at the current time.\n"
+            "2. maxtries     (numeric, optional, default=1) Maximum unsuccessful coinstake searches at the current time.\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of generated proof-of-stake blocks\n"
             "\nExamples:\n"
@@ -3812,10 +3812,11 @@ UniValue generatepos(const JSONRPCRequest& request)
         );
     }
 
-    uint64_t attempts = 0;
+    uint64_t failedAttempts = 0;
+    uint64_t totalSearches = 0;
     std::string lastError;
-    while (blockHashes.size() < static_cast<size_t>(numGenerate) && attempts < maxTries && !ShutdownRequested()) {
-        ++attempts;
+    while (blockHashes.size() < static_cast<size_t>(numGenerate) && failedAttempts < maxTries && !ShutdownRequested()) {
+        ++totalSearches;
         uint256 blockHash;
         const PoSBlockGenerationResult result = GenerateProofOfStakeBlock(
             pwallet, Params(), blockHash, lastError);
@@ -3828,14 +3829,18 @@ UniValue generatepos(const JSONRPCRequest& request)
         if (result == PoSBlockGenerationResult::FAILED) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, lastError);
         }
+        ++failedAttempts;
     }
 
     if (blockHashes.size() != static_cast<size_t>(numGenerate)) {
         throw JSONRPCError(
             RPC_MISC_ERROR,
             strprintf(
-                "Unable to find a valid proof-of-stake block after %u attempt(s): %s",
-                attempts,
+                "Unable to find a valid proof-of-stake block: generated %u of %d requested block(s) after %u search(es) and %u unsuccessful search(es): %s",
+                blockHashes.size(),
+                numGenerate,
+                totalSearches,
+                failedAttempts,
                 lastError
             )
         );

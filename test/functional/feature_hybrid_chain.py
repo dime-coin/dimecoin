@@ -8,6 +8,7 @@ import json
 import os
 import random
 import shlex
+import sys
 import time
 
 from test_framework.hybrid import (
@@ -107,7 +108,8 @@ class HybridChainTest(BitcoinTestFramework):
 
     def replay_command(self):
         command = [
-            os.path.basename(__file__),
+            sys.executable,
+            os.path.abspath(__file__),
             "--mode={}".format(self.options.mode),
             "--blocks={}".format(self.options.blocks),
             "--seed={}".format(self.options.seed),

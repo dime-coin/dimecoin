@@ -9,6 +9,10 @@ node behavior. It does not construct blocks, bypass staking requirements, or
 introduce alternate validation rules.
 """
 
+import os
+import shlex
+import sys
+
 from test_framework.hybrid import (
     HybridChainController,
     HybridRunRecorder,
@@ -133,6 +137,10 @@ class HybridReorgTest(BitcoinTestFramework):
         def sync_branch():
             self.sync_node_group(node_indexes)
 
+        replay_command = " ".join(
+            shlex.quote(argument)
+            for argument in (sys.executable, os.path.abspath(__file__))
+        )
         controller = HybridChainController(
             self.nodes,
             observer_index,
@@ -142,7 +150,7 @@ class HybridReorgTest(BitcoinTestFramework):
             self.log,
             POS_ATTEMPTS,
             TARGET_SPACING,
-            "feature_hybrid_reorg.py",
+            replay_command,
         )
         controller.set_time(self.mocktime)
         self.log.info("Initialized controlled producer for %s", name)
