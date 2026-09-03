@@ -160,17 +160,9 @@ class HybridChainTest(BitcoinTestFramework):
             -1,
         )
         assert_raises_rpc_error(
-            -8,
-            "maxtries must be greater than zero",
-            pow_node.generatepos,
-            1,
-            0,
-        )
-        assert_raises_rpc_error(
             -1,
             "Proof of stake is not active until height {}".format(FIRST_POS_HEIGHT),
             self.nodes[staking_nodes[0] if staking_nodes else 0].generatepos,
-            1,
             1,
         )
 
@@ -195,7 +187,6 @@ class HybridChainTest(BitcoinTestFramework):
             -4,
             "No mature wallet outputs are available for staking",
             self.nodes[OBSERVER_INDEX].generatepos,
-            1,
             1,
         )
 

@@ -3726,16 +3726,15 @@ UniValue generatepos(const JSONRPCRequest& request)
         return NullUniValue;
     }
 
-    if (request.fHelp || request.params.size() < 1 || request.params.size() > 2) {
+    if (request.fHelp || request.params.size() != 1) {
         throw std::runtime_error(
-            "generatepos nblocks ( maxtries )\n"
+            "generatepos nblocks\n"
             "\nGenerate proof-of-stake blocks immediately using eligible inputs from the wallet.\n"
             "This command is available on regtest only and uses the normal block assembly,\n"
             "coinstake, payment, signing, validation, and block-processing paths.\n"
             "Disable background staking with -staking=0 during controlled generation.\n"
             "\nArguments:\n"
             "1. nblocks      (numeric, required) Number of proof-of-stake blocks to generate.\n"
-            "2. maxtries     (numeric, optional, default=1) Maximum unsuccessful coinstake searches at the current time.\n"
             "\nResult:\n"
             "[ blockhashes ]     (array) hashes of generated proof-of-stake blocks\n"
             "\nExamples:\n"
@@ -3751,15 +3750,6 @@ UniValue generatepos(const JSONRPCRequest& request)
     const int numGenerate = request.params[0].get_int();
     if (numGenerate < 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "nblocks must not be negative");
-    }
-
-    uint64_t maxTries = 1;
-    if (!request.params[1].isNull()) {
-        const int64_t maxTriesArg = request.params[1].get_int64();
-        if (maxTriesArg < 1) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "maxtries must be greater than zero");
-        }
-        maxTries = static_cast<uint64_t>(maxTriesArg);
     }
 
     UniValue blockHashes(UniValue::VARR);
@@ -3805,18 +3795,9 @@ UniValue generatepos(const JSONRPCRequest& request)
     if (!pwallet->MintableCoins()) {
         throw JSONRPCError(RPC_WALLET_ERROR, "No mature wallet outputs are available for staking");
     }
-    if (checkRecentMiningActivity()) {
-        throw JSONRPCError(
-            RPC_MISC_ERROR,
-            "Recent proof-of-work generation is still active; advance regtest mock time or retry later"
-        );
-    }
 
-    uint64_t failedAttempts = 0;
-    uint64_t totalSearches = 0;
     std::string lastError;
-    while (blockHashes.size() < static_cast<size_t>(numGenerate) && failedAttempts < maxTries && !ShutdownRequested()) {
-        ++totalSearches;
+    while (blockHashes.size() < static_cast<size_t>(numGenerate) && !ShutdownRequested()) {
         uint256 blockHash;
         const PoSBlockGenerationResult result = GenerateProofOfStakeBlock(
             pwallet, Params(), blockHash, lastError);
@@ -3829,19 +3810,25 @@ UniValue generatepos(const JSONRPCRequest& request)
         if (result == PoSBlockGenerationResult::FAILED) {
             throw JSONRPCError(RPC_INTERNAL_ERROR, lastError);
         }
-        ++failedAttempts;
+
+        throw JSONRPCError(
+            RPC_MISC_ERROR,
+            strprintf(
+                "Unable to find a valid proof-of-stake block: generated %u of %d requested block(s): %s",
+                blockHashes.size(),
+                numGenerate,
+                lastError
+            )
+        );
     }
 
     if (blockHashes.size() != static_cast<size_t>(numGenerate)) {
         throw JSONRPCError(
             RPC_MISC_ERROR,
             strprintf(
-                "Unable to find a valid proof-of-stake block: generated %u of %d requested block(s) after %u search(es) and %u unsuccessful search(es): %s",
+                "Proof-of-stake generation interrupted: generated %u of %d requested block(s)",
                 blockHashes.size(),
-                numGenerate,
-                totalSearches,
-                failedAttempts,
-                lastError
+                numGenerate
             )
         );
     }
@@ -4510,7 +4497,7 @@ static const CRPCCommand commands[] =
   { "wallet",             "setlabel",                         &setlabel,                      {"address","label"} },
 
   { "generating",         "generate",                         &generate,                      {"nblocks","maxtries"} },
-  { "generating",         "generatepos",                      &generatepos,                   {"nblocks","maxtries"} },
+  { "generating",         "generatepos",                      &generatepos,                   {"nblocks"} },
 };
 
 void RegisterWalletRPCCommands(CRPCTable &t)

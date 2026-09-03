@@ -31,7 +31,6 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "generate", 0, "nblocks" },
     { "generate", 1, "maxtries" },
     { "generatepos", 0, "nblocks" },
-    { "generatepos", 1, "maxtries" },
     { "generatetoaddress", 0, "nblocks" },
     { "generatetoaddress", 2, "maxtries" },
     { "getnetworkhashps", 0, "nblocks" },

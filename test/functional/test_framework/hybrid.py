@@ -255,7 +255,7 @@ class HybridChainController:
         for attempt in range(1, self.pos_attempts + 1):
             self.advance_time()
             try:
-                hashes = self.nodes[node_index].generatepos(1, 1)
+                hashes = self.nodes[node_index].generatepos(1)
             except JSONRPCException as error:
                 message = error.error["message"]
                 if error.error["code"] != -1 or "Unable to find a valid proof-of-stake block" not in message:

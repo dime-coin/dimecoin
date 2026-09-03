@@ -37,7 +37,6 @@ struct CBlockTemplate
 };
 
 void setRecentMiningActivity();
-bool checkRecentMiningActivity();
 
 #ifdef ENABLE_WALLET
 void ReclaimAbandonedStake();
