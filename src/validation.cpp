@@ -3859,13 +3859,6 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
     CBlockIndex *pindexDummy = nullptr;
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
 
-    // Get prev block index
-    CBlockIndex* pindexPrev = nullptr;
-    BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
-    if (mi == mapBlockIndex.end())
-        return state.DoS(10, error("%s: prev block not found", __func__), 0, "prev-blk-not-found");
-    pindexPrev = (*mi).second;
-
     if (!AcceptBlockHeader(block, state, chainparams, &pindex))
         return false;
 
