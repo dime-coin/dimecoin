@@ -370,6 +370,8 @@ public:
         consensus.nModifierInterval = 60 * 20;
         consensus.nCoinbaseMaturity = 15;
         consensus.fullSplitDiffHeight = 0;
+        // Keep block assembly and validation on the same regtest PoS activation height.
+        consensus.posStart = consensus.nFirstPoSBlock;
 
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = true;

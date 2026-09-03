@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <atomic>
 #include <memory>
+#include <string>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
@@ -213,8 +214,15 @@ void IncrementExtraNonce(CBlock *pblock, const CBlockIndex* pindexPrev, unsigned
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev);
 
 #ifdef ENABLE_WALLET
+enum class PoSBlockGenerationResult {
+    BLOCK_FOUND,
+    NO_COINSTAKE,
+    FAILED,
+};
+
 /** Run the miner threads */
 void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams, CConnman &connman);
+PoSBlockGenerationResult GenerateProofOfStakeBlock(CWallet* pwallet, const CChainParams& chainparams, uint256& blockHash, std::string& error);
 void ThreadStakeMinter(const CChainParams& chainparams, CConnman &connman, CWallet *pwallet);
 #endif
 
