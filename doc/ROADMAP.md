@@ -78,7 +78,7 @@ Deterministic masternodes are a foundational dependency for later masternode bac
 - Consider newer Bitcoin protocol features through targeted, reviewable ports where they benefit Dimecoin. A wholesale rebase is not assumed to be a prerequisite for every modernization effort.
 - Keep Taproot and other later script upgrades in research until their dependencies, use cases, and deployment path are established.
 - Deploy and enforce MN pays for the POW side
-- 
+  
 ### Consensus change gate
 
 No major consensus change should move to mainnet without:
