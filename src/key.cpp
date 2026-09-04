@@ -13,6 +13,7 @@
 
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
+#include <secp256k1_ecdh.h>
 
 static secp256k1_context* secp256k1_context_sign = nullptr;
 
@@ -188,6 +189,14 @@ CPubKey CKey::GetPubKey() const {
     assert(result.size() == clen);
     assert(result.IsValid());
     return result;
+}
+
+bool CKey::ComputeECDH(const CPubKey& pubkey, unsigned char* out32) const
+{
+    if (!fValid || !pubkey.IsValid()) return false;
+    secp256k1_pubkey pk;
+    if (!secp256k1_ec_pubkey_parse(secp256k1_context_sign, &pk, pubkey.data(), pubkey.size())) return false;
+    return secp256k1_ecdh(secp256k1_context_sign, out32, &pk, begin(), nullptr, nullptr) == 1;
 }
 
 bool CKey::Sign(const uint256 &hash, std::vector<unsigned char>& vchSig, uint32_t test_case) const {

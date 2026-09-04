@@ -112,6 +112,12 @@ public:
     CPubKey GetPubKey() const;
 
     /**
+     * Compute an ECDH secret using this private key and the given public key.
+     * Writes a 32-byte secret to out32. Returns true on success.
+     */
+    bool ComputeECDH(const CPubKey& pubkey, unsigned char* out32) const;
+
+    /**
      * Create a DER-serialized signature.
      * The test_case parameter tweaks the deterministic nonce.
      */

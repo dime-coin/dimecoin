@@ -1,0 +1,110 @@
+// Copyright (c) 2023 The Bitcoin Core developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+//
+// Adapted for Dimecoin: standard secp256k1 ECDH (CPubKey) instead of EllSwift,
+// and the "dimecoin_v2_shared_secret" salt with Dimecoin network magic.
+
+#include <bip324.h>
+
+#include <chainparams.h>
+#include <crypto/chacha20.h>
+#include <crypto/chacha20poly1305.h>
+#include <crypto/hkdf_sha256_32.h>
+#include <key.h>
+#include <pubkey.h>
+#include <span.h>
+#include <support/cleanse.h>
+#include <util/memory.h>
+
+#include <algorithm>
+#include <assert.h>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <string>
+
+BIP324Cipher::BIP324Cipher(const CKey& key) noexcept :
+    m_key(key), m_our_pubkey(key.GetPubKey()) {}
+
+BIP324Cipher::BIP324Cipher(const CKey& key, const CPubKey& pubkey) noexcept :
+    m_key(key), m_our_pubkey(pubkey) {}
+
+void BIP324Cipher::Initialize(const CPubKey& their_pubkey, bool initiator, bool self_decrypt) noexcept
+{
+    // Determine salt (fixed string + network magic bytes)
+    const auto& message_header = Params().MessageStart();
+    std::string salt = std::string{"dimecoin_v2_shared_secret"};
+    salt.append(std::begin(message_header), std::end(message_header));
+
+    // Perform ECDH to derive shared secret.
+    std::array<unsigned char, 32> ecdh;
+    m_key.ComputeECDH(their_pubkey, ecdh.data());
+
+    // Derive encryption keys from shared secret, and initialize stream ciphers and AEADs.
+    bool side = (initiator != self_decrypt);
+    CHKDF_HMAC_SHA256_L32 hkdf(ecdh.data(), ecdh.size(), salt);
+    std::array<unsigned char, 32> hkdf_32_okm;
+    hkdf.Expand32("initiator_L", hkdf_32_okm.data());
+    (side ? m_send_l_cipher : m_recv_l_cipher) = MakeUnique<FSChaCha20>(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
+    hkdf.Expand32("initiator_P", hkdf_32_okm.data());
+    (side ? m_send_p_cipher : m_recv_p_cipher) = MakeUnique<FSChaCha20Poly1305>(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
+    hkdf.Expand32("responder_L", hkdf_32_okm.data());
+    (side ? m_recv_l_cipher : m_send_l_cipher) = MakeUnique<FSChaCha20>(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
+    hkdf.Expand32("responder_P", hkdf_32_okm.data());
+    (side ? m_recv_p_cipher : m_send_p_cipher) = MakeUnique<FSChaCha20Poly1305>(Span<const unsigned char>(hkdf_32_okm.data(), hkdf_32_okm.size()), REKEY_INTERVAL);
+
+    // Derive garbage terminators from shared secret.
+    hkdf.Expand32("garbage_terminators", hkdf_32_okm.data());
+    std::copy(std::begin(hkdf_32_okm), std::begin(hkdf_32_okm) + GARBAGE_TERMINATOR_LEN,
+        (initiator ? m_send_garbage_terminator : m_recv_garbage_terminator).begin());
+    std::copy(std::end(hkdf_32_okm) - GARBAGE_TERMINATOR_LEN, std::end(hkdf_32_okm),
+        (initiator ? m_recv_garbage_terminator : m_send_garbage_terminator).begin());
+
+    // Derive session id from shared secret.
+    hkdf.Expand32("session_id", m_session_id.data());
+
+    // Wipe all variables that contain information which could be used to re-derive encryption keys.
+    memory_cleanse(ecdh.data(), ecdh.size());
+    memory_cleanse(hkdf_32_okm.data(), sizeof(hkdf_32_okm));
+    memory_cleanse(&hkdf, sizeof(hkdf));
+    m_key = CKey();
+}
+
+void BIP324Cipher::Encrypt(Span<const unsigned char> contents, Span<const unsigned char> aad, bool ignore, Span<unsigned char> output) noexcept
+{
+    assert(output.size() == contents.size() + EXPANSION);
+
+    // Encrypt length.
+    unsigned char len[LENGTH_LEN];
+    len[0] = (unsigned char)(contents.size() & 0xFF);
+    len[1] = (unsigned char)((contents.size() >> 8) & 0xFF);
+    len[2] = (unsigned char)((contents.size() >> 16) & 0xFF);
+    m_send_l_cipher->Crypt(Span<const unsigned char>(len, LENGTH_LEN), output.first(LENGTH_LEN));
+
+    // Encrypt plaintext.
+    unsigned char header[HEADER_LEN] = {ignore ? IGNORE_BIT : (unsigned char)0};
+    m_send_p_cipher->Encrypt(Span<const unsigned char>(header, HEADER_LEN), contents, aad, output.subspan(LENGTH_LEN));
+}
+
+unsigned BIP324Cipher::DecryptLength(Span<const unsigned char> input) noexcept
+{
+    assert(input.size() == LENGTH_LEN);
+
+    unsigned char buf[LENGTH_LEN];
+    // Decrypt length
+    m_recv_l_cipher->Crypt(input, Span<unsigned char>(buf, LENGTH_LEN));
+    // Convert to number.
+    return (unsigned)buf[0] + ((unsigned)buf[1] << 8) + ((unsigned)buf[2] << 16);
+}
+
+bool BIP324Cipher::Decrypt(Span<const unsigned char> input, Span<const unsigned char> aad, bool& ignore, Span<unsigned char> contents) noexcept
+{
+    assert(input.size() + LENGTH_LEN == contents.size() + EXPANSION);
+
+    unsigned char header[HEADER_LEN];
+    if (!m_recv_p_cipher->Decrypt(input, aad, Span<unsigned char>(header, HEADER_LEN), contents)) return false;
+
+    ignore = (header[0] & IGNORE_BIT) == IGNORE_BIT;
+    return true;
+}

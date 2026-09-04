@@ -346,6 +346,12 @@ crypto_libdimecoin_crypto_base_a_SOURCES = \
   crypto/aes.h \
   crypto/chacha20.h \
   crypto/chacha20.cpp \
+  crypto/chacha20poly1305.h \
+  crypto/chacha20poly1305.cpp \
+  crypto/hkdf_sha256_32.h \
+  crypto/hkdf_sha256_32.cpp \
+  crypto/poly1305.h \
+  crypto/poly1305.cpp \
   crypto/common.h \
   crypto/hmac_sha256.cpp \
   crypto/hmac_sha256.h \
@@ -441,6 +447,8 @@ libdimecoin_common_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 libdimecoin_common_a_SOURCES = \
   base58.cpp \
   bech32.cpp \
+  bip324.cpp \
+  bip324.h \
   chainparams.cpp \
   coins.cpp \
   compressor.cpp \
