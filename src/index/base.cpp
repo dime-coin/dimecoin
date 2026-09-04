@@ -194,6 +194,11 @@ void BaseIndex::ChainStateFlushed(const CBlockLocator& locator)
         return;
     }
 
+    if (locator.vHave.empty()) {
+        FatalError("%s: Locator is empty", __func__);
+        return;
+    }
+
     const uint256& locator_tip_hash = locator.vHave.front();
     const CBlockIndex* locator_tip_index;
     {
@@ -213,6 +218,10 @@ void BaseIndex::ChainStateFlushed(const CBlockLocator& locator)
     // backlog even after the sync thread has caught up to the new chain tip. In this unlikely
     // event, log a warning and let the queue clear.
     const CBlockIndex* best_block_index = m_best_block_index.load();
+    if (!best_block_index) {
+        FatalError("%s: Best block index is not available", __func__);
+        return;
+    }
     if (best_block_index->GetAncestor(locator_tip_index->nHeight) != locator_tip_index) {
         LogPrintf("%s: WARNING: Locator contains block (hash=%s) not on known best " /* Continued */
                   "chain (tip=%s); not writing index locator\n",
@@ -240,6 +249,9 @@ bool BaseIndex::BlockUntilSyncedToCurrentChain()
         LOCK(cs_main);
         const CBlockIndex* chain_tip = chainActive.Tip();
         const CBlockIndex* best_block_index = m_best_block_index.load();
+        if (!chain_tip || !best_block_index) {
+            return false;
+        }
         if (best_block_index->GetAncestor(chain_tip->nHeight) == chain_tip) {
             return true;
         }

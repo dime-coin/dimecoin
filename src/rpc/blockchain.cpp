@@ -59,8 +59,18 @@ static CUpdatedBlock latestblock;
 double GetDifficulty(unsigned int nBits)
 {
     int nShift = (nBits >> 24) & 0xff;
+    const uint32_t nMantissa = nBits & 0x00ffffff;
+
+    // A zero mantissa is not a valid compact target, but it can reach here from a
+    // corrupt or attacker-supplied header. Dividing by it yields +inf, which then
+    // serialises into the RPC reply as a bare "inf" token that is not valid JSON
+    // and breaks clients parsing the response.
+    if (nMantissa == 0) {
+        return 0.0;
+    }
+
     double dDiff =
-        (double)0x0000ffff / (double)(nBits & 0x00ffffff);
+        (double)0x0000ffff / (double)nMantissa;
 
     while (nShift < 29)
     {
@@ -183,7 +193,11 @@ static UniValue getbestblockhash(const JSONRPCRequest& request)
         );
 
     LOCK(cs_main);
-    return chainActive.Tip()->GetBlockHash().GetHex();
+    const CBlockIndex* tip = chainActive.Tip();
+    if (!tip) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Best block unavailable");
+    }
+    return tip->GetBlockHash().GetHex();
 }
 
 void RPCNotifyBlockChange(bool ibd, const CBlockIndex * pindex)
@@ -350,6 +364,9 @@ static UniValue getdifficulty(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     CBlockIndex* tip = chainActive.Tip();
+    if (!tip) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "No active chain tip available");
+    }
     const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("proof-of-work",(double)GetDifficulty(GetNextWorkRequired(tip,consensusParams,false)));
@@ -855,7 +872,7 @@ static void ApplyStats(CCoinsStats &stats, CHashWriter& ss, const uint256& hash,
 {
     assert(!outputs.empty());
     ss << hash;
-    ss << VARINT(outputs.begin()->second.nHeight * 2 + outputs.begin()->second.fCoinBase ? 1u : 0u);
+    ss << VARINT(outputs.begin()->second.nHeight * 2 + (outputs.begin()->second.fCoinBase ? 1u : 0u));
     stats.nTransactions++;
     for (const auto& output : outputs) {
         ss << VARINT(output.first + 1);
@@ -879,7 +896,14 @@ static bool GetUTXOStats(CCoinsView *view, CCoinsStats &stats)
     stats.hashBlock = pcursor->GetBestBlock();
     {
         LOCK(cs_main);
-        stats.nHeight = LookupBlockIndex(stats.hashBlock)->nHeight;
+        const CBlockIndex* pindex = LookupBlockIndex(stats.hashBlock);
+        if (!pindex) {
+            // The cursor's best block is not in the block index, so the coins
+            // view and the block index disagree. Report failure rather than
+            // dereferencing null; the caller turns this into an RPC error.
+            return false;
+        }
+        stats.nHeight = pindex->nHeight;
     }
     ss << stats.hashBlock;
     uint256 prevkey;
@@ -995,6 +1019,11 @@ UniValue gettxout(const JSONRPCRequest& request)
     std::string strHash = request.params[0].get_str();
     uint256 hash(uint256S(strHash));
     int n = request.params[1].get_int();
+    if (n < 0) {
+        // COutPoint::n is uint32_t, so a negative index would wrap to a huge
+        // value and silently look up a different (non-existent) outpoint.
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "vout must be a non-negative integer");
+    }
     COutPoint out(hash, n);
     bool fMempool = true;
     if (!request.params[2].isNull())
@@ -1014,6 +1043,9 @@ UniValue gettxout(const JSONRPCRequest& request)
     }
 
     const CBlockIndex* pindex = LookupBlockIndex(pcoinsTip->GetBestBlock());
+    if (!pindex) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "Best block not found in block index");
+    }
     ret.pushKV("bestblock", pindex->GetBlockHash().GetHex());
     if (coin.nHeight == MEMPOOL_HEIGHT) {
         ret.pushKV("confirmations", 0);
@@ -1185,21 +1217,24 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     LOCK(cs_main);
 
     CBlockIndex* tip = chainActive.Tip();
+    if (!tip) {
+        throw JSONRPCError(RPC_IN_WARMUP, "No active chain tip available");
+    }
     const Consensus::Params& consensusParams = Params().GetConsensus();
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("chain",                 Params().NetworkIDString());
     obj.pushKV("blocks",                (int)chainActive.Height());
     obj.pushKV("headers",               pindexBestHeader ? pindexBestHeader->nHeight : -1);
-    obj.pushKV("bestblockhash",         chainActive.Tip()->GetBlockHash().GetHex());
+    obj.pushKV("bestblockhash",         tip->GetBlockHash().GetHex());
     UniValue diff(UniValue::VOBJ);
     diff.pushKV("proof-of-work",(double)GetDifficulty(GetNextWorkRequired(tip,consensusParams,false)));
     diff.pushKV("proof-of-stake",(double)GetDifficulty(GetNextWorkRequired(tip,consensusParams,true)));
     obj.pushKV("difficulty", diff);
-    obj.pushKV("mediantime",            (int64_t)chainActive.Tip()->GetMedianTimePast());
-    obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), chainActive.Tip()));
+    obj.pushKV("mediantime",            (int64_t)tip->GetMedianTimePast());
+    obj.pushKV("verificationprogress",  GuessVerificationProgress(Params().TxData(), tip));
     obj.pushKV("initialblockdownload",  IsInitialBlockDownload());
-    obj.pushKV("chainwork",             chainActive.Tip()->nChainWork.GetHex());
+    obj.pushKV("chainwork",             tip->nChainWork.GetHex());
     obj.pushKV("size_on_disk",          CalculateCurrentUsage());
 
     UniValue softforks(UniValue::VARR);
@@ -1294,7 +1329,9 @@ static UniValue getchaintips(const JSONRPCRequest& request)
     }
 
     // Always report the currently active tip.
-    setTips.insert(chainActive.Tip());
+    if (const CBlockIndex* tip = chainActive.Tip()) {
+        setTips.insert(tip);
+    }
 
     int nBranchMin = -1;
     int nCountMax = INT_MAX;
@@ -1530,12 +1567,19 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
     const CBlockIndex* pindex;
     int blockcount = 30 * 24 * 60 * 60 / Params().GetConsensus().nPowTargetSpacing; // By default: 1 month
 
+    // cs_main is held for the remainder of the function. pindex and pindexPast are
+    // block index pointers, and the original code released the lock immediately
+    // after the lookup and then kept dereferencing them - racing UnloadBlockIndex
+    // (which deletes every CBlockIndex) and any concurrent reorg.
+    LOCK(cs_main);
+
     if (request.params[1].isNull()) {
-        LOCK(cs_main);
         pindex = chainActive.Tip();
+        if (!pindex) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "No active chain tip available");
+        }
     } else {
         uint256 hash = uint256S(request.params[1].get_str());
-        LOCK(cs_main);
         pindex = LookupBlockIndex(hash);
         if (!pindex) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
@@ -1544,8 +1588,6 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Block is not in main chain");
         }
     }
-
-    assert(pindex != nullptr);
 
     if (request.params[0].isNull()) {
         blockcount = std::max(0, std::min(blockcount, pindex->nHeight - 1));
@@ -1558,6 +1600,9 @@ static UniValue getchaintxstats(const JSONRPCRequest& request)
     }
 
     const CBlockIndex* pindexPast = pindex->GetAncestor(pindex->nHeight - blockcount);
+    if (!pindexPast) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Block count is out of range for this block");
+    }
     int nTimeDiff = pindex->GetMedianTimePast() - pindexPast->GetMedianTimePast();
     int nTxDiff = pindex->nChainTx - pindexPast->nChainTx;
 
@@ -1660,14 +1705,22 @@ static UniValue getcheckpoint(const JSONRPCRequest& request)
     }
 
     UniValue result(UniValue::VOBJ);
-    CBlockIndex* pindexCheckpoint;
 
-    result.pushKV("synccheckpoint", hashSyncCheckpoint.ToString());
+    // Snapshot the checkpoint once under its own lock. Reading the global twice
+    // can report a hash and a height belonging to two different checkpoints if
+    // one arrives between the reads.
+    uint256 hashCheckpoint;
+    {
+        LOCK(cs_hashSyncCheckpoint);
+        hashCheckpoint = hashSyncCheckpoint;
+    }
+
+    result.pushKV("synccheckpoint", hashCheckpoint.ToString());
     {
         LOCK(cs_main);
-        if (mapBlockIndex.count(hashSyncCheckpoint))
+        const CBlockIndex* pindexCheckpoint = LookupBlockIndex(hashCheckpoint);
+        if (pindexCheckpoint)
         {
-            pindexCheckpoint = mapBlockIndex[hashSyncCheckpoint];
             result.pushKV("height", pindexCheckpoint->nHeight);
             result.pushKV("timestamp", pindexCheckpoint->GetBlockTime());
         }
@@ -1707,14 +1760,22 @@ static UniValue sendcheckpoint(const JSONRPCRequest& request)
         throw std::runtime_error("Failed to send checkpoint, check log. ");
 
     UniValue result(UniValue::VOBJ);
-    CBlockIndex* pindexCheckpoint;
 
-    result.pushKV("synccheckpoint", hashSyncCheckpoint.ToString());
+    // Same snapshot-under-lock reasoning as getcheckpoint(): SendSyncCheckpoint()
+    // above may itself have advanced hashSyncCheckpoint, and a checkpoint from a
+    // peer can land between the two reads.
+    uint256 hashCheckpoint;
+    {
+        LOCK(cs_hashSyncCheckpoint);
+        hashCheckpoint = hashSyncCheckpoint;
+    }
+
+    result.pushKV("synccheckpoint", hashCheckpoint.ToString());
     {
         LOCK(cs_main);
-        if (mapBlockIndex.count(hashSyncCheckpoint))
+        const CBlockIndex* pindexCheckpoint = LookupBlockIndex(hashCheckpoint);
+        if (pindexCheckpoint)
         {
-            pindexCheckpoint = mapBlockIndex[hashSyncCheckpoint];
             result.pushKV("height", pindexCheckpoint->nHeight);
             result.pushKV("timestamp", pindexCheckpoint->GetBlockTime());
         }

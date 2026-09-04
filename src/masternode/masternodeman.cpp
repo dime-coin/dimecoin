@@ -15,6 +15,10 @@
 /** Masternode manager */
 CMasternodeMan mnodeman;
 
+// Out-of-line definition for the in-class initialised constant. Required
+// because it is odr-used (bound to a const reference) from the unit tests.
+const size_t CMasternodeMan::MAX_SEEN_MNB_ENTRIES;
+
 static bool GetBlockHash(uint256 &hash, int nBlockHeight)
 {
     LOCK(cs_main);
@@ -211,15 +215,19 @@ void CMasternodeMan::CheckAndRemove(CConnman& connman)
 
         //! note the duplicates (collateral oldest stays)
         std::vector<CMasternode> toBan;
+        std::map<COutPoint, uint32_t> mapCollateralAges;
+        for (const auto &mn : mapMasternodes) {
+            mapCollateralAges[mn.second.vin.prevout] = GetUTXOConfirmations(mn.second.vin.prevout);
+        }
         for (const auto &mn : mapMasternodes) {
             CService mnAddress = mn.second.addr;
-            uint32_t mnCollateralAge = GetUTXOConfirmations(mn.second.vin.prevout);
+            uint32_t mnCollateralAge = mapCollateralAges[mn.second.vin.prevout];
             for (const auto &mn2 : mapMasternodes) {
                 //! skip if we're comparing the exact same mn
                 if (mn == mn2) continue;
                 CService mnAddress2 = mn2.second.addr;
                 if (mnAddress == mnAddress2) {
-                    uint32_t mnCollateralAge2 = GetUTXOConfirmations(mn2.second.vin.prevout);
+                    uint32_t mnCollateralAge2 = mapCollateralAges[mn2.second.vin.prevout];
                     //! we've a match, find out who is oldest
                     if (mnCollateralAge > mnCollateralAge2) {
                         toBan.push_back(mn2.second);
@@ -451,6 +459,23 @@ int CMasternodeMan::CountEnabled(int nProtocolVersion) const
     }
 
     return nCount;
+}
+
+void CMasternodeMan::GetCountsSnapshot(int& nSizeRet, int& nCountEnabledProtoRet, int& nCountEnabledRet, int nProtocolVersion) const
+{
+    LOCK(cs);
+
+    const int nMinProto = mnpayments.GetMinMasternodePaymentsProto();
+
+    nSizeRet = (int)mapMasternodes.size();
+    nCountEnabledProtoRet = 0;
+    nCountEnabledRet = 0;
+
+    for (auto& mnpair : mapMasternodes) {
+        if (!mnpair.second.IsEnabled()) continue;
+        if (mnpair.second.nProtocolVersion >= nProtocolVersion) nCountEnabledProtoRet++;
+        if (mnpair.second.nProtocolVersion >= nMinProto) nCountEnabledRet++;
+    }
 }
 
 /* Only IPv4 masternodes are allowed in 12.1, saving this for later
@@ -1092,12 +1117,12 @@ void CMasternodeMan::CheckSameAddr()
             }
             pprevMasternode = pmn;
         }
-    }
 
-    // ban duplicates
-    for(CMasternode* pmn : vBan) {
-        LogPrintf("CMasternodeMan::CheckSameAddr -- increasing PoSe ban score for masternode %s\n", pmn->vin.prevout.ToString());
-        pmn->IncreasePoSeBanScore();
+        // ban duplicates
+        for(CMasternode* pmn : vBan) {
+            LogPrintf("CMasternodeMan::CheckSameAddr -- increasing PoSe ban score for masternode %s\n", pmn->vin.prevout.ToString());
+            pmn->IncreasePoSeBanScore();
+        }
     }
 }
 
@@ -1118,7 +1143,7 @@ bool CMasternodeMan::SendVerifyRequest(const CAddress& addr, const std::vector<C
 
     netfulfilledman.AddFulfilledRequest(addr, strprintf("%s", NetMsgType::MNVERIFY)+"-request");
     // use random nonce, store it and require node to reply with correct one later
-    CMasternodeVerification mnv(addr, GetRandInt(999999), nCachedBlockHeight - 1);
+    CMasternodeVerification mnv(addr, GetRandInt(std::numeric_limits<int>::max()), nCachedBlockHeight - 1);
     mWeAskedForVerification[addr] = mnv;
     LogPrintf("CMasternodeMan::SendVerifyRequest -- verifying node using nonce %d addr=%s\n", mnv.nonce, addr.ToString());
     connman.PushMessage(pnode, CNetMsgMaker(pnode->GetSendVersion()).Make(NetMsgType::MNVERIFY, mnv));
@@ -1182,17 +1207,24 @@ void CMasternodeMan::ProcessVerifyReply(CNode* pnode, CMasternodeVerification& m
     }
 
     // Received nonce for a known address must match the one we sent
-    if(mWeAskedForVerification[pnode->addr].nonce != mnv.nonce) {
+    auto itAskedForVerification = mWeAskedForVerification.find(pnode->addr);
+    if(itAskedForVerification == mWeAskedForVerification.end()) {
+        LogPrintf("CMasternodeMan::ProcessVerifyReply -- ERROR: we didn't ask for verification of %s, peer=%d\n", pnode->addr.ToString(), pnode->GetId());
+        Misbehaving(pnode->GetId(), 20);
+        return;
+    }
+
+    if(itAskedForVerification->second.nonce != mnv.nonce) {
         LogPrintf("CMasternodeMan::ProcessVerifyReply -- ERROR: wrong nounce: requested=%d, received=%d, peer=%d\n",
-                  mWeAskedForVerification[pnode->addr].nonce, mnv.nonce, pnode->GetId());
+                  itAskedForVerification->second.nonce, mnv.nonce, pnode->GetId());
         Misbehaving(pnode->GetId(), 20);
         return;
     }
 
     // Received nBlockHeight for a known address must match the one we sent
-    if(mWeAskedForVerification[pnode->addr].nBlockHeight != mnv.nBlockHeight) {
+    if(itAskedForVerification->second.nBlockHeight != mnv.nBlockHeight) {
         LogPrintf("CMasternodeMan::ProcessVerifyReply -- ERROR: wrong nBlockHeight: requested=%d, received=%d, peer=%d\n",
-                  mWeAskedForVerification[pnode->addr].nBlockHeight, mnv.nBlockHeight, pnode->GetId());
+                  itAskedForVerification->second.nBlockHeight, mnv.nBlockHeight, pnode->GetId());
         Misbehaving(pnode->GetId(), 20);
         return;
     }
@@ -1289,7 +1321,6 @@ void CMasternodeMan::ProcessVerifyBroadcast(CNode* pnode, const CMasternodeVerif
         // we already have one
         return;
     }
-    mapSeenMasternodeVerification[mnv.GetHash()] = mnv;
 
     // we don't care about history
     if(mnv.nBlockHeight < nCachedBlockHeight - MAX_POSE_BLOCKS) {
@@ -1362,6 +1393,8 @@ void CMasternodeMan::ProcessVerifyBroadcast(CNode* pnode, const CMasternodeVerif
             return;
         }
 
+        mapSeenMasternodeVerification[mnv.GetHash()] = mnv;
+
         if(!pmn1->IsPoSeVerified()) {
             pmn1->DecreasePoSeBanScore();
         }
@@ -1420,6 +1453,29 @@ void CMasternodeMan::UpdateMasternodeList(CMasternodeBroadcast mnb, CConnman& co
     }
 }
 
+void CMasternodeMan::EnforceSeenBroadcastLimit()
+{
+    LOCK(cs);
+    if(mapSeenMasternodeBroadcast.size() <= MAX_SEEN_MNB_ENTRIES) return;
+
+    // Entries are keyed by hash, so map order says nothing about age. Sort by
+    // the stored insertion time and drop the oldest until back within the cap.
+    std::vector<std::pair<int64_t, uint256> > vecByAge;
+    vecByAge.reserve(mapSeenMasternodeBroadcast.size());
+    for(const auto& it : mapSeenMasternodeBroadcast) {
+        vecByAge.push_back(std::make_pair(it.second.first, it.first));
+    }
+    std::sort(vecByAge.begin(), vecByAge.end());
+
+    size_t nRemove = mapSeenMasternodeBroadcast.size() - MAX_SEEN_MNB_ENTRIES;
+    for(size_t i = 0; i < nRemove && i < vecByAge.size(); ++i) {
+        mapSeenMasternodeBroadcast.erase(vecByAge[i].second);
+    }
+
+    LogPrint(BCLog::MASTERNODE, "CMasternodeMan::EnforceSeenBroadcastLimit -- evicted %u entries, size=%u\n",
+             nRemove, mapSeenMasternodeBroadcast.size());
+}
+
 bool CMasternodeMan::CheckMnbAndUpdateMasternodeList(CNode* pfrom, CMasternodeBroadcast mnb, int& nDos, CConnman& connman)
 {
     LOCK(cs_main);
@@ -1461,6 +1517,7 @@ bool CMasternodeMan::CheckMnbAndUpdateMasternodeList(CNode* pfrom, CMasternodeBr
             return true;
         }
         mapSeenMasternodeBroadcast.insert(std::make_pair(hash, std::make_pair(GetTime(), mnb)));
+        EnforceSeenBroadcastLimit();
 
         LogPrint(BCLog::MASTERNODE, "CMasternodeMan::CheckMnbAndUpdateMasternodeList -- masternode=%s new\n", mnb.vin.prevout.ToString());
 

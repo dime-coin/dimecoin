@@ -268,7 +268,5 @@ bool HasAllDesirableServiceFlags(ServiceFlags services) {
     if((services & ServiceFlags::NODE_WITNESS) == 0)
         services = ServiceFlags(services | ServiceFlags::NODE_WITNESS);
 
-    return true;
-
     return !(GetDesirableServiceFlags(services) & (~services));
 }

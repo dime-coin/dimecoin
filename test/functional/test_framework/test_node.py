@@ -100,16 +100,16 @@ class TestNode():
     def get_deterministic_priv_key(self):
         """Return a deterministic priv key in base58, that only depends on the node's index"""
         PRIV_KEYS = [
-            # adress , privkey
-            ('mjTkW3DjgyZck4KbiRusZsqTgaYTxdSz6z', 'cVpF924EspNh8KjYsfhgY96mmxvT6DgdWiTYMtMjuM74hJaU5psW'),
-            ('msX6jQXvxiNhx3Q62PKeLPrhrqZQdSimTg', 'cUxsWyKyZ9MAQTaAhUQWJmBbSvHMwSmuv59KgxQV7oZQU3PXN3KE'),
-            ('mnonCMyH9TmAsSj3M59DsbH8H63U3RKoFP', 'cTrh7dkEAeJd6b3MRX9bZK8eRmNqVCMH3LSUkE3dSFDyzjU38QxK'),
-            ('mqJupas8Dt2uestQDvV2NH3RU8uZh2dqQR', 'cVuKKa7gbehEQvVq717hYcbE9Dqmq7KEBKqWgWrYBa2CKKrhtRim'),
-            ('msYac7Rvd5ywm6pEmkjyxhbCDKqWsVeYws', 'cQDCBuKcjanpXDpCqacNSjYfxeQj8G6CAtH1Dsk3cXyqLNC4RPuh'),
-            ('n2rnuUnwLgXqf9kk2kjvVm8R5BZK1yxQBi', 'cQakmfPSLSqKHyMFGwAqKHgWUiofJCagVGhiB4KCainaeCSxeyYq'),
-            ('myzuPxRwsf3vvGzEuzPfK9Nf2RfwauwYe6', 'cQMpDLJwA8DBe9NcQbdoSb1BhmFxVjWD5gRyrLZCtpuF9Zi3a9RK'),
-            ('mumwTaMtbxEPUswmLBBN3vM9oGRtGBrys8', 'cSXmRKXVcoouhNNVpcNKFfxsTsToY5pvB9DVsFksF1ENunTzRKsy'),
-            ('mpV7aGShMkJCZgbW7F6iZgrvuPHjZjH9qg', 'cSoXt6tm3pqy43UMabY6eUTmR3eSUYFtB2iNQDGgb3VUnRsQys2k'),
+            # address , privkey  (Dimecoin base58 prefixes: PUBKEY_ADDRESS=15, SECRET_KEY=143)
+            ('771qycc5Xf5WESwHN9wH1qhwG9oug4u3fa', 'NJ9iFXTt54RVaeTonPox7S21tFdpx3eqtJf2eH6emQkjfXaLX8B4'),
+            ('7F5CCyvGoPtbSS1mg7M3nMjBSQprNhhtR2', 'NHJLdUjckPPxrnJRcCWmt46qZCzjoGk8HfLoyM9PysD5SGGQ15eR'),
+            ('7AMsfwMcz9H4MqLizoAdKZ9brfJuneNWWH', 'NGCAE99sMtMRYumcLFFs8c3tY46DM2KVQvdy2cnYJJsexxQgrmQG'),
+            ('7Cs1JAFU4ZYo9GW5seWRpEuu3iB1RQDNgG', 'NJEnS5XKntk2sFE61jDy7uWUFWZ9gwHSYv2zxubT3dfsHYqb1u1C'),
+            ('7F6g5gpGTmVqFVRvRUmPQfTfnu6xe7ajV5', 'NCYfJQjFvpqcyYYTkJie22Tv4w86z64QYUUVWGUxUbdWJb4rMrrd'),
+            ('7QQtP4BHBN3j9YNRgUmKwiztekpkqTRMhM', 'NCvDtAo5Xgt7kJ5WBfH6tabkb1X3A2YtrruCTT47SnSFcRRznUuj'),
+            ('7MYzsXpHiLZpQfbvZiR4m7F8bzwPHXWZc2', 'NChHKqiaMNFz6U6sKKk51svRp3yLMZURTGdU8jJ7ktYv7nhN5QJZ'),
+            ('7HL2w9kESdkGyGZSyuCmVtDdNqhKzhsN5e', 'NEsEXpw8p3ri9h6kjLUapxt7aABBPuo8YjQz9eVn74t3t1QrvSjc'),
+            ('7C3D3qq3CRp645DBky881ejQUxZBNq4TSQ', 'NF8zzcJQF4tmWNCcVKeNDmP1XLMpLNE6Ycurgc1bT799kepbShjH'),
         ]
         return PRIV_KEYS[self.index]
 

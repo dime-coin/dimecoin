@@ -15,8 +15,11 @@
 #include <deque>
 #include <set>
 #include <stdlib.h>
+#ifndef WIN32
+#include <sys/stat.h>
+#endif
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/signals2/signal.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
@@ -42,6 +45,9 @@ static const std::string TOR_SAFE_CLIENTKEY = "Tor safe cookie authentication co
 static const float RECONNECT_TIMEOUT_START = 1.0;
 /** Exponential backoff configuration - growth factor */
 static const float RECONNECT_TIMEOUT_EXP = 1.5;
+/** Exponential backoff configuration - upper bound in seconds, so that repeated
+ * failures cannot grow the retry interval without limit. */
+static const float RECONNECT_TIMEOUT_MAX = 300.0;
 /** Maximum length for lines received on TorControlConnection.
  * tor-control-spec.txt mentions that there is explicitly no limit defined to line length,
  * this is belt-and-suspenders sanity limit to prevent memory exhaustion.
@@ -219,6 +225,8 @@ bool TorControlConnection::Connect(const std::string &target, const ConnectionCB
     // Finally, connect to target
     if (bufferevent_socket_connect(b_conn, (struct sockaddr*)&connect_to_addr, connect_to_addrlen) < 0) {
         LogPrintf("tor: Error connecting to address %s\n", target);
+        bufferevent_free(b_conn);
+        b_conn = nullptr;
         return false;
     }
     return true;
@@ -400,6 +408,10 @@ static bool WriteBinaryFile(const fs::path &filename, const std::string &data)
         return false;
     }
     fclose(f);
+#ifndef WIN32
+    // Restrict access to the owner: the hidden service private key is sensitive.
+    chmod(filename.string().c_str(), S_IRUSR | S_IWUSR);
+#endif
     return true;
 }
 
@@ -534,7 +546,7 @@ void TorController::auth_cb(TorControlConnection& _conn, const TorControlReply& 
 
         // Finally - now create the service
         if (private_key.empty()) // No private key, generate one
-            private_key = "NEW:RSA1024"; // Explicitly request RSA1024 - see issue #9214
+            private_key = "NEW:BEST"; // Let Tor pick the best supported key type (ED25519-V3 on modern Tor)
         // Request hidden service, redirect port.
         // Note that the 'virtual' port doesn't have to be the same as our internal port, but this is just a convenient
         // choice.  TODO; refactor the shutdown sequence some day.
@@ -576,6 +588,10 @@ void TorController::authchallenge_cb(TorControlConnection& _conn, const TorContr
 {
     if (reply.code == 250) {
         LogPrint(BCLog::TOR, "tor: SAFECOOKIE authentication challenge successful\n");
+        if (reply.lines.empty()) {
+            LogPrintf("tor: Received empty AUTHCHALLENGE reply\n");
+            return;
+        }
         std::pair<std::string,std::string> l = SplitTorReplyLine(reply.lines[0]);
         if (l.first == "AUTHCHALLENGE") {
             std::map<std::string,std::string> m = ParseTorReplyMapping(l.second);
@@ -646,6 +662,7 @@ void TorController::protocolinfo_cb(TorControlConnection& _conn, const TorContro
         if (!torpassword.empty()) {
             if (methods.count("HASHEDPASSWORD")) {
                 LogPrint(BCLog::TOR, "tor: Using HASHEDPASSWORD authentication\n");
+                boost::replace_all(torpassword, "\\", "\\\\");
                 boost::replace_all(torpassword, "\"", "\\\"");
                 _conn.Command("AUTHENTICATE \"" + torpassword + "\"", boost::bind(&TorController::auth_cb, this, boost::placeholders::_1, boost::placeholders::_2));
             } else {
@@ -705,6 +722,8 @@ void TorController::disconnected_cb(TorControlConnection& _conn)
     if (reconnect_ev)
         event_add(reconnect_ev, &time);
     reconnect_timeout *= RECONNECT_TIMEOUT_EXP;
+    if (reconnect_timeout > RECONNECT_TIMEOUT_MAX)
+        reconnect_timeout = RECONNECT_TIMEOUT_MAX;
 }
 
 void TorController::Reconnect()

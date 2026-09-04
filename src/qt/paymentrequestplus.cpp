@@ -124,6 +124,9 @@ bool PaymentRequestPlus::getMerchant(X509_STORE* certStore, QString& merchant) c
     X509_STORE_CTX *store_ctx = X509_STORE_CTX_new();
     if (!store_ctx) {
         qWarning() << "PaymentRequestPlus::getMerchant: Payment request: error creating X509_STORE_CTX";
+        sk_X509_free(chain);
+        for (unsigned int i = 0; i < certs.size(); i++)
+            X509_free(certs[i]);
         return false;
     }
 
@@ -167,14 +170,18 @@ bool PaymentRequestPlus::getMerchant(X509_STORE* certStore, QString& merchant) c
 #endif
         EVP_PKEY *pubkey = X509_get_pubkey(signing_cert);
         EVP_MD_CTX_init(ctx);
-        if (!EVP_VerifyInit_ex(ctx, digestAlgorithm, nullptr) ||
-            !EVP_VerifyUpdate(ctx, data_to_verify.data(), data_to_verify.size()) ||
-            !EVP_VerifyFinal(ctx, (const unsigned char*)paymentRequest.signature().data(), (unsigned int)paymentRequest.signature().size(), pubkey)) {
-            throw SSLVerifyError("Bad signature, invalid payment request.");
-        }
+        // Release the key and the digest context before throwing: the throw
+        // below leaves this scope and neither is freed on the catch path.
+        bool fVerified = EVP_VerifyInit_ex(ctx, digestAlgorithm, nullptr) &&
+            EVP_VerifyUpdate(ctx, data_to_verify.data(), data_to_verify.size()) &&
+            EVP_VerifyFinal(ctx, (const unsigned char*)paymentRequest.signature().data(), (unsigned int)paymentRequest.signature().size(), pubkey);
+        EVP_PKEY_free(pubkey);
 #if HAVE_DECL_EVP_MD_CTX_NEW
         EVP_MD_CTX_free(ctx);
 #endif
+        if (!fVerified) {
+            throw SSLVerifyError("Bad signature, invalid payment request.");
+        }
 
         // OpenSSL API for getting human printable strings from certs is baroque.
         int textlen = X509_NAME_get_text_by_NID(certname, NID_commonName, nullptr, 0);
@@ -194,6 +201,7 @@ bool PaymentRequestPlus::getMerchant(X509_STORE* certStore, QString& merchant) c
 
     delete[] website;
     X509_STORE_CTX_free(store_ctx);
+    sk_X509_free(chain);
     for (unsigned int i = 0; i < certs.size(); i++)
         X509_free(certs[i]);
 

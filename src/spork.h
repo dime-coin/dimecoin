@@ -38,6 +38,19 @@ enum {
 
 }
 
+/** Upper bound on a spork's nValue.
+ *
+ *  Every spork value in use is either an activation timestamp (0 = on, 4070908800 = off) or a
+ *  small threshold such as SPORK_5's coin limit. Nothing legitimate comes near this cap, so it
+ *  costs no flexibility while denying an attacker the ability to claim an absurdly long value. */
+static const int64_t MAX_SPORK_VALUE = 1000000000000LL;
+
+/** How far into the future a spork's nTimeSigned may be relative to adjusted network time.
+ *
+ *  ProcessSpork only ever compared nTimeSigned for monotonicity, with no ceiling, so a spork
+ *  carrying a year-2099 timestamp could never be superseded by the real key holder. */
+static const int64_t SPORK_TIME_MAX_FUTURE_DRIFT = 2 * 60 * 60;
+
 extern std::map<uint256, CSporkMessage> mapSporks;
 extern CSporkManager sporkManager;
 
@@ -91,6 +104,12 @@ public:
     bool Sign(std::string strSignKey);
     bool CheckSignature();
     void Relay(CConnman *connman);
+
+    /* Reject structurally impossible sporks before the signature is checked.
+       CheckSignature() signs the undelimited concatenation of nSporkID, nValue and nTimeSigned,
+       so distinct field triples can render to the same signed string. Constraining each field to
+       its legitimate domain makes that rendering unambiguous. See doc/release-notes for detail. */
+    bool IsWellFormed(std::string& strErrorRet) const;
 };
 
 
@@ -113,6 +132,7 @@ public:
     int64_t GetSporkValue(int nSporkID);
     int GetSporkIDByName(std::string strName);
     std::string GetSporkNameByID(int nSporkID);
+    static bool IsValidSporkID(int nSporkID);
 
     bool SetPrivKey(std::string strPrivKey);
 };

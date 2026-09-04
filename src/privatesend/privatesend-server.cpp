@@ -35,6 +35,7 @@ void CPrivateSendServer::ProcessMessage(CNode* pfrom, std::string& strCommand, C
     if(!masternodeSync.IsBlockchainSynced()) return;
 
     if(strCommand == NetMsgType::DSACCEPT) {
+        LOCK(cs_darksend);
 
         if(pfrom->nVersion < MIN_PRIVATESEND_PEER_PROTO_VERSION) {
             LogPrintf("DSACCEPT -- incompatible version! nVersion: %d\n", pfrom->nVersion);
@@ -140,6 +141,7 @@ void CPrivateSendServer::ProcessMessage(CNode* pfrom, std::string& strCommand, C
         }
 
     } else if(strCommand == NetMsgType::DSVIN) {
+        LOCK(cs_darksend);
 
         if(pfrom->nVersion < MIN_PRIVATESEND_PEER_PROTO_VERSION) {
             LogPrintf("DSVIN -- incompatible version! nVersion: %d\n", pfrom->nVersion);
@@ -230,6 +232,7 @@ void CPrivateSendServer::ProcessMessage(CNode* pfrom, std::string& strCommand, C
                 mempool.PrioritiseTransaction(tx.GetHash(), 0.1*COIN);
                 if(!AcceptToMemoryPool(mempool, validationState, MakeTransactionRef(tx), nullptr, nullptr, false, true, true)) {
                     LogPrintf("DSVIN -- transaction not valid! tx=%s", tx.ToString());
+                    mempool.ClearPrioritisation(tx.GetHash());
                     PushStatus(pfrom, STATUS_REJECTED, ERR_INVALID_TX, connman);
                     return;
                 }
@@ -249,14 +252,42 @@ void CPrivateSendServer::ProcessMessage(CNode* pfrom, std::string& strCommand, C
         }
 
     } else if(strCommand == NetMsgType::DSSIGNFINALTX) {
+        LOCK(cs_darksend);
 
         if(pfrom->nVersion < MIN_PRIVATESEND_PEER_PROTO_VERSION) {
             LogPrintf("DSSIGNFINALTX -- incompatible version! nVersion: %d\n", pfrom->nVersion);
             return;
         }
 
+        if(nState != POOL_STATE_SIGNING) {
+            LogPrint(BCLog::PRIVATESEND, "DSSIGNFINALTX -- ignored, not in signing state (nState=%d)\n", nState);
+            return;
+        }
+
+        // Only accept signature submissions from peers that actually joined this
+        // session via DSVIN. Without this, any P2P peer could send a bad
+        // signature payload and trip AddScriptSig -> RelayStatus(REJECTED), which
+        // would tear down an otherwise-valid mixing session for the real
+        // participants.
+        bool fParticipant = false;
+        for(const CDarkSendEntry& entry : vecEntries) {
+            if(entry.addr == pfrom->addr) {
+                fParticipant = true;
+                break;
+            }
+        }
+        if(!fParticipant) {
+            LogPrint(BCLog::PRIVATESEND, "DSSIGNFINALTX -- ignored, %s is not a session participant\n", pfrom->addr.ToString());
+            return;
+        }
+
         std::vector<CTxIn> vecTxIn;
         vRecv >> vecTxIn;
+
+        if(vecTxIn.size() > PRIVATESEND_ENTRY_MAX_SIZE) {
+            LogPrintf("DSSIGNFINALTX -- ERROR: too many inputs! %d/%d\n", vecTxIn.size(), PRIVATESEND_ENTRY_MAX_SIZE);
+            return;
+        }
 
         LogPrint(BCLog::PRIVATESEND, "DSSIGNFINALTX -- vecTxIn.size() %s\n", vecTxIn.size());
 
@@ -352,12 +383,16 @@ void CPrivateSendServer::CommitFinalTransaction(CConnman& connman)
 
     {
         // See if the transaction is valid
+        // TRY_LOCK is deliberate: this runs from the PrivateSend server path, which
+        // already holds pool state, so blocking on cs_main here risks lock-order
+        // inversion. Failing to acquire is treated as a rejected commit, as before.
         TRY_LOCK(cs_main, lockMain);
         CValidationState validationState;
         mempool.PrioritiseTransaction(hashTx, 0.1*COIN);
         if(!lockMain || !AcceptToMemoryPool(mempool, validationState, MakeTransactionRef(finalTransaction), nullptr, nullptr, false, maxTxFee, true))
         {
             LogPrintf("CPrivateSendServer::CommitFinalTransaction -- AcceptToMemoryPool() error: Transaction not valid\n");
+            mempool.ClearPrioritisation(hashTx);
             SetNull();
             // not much we can do in this case, just notify clients
             RelayCompletedTransaction(ERR_INVALID_TX, connman);
@@ -370,7 +405,10 @@ void CPrivateSendServer::CommitFinalTransaction(CConnman& connman)
     // create and sign masternode dstx transaction
     if(!CPrivateSend::GetDSTX(hashTx)) {
         CDarksendBroadcastTx dstxNew(finalTransaction, activeMasternode.outpoint, GetAdjustedTime());
-        dstxNew.Sign();
+        if(!dstxNew.Sign()) {
+            LogPrintf("CPrivateSendServer::CommitFinalTransaction -- ERROR: Failed to sign dstx\n");
+            return;
+        }
         CPrivateSend::AddDSTX(dstxNew);
     }
 
@@ -490,7 +528,7 @@ void CPrivateSendServer::ChargeRandomFees(CConnman& connman)
 
     for(const CTransactionRef& txCollateral : vecSessionCollaterals) {
 
-        if(GetRandInt(100) > 10) return;
+        if(GetRandInt(100) > 10) continue;
 
         LogPrintf("CPrivateSendServer::ChargeRandomFees -- charging random fees, txCollateral=%s", txCollateral->ToString());
 
@@ -541,7 +579,12 @@ void CPrivateSendServer::CheckForCompleteQueue(CConnman& connman)
 
         CDarksendQueue dsq(nSessionDenom, activeMasternode.outpoint, GetAdjustedTime(), true);
         LogPrint(BCLog::PRIVATESEND, "CPrivateSendServer::CheckForCompleteQueue -- queue is ready, signing and relaying (%s)\n", dsq.ToString());
-        dsq.Sign();
+        // An unsigned queue is rejected by every peer that receives it, so
+        // relaying one only wastes bandwidth.
+        if(!dsq.Sign()) {
+            LogPrintf("CPrivateSendServer::CheckForCompleteQueue -- ERROR: failed to sign queue, not relaying\n");
+            return;
+        }
         dsq.Relay(connman);
     }
 }
@@ -644,7 +687,7 @@ bool CPrivateSendServer::AddScriptSig(const CTxIn& txinNew)
 
     for(const CDarkSendEntry& entry : vecEntries) {
         for(const CTxDSIn& txdsin : entry.vecTxDSIn) {
-            if(txdsin.scriptSig == txinNew.scriptSig) {
+            if(txdsin.prevout == txinNew.prevout && txdsin.fHasSig) {
                 LogPrint(BCLog::PRIVATESEND, "CPrivateSendServer::AddScriptSig -- already exists\n");
                 return false;
             }
@@ -747,9 +790,12 @@ bool CPrivateSendServer::CreateNewSession(int nDenom, CTransactionRef txCollater
         //broadcast that I'm accepting entries, only if it's the first entry through
         CDarksendQueue dsq(nDenom, activeMasternode.outpoint, GetAdjustedTime(), false);
         LogPrint(BCLog::PRIVATESEND, "CPrivateSendServer::CreateNewSession -- signing and relaying new queue: %s\n", dsq.ToString());
-        dsq.Sign();
-        dsq.Relay(connman);
-        vecDarksendQueue.push_back(dsq);
+        if(!dsq.Sign()) {
+            LogPrintf("CPrivateSendServer::CreateNewSession -- ERROR: failed to sign queue, not relaying\n");
+        } else {
+            dsq.Relay(connman);
+            vecDarksendQueue.push_back(dsq);
+        }
     }
 
     vecSessionCollaterals.push_back(txCollateral);

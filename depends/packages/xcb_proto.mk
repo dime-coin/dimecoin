@@ -1,8 +1,9 @@
 package=xcb_proto
-$(package)_version=1.10
-$(package)_download_path=http://xcb.freedesktop.org/dist
-$(package)_file_name=xcb-proto-$($(package)_version).tar.bz2
-$(package)_sha256_hash=7ef40ddd855b750bc597d2a435da21e55e502a0fefa85b274f2c922800baaf05
+
+$(package)_version=1.15.2
+$(package)_download_path=https://xorg.freedesktop.org/archive/individual/proto
+$(package)_file_name=xcb-proto-$($(package)_version).tar.xz
+$(package)_sha256_hash=7072beb1f680a2fe3f9e535b797c146d22528990c72f63ddb49d2f350a3653ed
 
 define $(package)_set_vars
   $(package)_config_opts=--disable-shared

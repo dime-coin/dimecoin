@@ -80,10 +80,6 @@ void CMasternodeSync::SwitchToNextAsset(CConnman& connman)
             //try to activate our masternode if possible
             activeMasternode.ManageState(connman);
 
-            // TODO: Find out whether we can just use LOCK instead of:
-            // TRY_LOCK(cs_vNodes, lockRecv);
-            // if(lockRecv) { ... }
-
             connman.ForEachNode([](CNode* pnode) {
                 netfulfilledman.AddFulfilledRequest(pnode->addr, "full-sync");
             });
@@ -126,10 +122,6 @@ void CMasternodeSync::ProcessMessage(CNode* pfrom, const std::string& strCommand
 
 void CMasternodeSync::ClearFulfilledRequests(CConnman& connman)
 {
-    // TODO: Find out whether we can just use LOCK instead of:
-    // TRY_LOCK(cs_vNodes, lockRecv);
-    // if(!lockRecv) return;
-
     connman.ForEachNode([](CNode* pnode) {
         netfulfilledman.RemoveFulfilledRequest(pnode->addr, "spork-sync");
         netfulfilledman.RemoveFulfilledRequest(pnode->addr, "masternode-list-sync");
@@ -147,7 +139,7 @@ void CMasternodeSync::ProcessTick(CConnman& connman)
     // reset the sync process if the last call to this function was more than 60 minutes ago (client was in sleep mode)
     static int64_t nTimeLastProcess = GetTime();
     if(GetTime() - nTimeLastProcess > 60*60) {
-        LogPrintf("CMasternodeSync::HasSyncFailures -- WARNING: no actions for too long, restarting sync...\n");
+        LogPrintf("CMasternodeSync::ProcessTick -- WARNING: no actions for too long, restarting sync...\n");
         Reset();
         SwitchToNextAsset(connman);
         nTimeLastProcess = GetTime();
@@ -158,7 +150,7 @@ void CMasternodeSync::ProcessTick(CConnman& connman)
     // reset sync status in case of any other sync failure
     if(IsFailed()) {
         if(nTimeLastFailure + (1*60) < GetTime()) { // 1 minute cooldown after failed sync
-            LogPrintf("CMasternodeSync::HasSyncFailures -- WARNING: failed to sync, trying again...\n");
+            LogPrintf("CMasternodeSync::ProcessTick -- WARNING: failed to sync, trying again...\n");
             Reset();
             SwitchToNextAsset(connman);
         }
@@ -178,6 +170,17 @@ void CMasternodeSync::ProcessTick(CConnman& connman)
     uiInterface.NotifyAdditionalDataSyncProgressChanged(nSyncProgress);
 
     std::vector<CNode*> vNodesCopy = connman.CopyNodeVector();
+
+    // QUICK MODE (REGTEST ONLY!) -- the loop below carries a regtest fast-path, but a
+    // regtest chain is normally run with no peers at all, so that loop body never
+    // executes and the sync can never finish. With no peers there is nothing to request,
+    // so complete the sync here rather than blocking on it forever.
+    if(Params().NetworkIDString() == CBaseChainParams::REGTEST && vNodesCopy.empty())
+    {
+        nRequestedMasternodeAssets = MASTERNODE_SYNC_FINISHED;
+        connman.ReleaseNodeVector(vNodesCopy);
+        return;
+    }
 
     for(CNode* pnode : vNodesCopy)
     {

@@ -34,6 +34,7 @@
 #include <util/strencodings.h>
 #include <net_processing.h>
 
+#include <array>
 #include <memory>
 
 #include <spork.h>
@@ -55,6 +56,18 @@ static constexpr int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
  *  Timeout = base + per_header * (expected number of headers) */
 static constexpr int64_t HEADERS_DOWNLOAD_TIMEOUT_BASE = 15 * 60 * 1000000; // 15 minutes
 static constexpr int64_t HEADERS_DOWNLOAD_TIMEOUT_PER_HEADER = 1000; // 1ms/header
+/** How long our designated header-sync peer may send us no headers at all before a block
+ *  announcement from any peer is allowed to trigger a getheaders during initial block download.
+ *  A healthy sync peer delivers a 2000-header batch every few hundred milliseconds, so this is
+ *  several orders of magnitude above normal and cannot be reached while header sync is making
+ *  progress. It is deliberately generous: a false positive during the header phase would answer
+ *  tip announcements with a mid-chain getheaders, and a full 2000-header reply re-arms the
+ *  "more getheaders" continuation - exactly the redundant-header traffic this gate exists to
+ *  suppress. A slow peer or congested link can stretch a single batch to tens of seconds while
+ *  still making real progress, so the threshold sits well above any plausible batch round trip
+ *  and still well below nHeadersSyncTimeout (hours on this chain), which is the fallback that
+ *  disconnects a genuinely dead sync peer. */
+static constexpr int64_t HEADERS_SYNC_STALL_TIMEOUT = 600 * 1000000; // 10 minutes
 /** Protect at least this many outbound peers from disconnection due to slow/
  * behind headers chain.
  */
@@ -75,6 +88,12 @@ static constexpr int STALE_RELAY_AGE_LIMIT = 30 * 24 * 60 * 60;
 /// Age after which a block is considered historical for purposes of rate
 /// limiting block relay. Set to one week, denominated in seconds.
 static constexpr int HISTORICAL_BLOCK_AGE = 7 * 24 * 60 * 60;
+/** Maximum number of out-of-order blocks (children whose parent is still in flight) buffered in
+ *  mapBlocksUnknownParent. These are fully deserialized blocks pinned in memory, so the map must
+ *  be bounded: a peer that feeds us children and never delivers the parents would otherwise grow
+ *  it without limit. Sized with headroom over the worst-case legitimate backlog, which is capped
+ *  by MAX_BLOCKS_IN_TRANSIT_PER_PEER times the outbound peer count. */
+static constexpr size_t MAX_UNKNOWN_PARENT_BLOCKS = 1024;
 
 struct COrphanTx {
     // When modifying, adapt the copy of this definition in tests/DoS_tests.
@@ -148,7 +167,7 @@ namespace {
     };
     std::map<uint256, std::pair<NodeId, std::list<QueuedBlock>::iterator> > mapBlocksInFlight GUARDED_BY(cs_main);
 
-    static std::map<uint256, std::shared_ptr<CBlock>> mapBlocksUnknownParent;
+    static std::map<uint256, std::shared_ptr<CBlock>> mapBlocksUnknownParent GUARDED_BY(cs_main);
 
     /** Stack of nodes which we have set to announce using compact blocks */
     std::list<NodeId> lNodesAnnouncingHeaderAndIDs GUARDED_BY(cs_main);
@@ -227,6 +246,8 @@ struct CNodeState {
     bool fSyncStarted;
     //! When to potentially disconnect peer for stalling headers download
     int64_t nHeadersSyncTimeout;
+    //! Time (in microseconds) we last received a HEADERS message from this peer, or 0 if never.
+    int64_t m_last_headers_received;
     //! Since when we're stalling block download progress (in microseconds), or 0.
     int64_t nStallingSince;
     std::list<QueuedBlock> vBlocksInFlight;
@@ -297,6 +318,7 @@ struct CNodeState {
         nUnconnectingHeaders = 0;
         fSyncStarted = false;
         nHeadersSyncTimeout = 0;
+        m_last_headers_received = 0;
         nStallingSince = 0;
         nDownloadingSince = 0;
         nBlocksInFlight = 0;
@@ -321,6 +343,27 @@ static CNodeState *State(NodeId pnode) EXCLUSIVE_LOCKS_REQUIRED(cs_main) {
     if (it == mapNodeState.end())
         return nullptr;
     return &it->second;
+}
+
+/**
+ * True when header sync is not currently making progress: either no peer has been designated
+ * for header sync at all, or the designated peer has sent us no headers for
+ * HEADERS_SYNC_STALL_TIMEOUT. Used to decide whether a block announcement received during
+ * initial block download may be answered with a getheaders.
+ */
+static bool HeadersSyncStalled() EXCLUSIVE_LOCKS_REQUIRED(cs_main)
+{
+    if (nSyncStarted == 0) return true;
+
+    const int64_t nNow = GetTimeMicros();
+    for (const std::pair<const NodeId, CNodeState>& entry : mapNodeState) {
+        const CNodeState& state = entry.second;
+        if (!state.fSyncStarted) continue;
+        if (state.m_last_headers_received != 0 && nNow - state.m_last_headers_received < HEADERS_SYNC_STALL_TIMEOUT) {
+            return false;
+        }
+    }
+    return true;
 }
 
 static void UpdatePreferredDownload(CNode* node, CNodeState* state) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
@@ -690,9 +733,10 @@ bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats) {
 
 static void AddToCompactExtraTransactions(const CTransactionRef& tx) EXCLUSIVE_LOCKS_REQUIRED(g_cs_orphans)
 {
-    size_t max_extra_txn = gArgs.GetArg("-blockreconstructionextratxn", DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN);
-    if (max_extra_txn <= 0)
+    const int64_t max_extra_txn_arg = gArgs.GetArg("-blockreconstructionextratxn", DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN);
+    if (max_extra_txn_arg <= 0)
         return;
+    const size_t max_extra_txn = static_cast<size_t>(max_extra_txn_arg);
     if (!vExtraTxnForCompact.size())
         vExtraTxnForCompact.resize(max_extra_txn);
     vExtraTxnForCompact[vExtraTxnForCompactIt] = std::make_pair(tx->GetWitnessHash(), tx);
@@ -1088,12 +1132,17 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
         return mapSporks.count(inv.hash);
 
     case MSG_MASTERNODE_PAYMENT_VOTE:
-        return mnpayments.mapMasternodePaymentVotes.count(inv.hash);
+        {
+            LOCK(cs_mapMasternodePaymentVotes);
+            return mnpayments.mapMasternodePaymentVotes.count(inv.hash);
+        }
 
     case MSG_MASTERNODE_PAYMENT_BLOCK:
         {
             BlockMap::iterator mi = mapBlockIndex.find(inv.hash);
-            return mi != mapBlockIndex.end() && mnpayments.mapMasternodeBlocks.find(mi->second->nHeight) != mnpayments.mapMasternodeBlocks.end();
+            if (mi == mapBlockIndex.end()) return false;
+            LOCK(cs_mapMasternodeBlocks);
+            return mnpayments.mapMasternodeBlocks.find(mi->second->nHeight) != mnpayments.mapMasternodeBlocks.end();
         }
 
     case MSG_MASTERNODE_ANNOUNCE:
@@ -1385,10 +1434,12 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
                 }
 
                 if (!pushed && inv.type == MSG_MASTERNODE_PAYMENT_VOTE) {
-                    if(mnpayments.HasVerifiedPaymentVote(inv.hash)) {
+                    LOCK(cs_mapMasternodePaymentVotes);
+                    auto mi = mnpayments.mapMasternodePaymentVotes.find(inv.hash);
+                    if (mi != mnpayments.mapMasternodePaymentVotes.end() && mi->second.IsVerified()) {
                         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                         ss.reserve(1000);
-                        ss << mnpayments.mapMasternodePaymentVotes[inv.hash];
+                        ss << mi->second;
                         connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::MASTERNODEPAYMENTVOTE, ss));
                         pushed = true;
                     }
@@ -1396,15 +1447,16 @@ void static ProcessGetData(CNode* pfrom, const CChainParams& chainparams, CConnm
 
                 if (!pushed && inv.type == MSG_MASTERNODE_PAYMENT_BLOCK) {
                     BlockMap::iterator mi = mapBlockIndex.find(inv.hash);
-                    LOCK(cs_mapMasternodeBlocks);
+                    LOCK2(cs_mapMasternodeBlocks, cs_mapMasternodePaymentVotes);
                     if (mi != mapBlockIndex.end() && mnpayments.mapMasternodeBlocks.count(mi->second->nHeight)) {
                         for (CMasternodePayee& payee : mnpayments.mapMasternodeBlocks[mi->second->nHeight].vecPayees) {
                             std::vector<uint256> vecVoteHashes = payee.GetVoteHashes();
                             for (uint256& hash : vecVoteHashes) {
-                                if(mnpayments.HasVerifiedPaymentVote(hash)) {
+                                auto itv = mnpayments.mapMasternodePaymentVotes.find(hash);
+                                if (itv != mnpayments.mapMasternodePaymentVotes.end() && itv->second.IsVerified()) {
                                     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                                     ss.reserve(1000);
-                                    ss << mnpayments.mapMasternodePaymentVotes[hash];
+                                    ss << itv->second;
                                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::MASTERNODEPAYMENTVOTE, ss));
                                 }
                             }
@@ -1501,6 +1553,14 @@ bool static ProcessHeadersMessage(CNode *pfrom, CConnman *connman, const std::ve
 {
     const CNetMsgMaker msgMaker(pfrom->GetSendVersion());
     size_t nCount = headers.size();
+
+    {
+        // Record that this peer is still feeding us headers. An empty reply counts: it means
+        // the peer answered, so it is not the silent sync peer HeadersSyncStalled() looks for.
+        LOCK(cs_main);
+        CNodeState *nodestate = State(pfrom->GetId());
+        if (nodestate) nodestate->m_last_headers_received = GetTimeMicros();
+    }
 
     if (nCount == 0) {
         // Nothing interesting. Stop asking this peers for more headers.
@@ -1727,8 +1787,6 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         return true;
     }
 
-    const int activeHeight = chainActive.Height();
-
     if (!(pfrom->GetLocalServices() & NODE_BLOOM) &&
               (strCommand == NetMsgType::FILTERLOAD ||
                strCommand == NetMsgType::FILTERADD))
@@ -1939,7 +1997,20 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                   pfrom->nStartingHeight, addrMe.ToString(), pfrom->GetId(),
                   remoteAddr);
 
-        int64_t nTimeOffset = nTime - GetTime();
+        // nTime is attacker-controlled and arrives unvalidated, so computing
+        // "nTime - nNow" directly is signed-overflow UB for extreme values. Clamp the
+        // sample to a wide but sane window instead of disconnecting the peer, so that
+        // old or badly-clocked nodes keep connecting exactly as they do today.
+        static const int64_t MAX_PEER_TIME_OFFSET = 24 * 60 * 60;
+        const int64_t nNow = GetTime();
+        int64_t nTimeOffset;
+        if (nTime > nNow + MAX_PEER_TIME_OFFSET) {
+            nTimeOffset = MAX_PEER_TIME_OFFSET;
+        } else if (nTime < nNow - MAX_PEER_TIME_OFFSET) {
+            nTimeOffset = -MAX_PEER_TIME_OFFSET;
+        } else {
+            nTimeOffset = nTime - nNow;
+        }
         pfrom->nTimeOffset = nTimeOffset;
         AddTimeData(pfrom->addr, nTimeOffset);
 
@@ -2126,12 +2197,25 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
             if (inv.type == MSG_BLOCK) {
                 UpdateBlockAvailability(pfrom->GetId(), inv.hash);
-                if (!fAlreadyHave && !fImporting && !fReindex && !mapBlocksInFlight.count(inv.hash)) {
+                if (!fAlreadyHave && !fImporting && !fReindex && !mapBlocksInFlight.count(inv.hash) && (!IsInitialBlockDownload() || HeadersSyncStalled())) {
                     // We used to request the full block here, but since headers-announcements are now the
                     // primary method of announcement on the network, and since, in the case that a node
                     // fell back to inv we probably have a reorg which we should get the headers for first,
                     // we now only provide a getheaders response here. When we receive the headers, we will
                     // then ask for the blocks we need.
+                    //
+                    // Normally skipped during IBD: we already have a dedicated header sync peer (the
+                    // fSyncStarted gate in SendMessages allows only one). Answering every tip announcement
+                    // here starts a second, third, ... full header download, because a 2000-header reply
+                    // re-arms the "more getheaders" continuation in ProcessHeadersMessage. With 64s blocks
+                    // all 8 outbound peers got pulled in within minutes and each streamed the entire chain -
+                    // measured at ~10x redundant header traffic, crowding out actual block download.
+                    //
+                    // The exception is HeadersSyncStalled(): if the designated sync peer has gone silent
+                    // (or none was ever designated) the suppression above would otherwise deadlock header
+                    // sync until nHeadersSyncTimeout expires, which on this chain is ~2 hours. A peer that
+                    // is actively streaming headers resets that clock every few hundred milliseconds, so
+                    // this cannot open the gate while header sync is making progress.
                     connman->PushMessage(pfrom, msgMaker.Make(NetMsgType::GETHEADERS, chainActive.GetLocator(pindexBestHeader), inv.hash));
                     LogPrint(BCLog::NET, "getheaders (%d) %s to peer=%d\n", pindexBestHeader->nHeight, inv.hash.ToString(), pfrom->GetId());
                 }
@@ -2182,6 +2266,8 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         if (locator.vHave.size() > MAX_LOCATOR_SZ) {
             LogPrint(BCLog::NET, "getblocks locator size %lld > %d, disconnect peer=%d\n", locator.vHave.size(), MAX_LOCATOR_SZ, pfrom->GetId());
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 20, strprintf("oversized-locator getblocks vHave.size()=%u", (unsigned)locator.vHave.size()));
             pfrom->fDisconnect = true;
             return true;
         }
@@ -2297,6 +2383,8 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
 
         if (locator.vHave.size() > MAX_LOCATOR_SZ) {
             LogPrint(BCLog::NET, "getheaders locator size %lld > %d, disconnect peer=%d\n", locator.vHave.size(), MAX_LOCATOR_SZ, pfrom->GetId());
+            LOCK(cs_main);
+            Misbehaving(pfrom->GetId(), 20, strprintf("oversized-locator getheaders vHave.size()=%u", (unsigned)locator.vHave.size()));
             pfrom->fDisconnect = true;
             return true;
         }
@@ -2862,7 +2950,15 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         headers.resize(nCount);
         for (unsigned int n = 0; n < nCount; n++) {
             vRecv >> headers[n];
-            ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
+            if (ReadCompactSize(vRecv) != 0) {
+                // A non-zero tx count desynchronises the stream, so the remaining
+                // headers in this message cannot be parsed. Drop the message, but
+                // do not apply a ban score: upstream merely ignores this field, and
+                // a new ban rule on a P2P message risks partitioning us from honest
+                // peers for no gain -- the unparsed headers are simply not accepted.
+                LogPrint(BCLog::NET, "non-zero tx count in headers message from peer=%d, dropping message\n", pfrom->GetId());
+                return false;
+            }
         }
 
         // Headers received via a HEADERS message should be valid, and reflect
@@ -2881,23 +2977,45 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
         LogPrint(BCLog::NET, "received block %s peer=%d\n", pblock->GetHash().ToString(), pfrom->GetId());
 
         bool forceProcessing = false;
+        bool fDeferred = false;
         const uint256 hash(pblock->GetHash());
 
-        auto it = mapBlockIndex.find(pblock->hashPrevBlock);
-        if (it != mapBlockIndex.end() && ((it->second->nStatus & BLOCK_HAVE_DATA) == 0))
         {
-            LogPrint(BCLog::NET, "Received block out of order: %s\n", pblock->GetHash().ToString());
-            if (mapBlocksInFlight.count(pblock->hashPrevBlock))
+            // cs_main must cover the mapBlockIndex / mapBlocksInFlight reads *and* the
+            // mapBlocksUnknownParent insert below. If the lock is only taken after the checks,
+            // the parent can arrive on another thread in between and drain its child queue,
+            // which strands this block in mapBlocksUnknownParent forever - and leaves it in
+            // mapBlocksInFlight until the peer is dropped on the download timeout.
+            LOCK(cs_main);
+
+            auto itPrev = mapBlockIndex.find(pblock->hashPrevBlock);
+            const bool fParentDataMissing = itPrev != mapBlockIndex.end() &&
+                                            (itPrev->second->nStatus & BLOCK_HAVE_DATA) == 0;
+
+            if (fParentDataMissing && mapBlocksInFlight.count(pblock->hashPrevBlock))
             {
-                LOCK(cs_main);
-                mapBlocksUnknownParent.insert(std::make_pair(pblock->hashPrevBlock, pblock));
-                MarkBlockAsReceived(pblock->hashPrevBlock); // invalidate to send again.
+                LogPrint(BCLog::NET, "Received block out of order: %s\n", hash.ToString());
+                if (mapBlocksUnknownParent.size() < MAX_UNKNOWN_PARENT_BLOCKS) {
+                    mapBlocksUnknownParent.emplace(pblock->hashPrevBlock, pblock);
+                    fDeferred = true;
+                    // NOTE: do NOT MarkBlockAsReceived(hashPrevBlock) here. The parent is still in
+                    // flight (that is the condition we just tested, now atomically) and will arrive
+                    // on its own, at which point the queue below drains this child. Clearing it from
+                    // mapBlocksInFlight makes FindNextBlocksToDownload re-request a block that is
+                    // already on the wire, which multiplied IBD traffic ~19x once the download
+                    // window was widened enough for out-of-order arrival to become the norm.
+                } else {
+                    // Buffer is full: drop the child rather than pin unbounded memory. Clearing its
+                    // in-flight entry lets FindNextBlocksToDownload re-request it once the backlog
+                    // drains, instead of stalling the peer until the download timeout fires.
+                    LogPrint(BCLog::NET, "Dropping out-of-order block %s: mapBlocksUnknownParent full (%u entries)\n",
+                             hash.ToString(), (unsigned)mapBlocksUnknownParent.size());
+                    MarkBlockAsReceived(hash);
+                    return true;
+                }
             }
-        }
-        else
-        {
-            {
-                LOCK(cs_main);
+
+            if (!fDeferred) {
                 // Also always process if we requested the block explicitly, as we may
                 // need it even though it is not a candidate for a new best tip.
                 forceProcessing |= MarkBlockAsReceived(hash);
@@ -2905,7 +3023,10 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 // so the race between here and cs_main in ProcessNewBlock is fine.
                 mapBlockSource.emplace(hash, std::make_pair(pfrom->GetId(), true));
             }
+        }
 
+        if (!fDeferred)
+        {
             bool fNewBlock = false;
             ProcessNewBlock(chainparams, pblock, forceProcessing, &fNewBlock);
             if (fNewBlock)
@@ -2918,28 +3039,29 @@ bool static ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStr
                 {
                     uint256 head = queue.front();
                     queue.pop_front();
-                    auto it = mapBlocksUnknownParent.find(head);
-                    if (it != std::end(mapBlocksUnknownParent))
-                    {
-                        std::shared_ptr<CBlock> pblockrecursive = it->second;
-                        auto recursiveHash = pblockrecursive->GetHash();
-                        LogPrint(BCLog::NET, "%s: Processing out of order child %s of %s\n", __func__, recursiveHash.ToString(),
-                                 head.ToString());
 
-                        bool forceProcessing = false;
-                        {
-                            LOCK(cs_main);
-                            mapBlocksUnknownParent.erase(it);
-                            forceProcessing = MarkBlockAsReceived(recursiveHash);
-                        }
-                        ProcessNewBlock(chainparams, pblockrecursive, forceProcessing, &fNewBlock);
-                        queue.push_back(recursiveHash);
+                    std::shared_ptr<CBlock> pblockrecursive;
+                    uint256 recursiveHash;
+                    bool forceProcessingChild = false;
+                    {
+                        LOCK(cs_main);
+                        auto itChild = mapBlocksUnknownParent.find(head);
+                        if (itChild == mapBlocksUnknownParent.end()) continue;
+                        pblockrecursive = itChild->second;
+                        recursiveHash = pblockrecursive->GetHash();
+                        mapBlocksUnknownParent.erase(itChild);
+                        forceProcessingChild = MarkBlockAsReceived(recursiveHash);
                     }
+
+                    LogPrint(BCLog::NET, "%s: Processing out of order child %s of %s\n", __func__,
+                             recursiveHash.ToString(), head.ToString());
+                    ProcessNewBlock(chainparams, pblockrecursive, forceProcessingChild, &fNewBlock);
+                    queue.push_back(recursiveHash);
                 }
             }
             else {
                 LOCK(cs_main);
-                mapBlockSource.erase(pblock->GetHash());
+                mapBlockSource.erase(hash);
             }
         }
         return true;
@@ -3592,6 +3714,8 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
             if ((nSyncStarted == 0 && fFetch) || pindexBestHeader->GetBlockTime() > GetAdjustedTime() - 24 * 60 * 60) {
                 state.fSyncStarted = true;
                 state.nHeadersSyncTimeout = GetTimeMicros() + HEADERS_DOWNLOAD_TIMEOUT_BASE + HEADERS_DOWNLOAD_TIMEOUT_PER_HEADER * (GetAdjustedTime() - pindexBestHeader->GetBlockTime())/(consensusParams.nPowTargetSpacing);
+                // Start the stall clock now, so a peer that never answers at all is detected.
+                state.m_last_headers_received = GetTimeMicros();
                 nSyncStarted++;
                 const CBlockIndex *pindexStart = pindexBestHeader;
                 /* If possible, start at the block preceding the currently
@@ -4104,9 +4228,8 @@ bool PeerLogicValidation::SendMessages(CNode* pto)
 
 void ThreadProcessExtensions(CConnman *pConnman)
 {
-    static bool fOneThread;
-    if(fOneThread) return;
-    fOneThread = true;
+    static std::atomic<bool> fOneThread(false);
+    if (fOneThread.exchange(true)) return;
 
     // Make this thread recognisable as the PrivateSend thread
     RenameThread("bitcoin-ps");

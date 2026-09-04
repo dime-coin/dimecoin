@@ -14,9 +14,12 @@ purposes. As such there are repository "maintainers" who are responsible for
 merging pull requests as well as a "lead maintainer" who is responsible for the
 release cycle, overall merging, moderation and appointment of maintainers.
 
-If you're looking for somewhere to start contributing, check out the
-[first issue](https://github.com/dime-coin/dimecoin-evo/issues)
-list.
+If you're looking for somewhere to start contributing, browse the
+[open issues](https://github.com/dime-coin/dimecoin/issues). Issues labeled good first issue are intended to be suitable for new contributors.
+
+Before beginning substantial work, review the existing issue discussion and
+confirm that the change is still wanted and not already being addressed. If the
+appropriate scope or target branch is unclear, ask in the issue before starting.
 
 Communication Channels
 ----------------------
@@ -39,11 +42,29 @@ The codebase is maintained using the "contributor workflow" where everyone
 without exception contributes patch proposals using "pull requests". This
 facilitates social contribution, easy testing and peer review.
 
-To contribute a patch, the workflow is as follows:
+To contribute a patch:
 
-  1. Fork repository
-  1. Create topic branch
-  1. Commit patches
+1. Select or open an issue describing the proposed change.
+2. Fork the repository.
+3. Create a focused topic branch from the appropriate base branch.
+4. Commit your changes.
+5. Push the topic branch to your fork.
+6. Open a pull request.
+
+Pull requests should normally target the repository's default branch. If a
+change is intended for a particular release, the related issue or a maintainer
+will identify the appropriate release branch. Contributors should confirm the
+target branch before beginning release specific work.
+
+Platform-specific build instructions are available in the following guides:
+
+[Unix](doc/build-unix.md)
+
+[Generic depends-based builds](doc/build-generic.md)
+
+[macOS](doc/build-osx.md)
+
+[Windows](doc/build-windows.md)
 
 The project coding conventions in the [developer notes](doc/developer-notes.md)
 must be adhered to.
@@ -99,7 +120,7 @@ Examples:
     Trivial: Fix typo in init.cpp
 
 Note that translations should not be submitted as pull requests, please see
-[Translation Process](https://github.com/bitcoin/bitcoin/blob/master/doc/translation_process.md) 
+[Translation Process](https://github.com/dime-coin/dimecoin/blob/master/doc/translation_process.md)
 for more information on helping with translations.
 
 If a pull request is not to be considered for merging (yet), please
@@ -292,11 +313,3 @@ Release Policy
 --------------
 
 The project leader is the release manager for each Dimecoin Core release.
-
-Copyright
----------
-
-By contributing to this repository, you agree to license your work under the 
-MIT license unless specified otherwise in `contrib/debian/copyright` or at 
-the top of the file itself. Any work contributed where you are not the original 
-author must contain its license header with the original author(s) and source.

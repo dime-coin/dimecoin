@@ -21,6 +21,10 @@
 #include <pubkey.h>
 #include <blockencodings.h>
 
+#include <masternode/masternode.h>
+#include <masternode/masternode-payments.h>
+#include <spork.h>
+
 #include <stdint.h>
 #include <unistd.h>
 
@@ -49,6 +53,15 @@ enum TEST_ID {
     CTXOUTCOMPRESSOR_DESERIALIZE,
     BLOCKTRANSACTIONS_DESERIALIZE,
     BLOCKTRANSACTIONSREQUEST_DESERIALIZE,
+    // Dimecoin masternode-layer wire types. These reach deserialization from
+    // unauthenticated peers, so they are appended here rather than inserted,
+    // which keeps every pre-existing corpus input valid.
+    CMASTERNODEBROADCAST_DESERIALIZE,
+    CMASTERNODEPING_DESERIALIZE,
+    CMASTERNODEVERIFICATION_DESERIALIZE,
+    CMASTERNODEPAYMENTVOTE_DESERIALIZE,
+    CSPORKMESSAGE_DESERIALIZE,
+    CTXIN_DESERIALIZE,
     TEST_ID_END
 };
 
@@ -265,6 +278,66 @@ static int test_one_input(std::vector<uint8_t> buffer) {
             {
                 BlockTransactionsRequest btr;
                 ds >> btr;
+            } catch (const std::ios_base::failure& e) {return 0;}
+
+            break;
+        }
+        case CMASTERNODEBROADCAST_DESERIALIZE:
+        {
+            try
+            {
+                CMasternodeBroadcast mnb;
+                ds >> mnb;
+            } catch (const std::ios_base::failure& e) {return 0;}
+
+            break;
+        }
+        case CMASTERNODEPING_DESERIALIZE:
+        {
+            try
+            {
+                CMasternodePing mnp;
+                ds >> mnp;
+            } catch (const std::ios_base::failure& e) {return 0;}
+
+            break;
+        }
+        case CMASTERNODEVERIFICATION_DESERIALIZE:
+        {
+            try
+            {
+                CMasternodeVerification mnv;
+                ds >> mnv;
+            } catch (const std::ios_base::failure& e) {return 0;}
+
+            break;
+        }
+        case CMASTERNODEPAYMENTVOTE_DESERIALIZE:
+        {
+            try
+            {
+                CMasternodePaymentVote vote;
+                ds >> vote;
+            } catch (const std::ios_base::failure& e) {return 0;}
+
+            break;
+        }
+        case CSPORKMESSAGE_DESERIALIZE:
+        {
+            try
+            {
+                CSporkMessage spork;
+                ds >> spork;
+            } catch (const std::ios_base::failure& e) {return 0;}
+
+            break;
+        }
+        case CTXIN_DESERIALIZE:
+        {
+            try
+            {
+                CTxIn txin;
+                ds >> txin;
             } catch (const std::ios_base::failure& e) {return 0;}
 
             break;

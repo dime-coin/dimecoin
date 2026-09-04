@@ -217,7 +217,7 @@ bool CPrivateSend::IsCollateralValid(const CTransactionRef& txCollateral)
 
     //collateral transactions are required to pay out a small fee to the miners
     if(nValueIn - nValueOut < GetCollateralAmount()) {
-        LogPrint(BCLog::PRIVATESEND, "CPrivateSend::IsCollateralValid -- did not include enough fees in transaction: fees: %d, txCollateral=%s", nValueOut - nValueIn, txCollateral->ToString());
+        LogPrint(BCLog::PRIVATESEND, "CPrivateSend::IsCollateralValid -- did not include enough fees in transaction: fees: %d, txCollateral=%s", nValueIn - nValueOut, txCollateral->ToString());
         return false;
     }
 
@@ -226,7 +226,7 @@ bool CPrivateSend::IsCollateralValid(const CTransactionRef& txCollateral)
     {
         LOCK(cs_main);
         CValidationState validationState;
-        if(!AcceptToMemoryPool(mempool, validationState, txCollateral, nullptr, nullptr, false, true, true)) {
+        if(!AcceptToMemoryPool(mempool, validationState, txCollateral, nullptr, nullptr, false, maxTxFee, true)) {
             LogPrint(BCLog::PRIVATESEND, "CPrivateSend::IsCollateralValid -- didn't pass AcceptToMemoryPool()\n");
             return false;
         }

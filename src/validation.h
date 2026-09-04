@@ -87,10 +87,18 @@ static const int MAX_FUTUREDRIFT_POW = 7200;
 static const int MAX_SCRIPTCHECK_THREADS = 16;
 /** -par default (number of script-checking threads, 0 = auto) */
 static const int DEFAULT_SCRIPTCHECK_THREADS = 0;
-/** Number of blocks that can be requested at any given time from a single peer. */
-static const int MAX_BLOCKS_IN_TRANSIT_PER_PEER = 512;
-/** Timeout in seconds during which a peer must stall block download progress before being disconnected. */
-static const unsigned int BLOCK_STALLING_TIMEOUT = 1;
+/** Number of blocks that can be requested at any given time from a single peer.
+ *  This is a latency/throughput tradeoff, not a pure throughput knob. Every requested block is
+ *  queued in the peer's send buffer ahead of anything it sends us later - including the `headers`
+ *  response that drives header sync, and `pong`. At 512 deep with ~2.4KB blocks that queue reached
+ *  ~1.2MB per peer, which measured as 2.6-12s ping times and throttled initial header sync to a
+ *  crawl that got progressively worse as block size grew. Keep in-flight bytes near the
+ *  bandwidth-delay product, not as large as possible. */
+static const int MAX_BLOCKS_IN_TRANSIT_PER_PEER = 64;
+/** Timeout in seconds during which a peer must stall block download progress before being disconnected.
+ *  Must stay well above the worst-case time a peer's block message can spend queued behind our own
+ *  header processing; bursts of MAX_HEADERS_RESULTS headers hold cs_main for a noticeable interval. */
+static const unsigned int BLOCK_STALLING_TIMEOUT = 4;
 /** Number of headers sent in one getheaders result. We rely on the assumption that if a peer sends
  *  less than this number, we reached its tip. Changing this value is a protocol upgrade. */
 static const unsigned int MAX_HEADERS_RESULTS = 2000;
@@ -102,8 +110,19 @@ static const int MAX_BLOCKTXN_DEPTH = 10;
 /** Size of the "block download window": how far ahead of our current height do we fetch?
  *  Larger windows tolerate larger download speed differences between peer, but increase the potential
  *  degree of disordering of blocks on disk (which make reindexing and pruning harder). We'll probably
- *  want to make this a per-peer adaptive value at some point. */
-static const unsigned int BLOCK_DOWNLOAD_WINDOW = 1024;
+ *  want to make this a per-peer adaptive value at some point.
+ *
+ *  This must remain a large multiple of MAX_BLOCKS_IN_TRANSIT_PER_PEER: the window is shared across
+ *  all peers, so window/in-transit bounds the number of peers that can download concurrently. Any
+ *  peer that finds the window full contributes nothing and instead nominates the peer holding the
+ *  head of the window as a staller (see FindNextBlocksToDownload), which disconnects it after
+ *  BLOCK_STALLING_TIMEOUT. At 1024/512 only two peers could download at once and the rest churned
+ *  the pool. 8192/64 leaves ample headroom over the 8 outbound slots.
+ *
+ *  Note this is a height range, not a memory budget - received blocks are written straight to disk,
+ *  and resident bytes are bounded per-peer by nReceiveFloodSize (-maxreceivebuffer), not by this.
+ *  Per-peer queueing latency is governed by MAX_BLOCKS_IN_TRANSIT_PER_PEER, not by this constant. */
+static const unsigned int BLOCK_DOWNLOAD_WINDOW = 8192;
 /** Time to wait (in seconds) between writing blocks/block index to disk. */
 static const unsigned int DATABASE_WRITE_INTERVAL = 60 * 60;
 /** Time to wait (in seconds) between flushing chainstate to disk. */

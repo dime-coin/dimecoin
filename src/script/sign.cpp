@@ -250,6 +250,9 @@ bool SignPSBTInput(const SigningProvider& provider, const CMutableTransaction& t
     if (input.non_witness_utxo) {
         // If we're taking our information from a non-witness UTXO, verify that it matches the prevout.
         if (input.non_witness_utxo->GetHash() != tx.vin[index].prevout.hash) return false;
+        // The prevout index is attacker-controlled in a crafted PSBT and is not bounded by
+        // deserialization, so it must be range-checked before indexing vout.
+        if (tx.vin[index].prevout.n >= input.non_witness_utxo->vout.size()) return false;
         // If both witness and non-witness UTXO are provided, verify that they match. This check shouldn't
         // matter, as the PSBT deserializer enforces only one of both is provided, and the only way both
         // can be present is when they're added simultaneously by FillPSBT (in which case they always match).

@@ -44,9 +44,14 @@ static void TestDecrypt(const CCrypter& crypt, const std::vector<unsigned char>&
                         const std::vector<unsigned char>& vchPlaintext = std::vector<unsigned char>())
 {
     CKeyingMaterial vchDecrypted;
-    crypt.Decrypt(vchCiphertext, vchDecrypted);
-    if (vchPlaintext.size())
+    bool fDecrypted = crypt.Decrypt(vchCiphertext, vchDecrypted);
+    // Callers that pass no expected plaintext are feeding in arbitrary bytes to
+    // confirm Decrypt() stays well-behaved, so only assert where a specific
+    // round-trip result is expected.
+    if (vchPlaintext.size()) {
+        BOOST_CHECK(fDecrypted);
         BOOST_CHECK(CKeyingMaterial(vchPlaintext.begin(), vchPlaintext.end()) == vchDecrypted);
+    }
 }
 
 static void TestEncryptSingle(const CCrypter& crypt, const CKeyingMaterial& vchPlaintext,

@@ -185,7 +185,11 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
     // Now modify the output to increase the fee.
     // If the output is not large enough to pay the fee, fail.
     CAmount nDelta = new_fee - old_fee;
-    assert(nDelta > 0);
+    if (nDelta <= 0) {
+        errors.push_back(strprintf("Failed to bump fee: new fee (%s) does not exceed the original fee (%s)",
+                                   FormatMoney(new_fee), FormatMoney(old_fee)));
+        return Result::WALLET_ERROR;
+    }
     mtx =  *wtx.tx;
     CTxOut* poutput = &(mtx.vout[nOutput]);
     if (poutput->nValue < nDelta) {
@@ -199,6 +203,14 @@ Result CreateTransaction(const CWallet* wallet, const uint256& txid, const CCoin
         LogPrint(BCLog::RPC, "Bumping fee and discarding dust output\n");
         new_fee += poutput->nValue;
         mtx.vout.erase(mtx.vout.begin() + nOutput);
+    }
+
+    // Re-check maxTxFee after any dust-to-fee conversion above, which could
+    // have pushed new_fee above the safety limit without a further check.
+    if (new_fee > maxTxFee) {
+        errors.push_back(strprintf("Specified or calculated fee %s is too high (cannot be higher than maxTxFee %s) after discarding dust change output",
+                                   FormatMoney(new_fee), FormatMoney(maxTxFee)));
+        return Result::WALLET_ERROR;
     }
 
     // Mark new tx not replaceable, if requested.

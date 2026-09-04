@@ -48,14 +48,26 @@ bool SerializeFileDB(const std::string& prefix, const fs::path& path, const Data
         return error("%s: Failed to open file %s", __func__, pathTmp.string());
 
     // Serialize
-    if (!SerializeDB(fileout, data)) return false;
-    if (!FileCommit(fileout.Get()))
+    if (!SerializeDB(fileout, data)) {
+        fileout.fclose();
+        boost::system::error_code ecIgnored;
+        fs::remove(pathTmp, ecIgnored);
+        return false;
+    }
+    if (!FileCommit(fileout.Get())) {
+        fileout.fclose();
+        boost::system::error_code ecIgnored;
+        fs::remove(pathTmp, ecIgnored);
         return error("%s: Failed to flush file %s", __func__, pathTmp.string());
+    }
     fileout.fclose();
 
     // replace existing file, if any, with new file
-    if (!RenameOver(pathTmp, path))
+    if (!RenameOver(pathTmp, path)) {
+        boost::system::error_code ecIgnored;
+        fs::remove(pathTmp, ecIgnored);
         return error("%s: Rename-into-place failed", __func__);
+    }
 
     return true;
 }

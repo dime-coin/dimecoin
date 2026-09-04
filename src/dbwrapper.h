@@ -167,7 +167,7 @@ public:
         return true;
     }
 
-    unsigned int GetValueSize() {
+    size_t GetValueSize() {
         return piter->value().size();
     }
 

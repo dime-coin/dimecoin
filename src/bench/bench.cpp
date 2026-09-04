@@ -34,7 +34,7 @@ void benchmark::ConsolePrinter::result(const State& state)
         size_t mid = results.size() / 2;
         median = results[mid];
         if (0 == results.size() % 2) {
-            median = (results[mid] + results[mid + 1]) / 2;
+            median = (results[mid - 1] + results[mid]) / 2;
         }
     }
 

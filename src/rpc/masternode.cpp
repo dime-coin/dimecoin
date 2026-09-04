@@ -18,6 +18,7 @@
 #include <rpc/server.h>
 #include <util/system.h>
 #include <util/moneystr.h>
+#include <util/strencodings.h>
 #include <key_io.h>
 #include <wallet/coincontrol.h>
 
@@ -51,6 +52,8 @@ UniValue privatesend(const JSONRPCRequest& request)
             return "Mixing is not supported from masternodes";
 
         privateSendClient.fEnablePrivateSend = true;
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
         bool result = privateSendClient.DoAutomaticDenominating(*g_connman);
         return "Mixing " + (result ? "started successfully" : ("start failed: " + privateSendClient.GetStatus() + ", will retry"));
     }
@@ -157,6 +160,9 @@ static UniValue masternodelist(const JSONRPCRequest& request)
         {
             LOCK(cs_main);
             pindex = chainActive.Tip();
+        }
+        if (!pindex) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "No active chain tip available");
         }
         mnodeman.UpdateLastPaid(pindex);
     }
@@ -271,12 +277,16 @@ UniValue mnsync(const JSONRPCRequest& request)
 
     if(strMode == "next")
     {
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
         masternodeSync.SwitchToNextAsset(*g_connman);
         return "sync updated to " + masternodeSync.GetAssetName();
     }
 
     if(strMode == "reset")
     {
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
         masternodeSync.Reset();
         masternodeSync.SwitchToNextAsset(*g_connman);
         return "success";
@@ -353,6 +363,8 @@ static UniValue masternode(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INTERNAL_ERROR, strprintf("Incorrect masternode address %s", strAddress));
 
         // TODO: Pass CConnman instance somehow and don't use global variable.
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
         CNode *pnode = g_connman->OpenNetworkConnection(CAddress(addr, NODE_NETWORK), false, nullptr, NULL, false, false, false, true);
         if(!pnode)
             throw JSONRPCError(RPC_INTERNAL_ERROR, strprintf("Couldn't connect to masternode %s", strAddress));
@@ -398,8 +410,11 @@ static UniValue masternode(const JSONRPCRequest& request)
         {
             LOCK(cs_main);
             pindex = chainActive.Tip();
+            if (!pindex) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "No active chain tip available");
+            }
+            nHeight = pindex->nHeight + (strCommand == "current" ? 1 : 10);
         }
-        nHeight = pindex->nHeight + (strCommand == "current" ? 1 : 10);
         mnodeman.UpdateLastPaid(pindex);
 
         if(!mnodeman.GetNextMasternodeInQueueForPayment(nHeight, true, nCount, mnInfo))
@@ -422,6 +437,9 @@ static UniValue masternode(const JSONRPCRequest& request)
     {
         if (request.params.size() < 2)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Please specify an alias");
+
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
         {
             LOCK(pwallet->cs_wallet);
@@ -475,6 +493,9 @@ static UniValue masternode(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "You can't use this command until masternode list is synced");
         }
 
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+
         int nSuccessful = 0;
         int nFailed = 0;
 
@@ -483,7 +504,18 @@ static UniValue masternode(const JSONRPCRequest& request)
         for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries()) {
             std::string strError;
 
-            COutPoint outpoint = COutPoint(uint256S(mne.getTxHash()), uint32_t(atoi(mne.getOutputIndex().c_str())));
+            int nOutputIndex = 0;
+            if(!ParseInt32(mne.getOutputIndex(), &nOutputIndex) || nOutputIndex < 0) {
+                nFailed++;
+                UniValue statusObj(UniValue::VOBJ);
+                statusObj.push_back(Pair("alias", mne.getAlias()));
+                statusObj.push_back(Pair("result", "failed"));
+                statusObj.push_back(Pair("errorMessage", "Invalid collateral output index in masternode configuration"));
+                resultsObj.push_back(Pair("status", statusObj));
+                continue;
+            }
+
+            COutPoint outpoint = COutPoint(uint256S(mne.getTxHash()), uint32_t(nOutputIndex));
             CMasternode mn;
             bool fFound = mnodeman.Get(outpoint, mn);
             CMasternodeBroadcast mnb;
@@ -531,16 +563,20 @@ static UniValue masternode(const JSONRPCRequest& request)
         UniValue resultObj(UniValue::VARR);
 
         for(CMasternodeConfig::CMasternodeEntry mne : masternodeConfig.getEntries()) {
-            COutPoint outpoint = COutPoint(uint256S(mne.getTxHash()), uint32_t(atoi(mne.getOutputIndex().c_str())));
+            int nOutputIndex = 0;
+            bool fValidIndex = ParseInt32(mne.getOutputIndex(), &nOutputIndex) && nOutputIndex >= 0;
+            COutPoint outpoint = fValidIndex
+                ? COutPoint(uint256S(mne.getTxHash()), uint32_t(nOutputIndex))
+                : COutPoint();
             CMasternode mn;
-            bool fFound = mnodeman.Get(outpoint, mn);
+            bool fFound = fValidIndex && mnodeman.Get(outpoint, mn);
 
-            std::string strStatus = fFound ? mn.GetStatus() : "MISSING";
+            std::string strStatus = !fValidIndex ? "INVALID_CONFIG" : (fFound ? mn.GetStatus() : "MISSING");
 
             UniValue mnObj(UniValue::VOBJ);
             mnObj.push_back(Pair("alias", mne.getAlias()));
             mnObj.push_back(Pair("address", mne.getIp()));
-            mnObj.push_back(Pair("privateKey", mne.getPrivKey()));
+            mnObj.push_back(Pair("privateKey", "[hidden]"));
             mnObj.push_back(Pair("txHash", mne.getTxHash()));
             mnObj.push_back(Pair("outputIndex", mne.getOutputIndex()));
             mnObj.push_back(Pair("status", strStatus));
@@ -603,7 +639,9 @@ static UniValue masternode(const JSONRPCRequest& request)
         std::string strFilter = "";
 
         if (request.params.size() >= 2) {
-            nLast = atoi(request.params[1].get_str());
+            if (!ParseInt32(request.params[1].get_str(), &nLast) || nLast < 1 || nLast > 10000) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid count, expected integer range [1, 10000]");
+            }
         }
 
         if (request.params.size() == 3) {
@@ -802,7 +840,7 @@ static UniValue masternodebroadcast(const JSONRPCRequest& request)
                 resultObj.push_back(Pair("addr", mnb.addr.ToString()));
                 resultObj.push_back(Pair("pubKeyCollateralAddress", mnb.pubKeyCollateralAddress.GetID().ToString()));
                 resultObj.push_back(Pair("pubKeyMasternode", mnb.pubKeyMasternode.GetID().ToString()));
-                resultObj.push_back(Pair("vchSig", EncodeBase64(&mnb.vchSig[0], mnb.vchSig.size())));
+                resultObj.push_back(Pair("vchSig", EncodeBase64(mnb.vchSig.data(), mnb.vchSig.size())));
                 resultObj.push_back(Pair("sigTime", mnb.sigTime));
                 resultObj.push_back(Pair("protocolVersion", mnb.nProtocolVersion));
                 resultObj.push_back(Pair("nLastDsq", mnb.nLastDsq));
@@ -811,7 +849,7 @@ static UniValue masternodebroadcast(const JSONRPCRequest& request)
                 lastPingObj.push_back(Pair("outpoint", mnb.lastPing.vin.prevout.ToString()));
                 lastPingObj.push_back(Pair("blockHash", mnb.lastPing.blockHash.ToString()));
                 lastPingObj.push_back(Pair("sigTime", mnb.lastPing.sigTime));
-                lastPingObj.push_back(Pair("vchSig", EncodeBase64(&mnb.lastPing.vchSig[0], mnb.lastPing.vchSig.size())));
+                lastPingObj.push_back(Pair("vchSig", EncodeBase64(mnb.lastPing.vchSig.data(), mnb.lastPing.vchSig.size())));
 
                 resultObj.push_back(Pair("lastPing", lastPingObj));
             } else {
@@ -834,6 +872,9 @@ static UniValue masternodebroadcast(const JSONRPCRequest& request)
                                                         "\nArguments:\n"
                                                         "1. \"hex\"      (string, required) Broadcast messages hex string\n"
                                                         "2. fast       (string, optional) If none, using safe method\n");
+
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
         std::vector<CMasternodeBroadcast> vecMnb;
 

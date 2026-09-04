@@ -16,16 +16,17 @@
 #include <util/system.h>
 #include <util/strencodings.h>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/signals2/signal.hpp>
 #include <boost/algorithm/string/case_conv.hpp> // for to_upper()
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
+#include <atomic>
 #include <memory> // for unique_ptr
 #include <unordered_map>
 
-static bool fRPCRunning = false;
+static std::atomic<bool> fRPCRunning(false);
 static bool fRPCInWarmup = true;
 static std::string rpcWarmupStatus("RPC server started");
 static CCriticalSection cs_rpcWarmup;
@@ -514,7 +515,7 @@ std::vector<std::string> CRPCTable::listCommands() const
 
     std::transform( mapCommands.begin(), mapCommands.end(),
                    std::back_inserter(commandList),
-                   boost::bind(&commandMap::value_type::first,_1) );
+                   boost::bind(&commandMap::value_type::first,boost::placeholders::_1) );
     return commandList;
 }
 

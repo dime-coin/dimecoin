@@ -11,6 +11,7 @@
 #include <script/standard.h>
 #include <sync.h>
 #include <util/system.h>
+#include <util/strencodings.h>
 #include <util/time.h>
 #include <wallet/wallet.h>
 #include <merkleblock.h>
@@ -57,9 +58,14 @@ static std::string DecodeDumpString(const std::string &str) {
     for (unsigned int pos = 0; pos < str.length(); pos++) {
         unsigned char c = str[pos];
         if (c == '%' && pos+2 < str.length()) {
-            c = (((str[pos+1]>>6)*9+((str[pos+1]-'0')&15)) << 4) | 
-                ((str[pos+2]>>6)*9+((str[pos+2]-'0')&15));
-            pos += 2;
+            signed char h1 = HexDigit(str[pos+1]);
+            signed char h2 = HexDigit(str[pos+2]);
+            if (h1 >= 0 && h2 >= 0) {
+                c = static_cast<unsigned char>((h1 << 4) | h2);
+                pos += 2;
+            }
+            // Malformed escape: emit '%' literally rather than silently
+            // decoding non-hex characters to arbitrary nibble values.
         }
         ret << c;
     }
@@ -535,7 +541,11 @@ UniValue importwallet(const JSONRPCRequest& request)
         if (!file.is_open()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");
         }
-        nTimeBegin = chainActive.Tip()->GetBlockTime();
+        const CBlockIndex* tip = chainActive.Tip();
+        if (!tip) {
+            throw JSONRPCError(RPC_INTERNAL_ERROR, "No active chain tip available");
+        }
+        nTimeBegin = tip->GetBlockTime();
 
         int64_t nFilesize = std::max((int64_t)1, (int64_t)file.tellg());
         file.seekg(0, file.beg);
@@ -557,7 +567,11 @@ UniValue importwallet(const JSONRPCRequest& request)
             CKey key = DecodeSecret(vstr[0]);
             if (key.IsValid()) {
                 CPubKey pubkey = key.GetPubKey();
-                assert(key.VerifyPubKey(pubkey));
+                if (!key.VerifyPubKey(pubkey)) {
+                    LogPrintf("Skipping import of a private key whose public key does not verify\n");
+                    fGood = false;
+                    continue;
+                }
                 CKeyID keyid = pubkey.GetID();
                 if (pwallet->HaveKey(keyid)) {
                     LogPrintf("Skipping import of %s (key already present)\n", EncodeDestination(keyid));
@@ -736,8 +750,12 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     // produce output
     file << strprintf("# Wallet dump created by Dimecoin %s\n", CLIENT_BUILD);
     file << strprintf("# * Created on %s\n", FormatISO8601DateTime(GetTime()));
-    file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), chainActive.Tip()->GetBlockHash().ToString());
-    file << strprintf("#   mined on %s\n", FormatISO8601DateTime(chainActive.Tip()->GetBlockTime()));
+    const CBlockIndex* tip = chainActive.Tip();
+    if (!tip) {
+        throw JSONRPCError(RPC_INTERNAL_ERROR, "No active chain tip available");
+    }
+    file << strprintf("# * Best block at time of backup was %i (%s),\n", chainActive.Height(), tip->GetBlockHash().ToString());
+    file << strprintf("#   mined on %s\n", FormatISO8601DateTime(tip->GetBlockTime()));
     file << "\n";
 
     // add the base58check encoded extended master if the wallet uses HD
@@ -759,6 +777,8 @@ UniValue dumpwallet(const JSONRPCRequest& request)
         std::string strLabel;
         CKey key;
         if (pwallet->GetKey(keyid, key)) {
+            const auto itMeta = pwallet->mapKeyMetadata.find(keyid);
+            const std::string hdKeypath = itMeta != pwallet->mapKeyMetadata.end() ? itMeta->second.hdKeypath : "";
             file << strprintf("%s %s ", EncodeSecret(key), strTime);
             if (GetWalletAddressesForKey(pwallet, keyid, strAddr, strLabel)) {
                file << strprintf("label=%s", strLabel);
@@ -766,12 +786,12 @@ UniValue dumpwallet(const JSONRPCRequest& request)
                 file << "hdmaster=1";
             } else if (mapKeyPool.count(keyid)) {
                 file << "reserve=1";
-            } else if (pwallet->mapKeyMetadata[keyid].hdKeypath == "m") {
+            } else if (hdKeypath == "m") {
                 file << "inactivehdmaster=1";
             } else {
                 file << "change=1";
             }
-            file << strprintf(" # addr=%s%s\n", strAddr, (pwallet->mapKeyMetadata[keyid].hdKeypath.size() > 0 ? " hdkeypath="+pwallet->mapKeyMetadata[keyid].hdKeypath : ""));
+            file << strprintf(" # addr=%s%s\n", strAddr, (hdKeypath.size() > 0 ? " hdkeypath="+hdKeypath : ""));
         }
     }
     file << "\n";
@@ -792,6 +812,8 @@ UniValue dumpwallet(const JSONRPCRequest& request)
     file << "\n";
     file << "# End of dump\n";
     file.close();
+    if (file.fail())
+        throw JSONRPCError(RPC_MISC_ERROR, "Error writing wallet dump file; the backup may be incomplete");
 
     UniValue reply(UniValue::VOBJ);
     reply.pushKV("filename", filepath.string());

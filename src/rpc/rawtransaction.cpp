@@ -229,6 +229,8 @@ static UniValue gettxoutproof(const JSONRPCRequest& request)
     std::set<uint256> setTxids;
     uint256 oneTxid;
     UniValue txids = request.params[0].get_array();
+    if (txids.empty())
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter, txids must contain at least one txid");
     for (unsigned int idx = 0; idx < txids.size(); idx++) {
         const UniValue& txid = txids[idx];
         if (txid.get_str().length() != 64 || !IsHex(txid.get_str()))
@@ -417,7 +419,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
         } else {
             CTxDestination destination = DecodeDestination(name_);
             if (!IsValidDestination(destination)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Bitcoin address: ") + name_);
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Dimecoin address: ") + name_);
             }
 
             if (!destinations.insert(destination).second) {
@@ -1273,7 +1275,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "decodepsbt \"psbt\"\n"
-            "\nReturn a JSON object representing the serialized, base64-encoded partially signed Bitcoin transaction.\n"
+             "\nReturn a JSON object representing the serialized, base64-encoded partially signed Dimecoin transaction.\n"
 
             "\nArguments:\n"
             "1. \"psbt\"            (string, required) The PSBT base64 string\n"
@@ -1298,7 +1300,7 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             "          \"asm\" : \"asm\",            (string) The asm\n"
             "          \"hex\" : \"hex\",            (string) The hex\n"
             "          \"type\" : \"pubkeyhash\",    (string) The type, eg 'pubkeyhash'\n"
-            "          \"address\" : \"address\"     (string) Bitcoin address if there is one\n"
+             "          \"address\" : \"address\"     (string) Dimecoin address if there is one\n"
             "        }\n"
             "      },\n"
             "      \"partial_signatures\" : {             (json object, optional)\n"
@@ -1417,7 +1419,11 @@ UniValue decodepsbt(const JSONRPCRequest& request)
             UniValue non_wit(UniValue::VOBJ);
             TxToUniv(*input.non_witness_utxo, uint256(), non_wit, false);
             in.pushKV("non_witness_utxo", non_wit);
-            total_in += input.non_witness_utxo->vout[psbtx.tx->vin[i].prevout.n].nValue;
+            const uint32_t prevout_n = psbtx.tx->vin[i].prevout.n;
+            if (prevout_n >= input.non_witness_utxo->vout.size()) {
+                throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Non-witness UTXO does not contain the referenced output");
+            }
+            total_in += input.non_witness_utxo->vout[prevout_n].nValue;
         } else {
             have_all_utxos = false;
         }
@@ -1555,7 +1561,7 @@ UniValue combinepsbt(const JSONRPCRequest& request)
     if (request.fHelp || request.params.size() != 1)
         throw std::runtime_error(
             "combinepsbt [\"psbt\",...]\n"
-            "\nCombine multiple partially signed Bitcoin transactions into one transaction.\n"
+             "\nCombine multiple partially signed Dimecoin transactions into one transaction.\n"
             "Implements the Combiner role.\n"
             "\nArguments:\n"
             "1. \"txs\"                   (string) A json array of base64 strings of partially signed transactions\n"
@@ -1575,6 +1581,9 @@ UniValue combinepsbt(const JSONRPCRequest& request)
     // Unserialize the transactions
     std::vector<PartiallySignedTransaction> psbtxs;
     UniValue txs = request.params[0].get_array();
+    if (txs.size() == 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Parameter 'txs' cannot be empty");
+    }
     for (unsigned int i = 0; i < txs.size(); ++i) {
         PartiallySignedTransaction psbtx;
         std::string error;
@@ -1772,7 +1781,7 @@ UniValue converttopsbt(const JSONRPCRequest& request)
 
     // Remove all scriptSigs and scriptWitnesses from inputs
     for (CTxIn& input : tx.vin) {
-        if ((!input.scriptSig.empty() || !input.scriptWitness.IsNull()) && (request.params[1].isNull() || (!request.params[1].isNull() && request.params[1].get_bool()))) {
+        if ((!input.scriptSig.empty() || !input.scriptWitness.IsNull()) && !permitsigdata) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Inputs must not have scriptSigs and scriptWitnesses");
         }
         input.scriptSig.clear();

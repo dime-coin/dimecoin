@@ -819,7 +819,7 @@ bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes, bool& complete
 
             //store received bytes per message command
             //to prevent a memory DOS, only allow valid commands
-            mapMsgCmdSize::iterator i = mapRecvBytesPerMsgCmd.find(msg.hdr.pchCommand);
+            mapMsgCmdSize::iterator i = mapRecvBytesPerMsgCmd.find(msg.hdr.GetCommand());
             if (i == mapRecvBytesPerMsgCmd.end())
                 i = mapRecvBytesPerMsgCmd.find(NET_MESSAGE_COMMAND_OTHER);
             assert(i != mapRecvBytesPerMsgCmd.end());
@@ -1046,17 +1046,24 @@ bool CConnman::AttemptToEvictConnection()
     {
         LOCK(cs_vNodes);
 
-        for (const CNode* node : vNodes) {
+        for (CNode* node : vNodes) {
             if (node->fWhitelisted)
                 continue;
             if (!node->fInbound)
                 continue;
             if (node->fDisconnect)
                 continue;
+            bool nodeRelayTxes;
+            bool nodeHasFilter;
+            {
+                LOCK(node->cs_filter);
+                nodeRelayTxes = node->fRelayTxes;
+                nodeHasFilter = node->pfilter != nullptr;
+            }
             NodeEvictionCandidate candidate = {node->GetId(), node->nTimeConnected, node->nMinPingUsecTime,
                                                node->nLastBlockTime, node->nLastTXTime,
                                                HasAllDesirableServiceFlags(node->nServices),
-                                               node->fRelayTxes, node->pfilter != nullptr, node->addr, node->nKeyedNetGroup};
+                                               nodeRelayTxes, nodeHasFilter, node->addr, node->nKeyedNetGroup};
             vEvictionCandidates.push_back(candidate);
         }
     }
@@ -2070,15 +2077,20 @@ void CConnman::ThreadMnbRequestConnections()
 
         OpenNetworkConnection(CAddress(p.first, NODE_NETWORK), false, nullptr, NULL, false, false, false, true);
 
-        LOCK(cs_vNodes);
+        CNode *pnode = nullptr;
+        {
+            LOCK(cs_vNodes);
 
-        CNode *pnode = FindNode(p.first);
-        if(!pnode || pnode->fDisconnect) continue;
+            pnode = FindNode(p.first);
+            if(!pnode || pnode->fDisconnect) continue;
+            pnode->AddRef();
 
-        LogPrint(BCLog::NET, "ThreadMnbRequestConnections -- adding node: peer=%d addr=%s nRefCount=%d fNetworkNode=%d fInbound=%d fMasternode=%d\n",
-                   pnode->id, pnode->addr.ToString(), pnode->GetRefCount(), pnode->fNetworkNode, pnode->fInbound, pnode->fMasternode);
+            LogPrint(BCLog::NET, "ThreadMnbRequestConnections -- adding node: peer=%d addr=%s nRefCount=%d fNetworkNode=%d fInbound=%d fMasternode=%d\n",
+                       pnode->id, pnode->addr.ToString(), pnode->GetRefCount(), pnode->fNetworkNode, pnode->fInbound, pnode->fMasternode);
 
-        grant.MoveTo(pnode->grantMasternodeOutbound);
+            pnode->grantMasternodeOutbound.Release();
+            grant.MoveTo(pnode->grantMasternodeOutbound);
+        }
 
         // compile request vector
         std::vector<CInv> vToFetch;
@@ -2093,6 +2105,10 @@ void CConnman::ThreadMnbRequestConnections()
 
         // ask for data
         PushMessage(pnode, CNetMsgMaker(pnode->GetSendVersion()).Make(NetMsgType::GETDATA, vToFetch));
+        {
+            LOCK(cs_vNodes);
+            pnode->Release();
+        }
     }
 }
 
@@ -2641,10 +2657,13 @@ std::vector<CAddress> CConnman::GetAddresses()
 
 bool CConnman::AddNode(const std::string& strNode)
 {
+    if (strNode.size() > MAX_ADDNODE_ADDRESS_LENGTH) return false;
+
     LOCK(cs_vAddedNodes);
     for (const std::string& it : vAddedNodes) {
         if (strNode == it) return false;
     }
+    if (vAddedNodes.size() >= MAX_ADDNODE_ENTRIES) return false;
 
     vAddedNodes.push_back(strNode);
     return true;
@@ -2727,6 +2746,16 @@ void CConnman::RelayTransaction(const CTransaction& tx, const CDataStream& ss)
         LOCK(cs_mapRelayDash);
         // Expire old relay messages
         while (!vRelayExpirationDash.empty() && vRelayExpirationDash.front().first < GetTime())
+        {
+            mapRelayDash.erase(vRelayExpirationDash.front().second);
+            vRelayExpirationDash.pop_front();
+        }
+
+        // Hard size cap on top of the time-based sweep. The sweep only fires on
+        // the write path, so a sustained insert rate can grow the map between
+        // sweeps. Evict oldest-first until below the cap before inserting the
+        // new entry, so the new insertion respects the same budget.
+        while (mapRelayDash.size() >= MAX_RELAY_DASH_ENTRIES && !vRelayExpirationDash.empty())
         {
             mapRelayDash.erase(vRelayExpirationDash.front().second);
             vRelayExpirationDash.pop_front();

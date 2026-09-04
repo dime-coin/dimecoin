@@ -69,6 +69,7 @@ void WalletInit::AddWalletOptions() const
     gArgs.AddArg("-paytxfee=<amt>", strprintf("Fee (in %s/kB) to add to transactions you send (default: %s)",
                                                             CURRENCY_UNIT, FormatMoney(CFeeRate{DEFAULT_PAY_TX_FEE}.GetFeePerK())), false, OptionsCategory::WALLET);
     gArgs.AddArg("-rescan", "Rescan the block chain for missing wallet transactions on startup", false, OptionsCategory::WALLET);
+    gArgs.AddArg("-reservebalance=<amt>", "Keep this amount (in DIME) in reserve and never use it to create a coinstake when staking", false, OptionsCategory::WALLET);
     gArgs.AddArg("-salvagewallet", "Attempt to recover private keys from a corrupt wallet on startup", false, OptionsCategory::WALLET);
     gArgs.AddArg("-spendzeroconfchange", strprintf("Spend unconfirmed change when sending transactions (default: %u)", DEFAULT_SPEND_ZEROCONF_CHANGE), false, OptionsCategory::WALLET);
     gArgs.AddArg("-txconfirmtarget=<n>", strprintf("If paytxfee is not set, include enough fee so transactions begin confirmation on average within n blocks (default: %u)", DEFAULT_TX_CONFIRM_TARGET), false, OptionsCategory::WALLET);
@@ -203,7 +204,7 @@ bool WalletInit::Verify() const
     // Keep track of each wallet absolute path to detect duplicates.
     std::set<fs::path> wallet_paths;
 
-    for (const auto wallet_file : wallet_files) {
+    for (const auto& wallet_file : wallet_files) {
         fs::path wallet_path = fs::absolute(wallet_file, GetWalletDir());
 
         if (!wallet_paths.insert(wallet_path).second) {

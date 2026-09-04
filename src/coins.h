@@ -28,6 +28,17 @@
  * - VARINT((coinbase ? 1 : 0) | (height << 1))
  * - the non-spent CTxOut (via CTxOutCompressor)
  */
+
+/**
+ * Largest block height representable in Coin::nHeight.
+ *
+ * Dimecoin narrows this field to 30 bits (upstream uses 31) so that the PoS
+ * fCoinStake flag fits alongside fCoinBase in the serialized code word. Any
+ * sentinel height assigned to a Coin must fit within this mask, otherwise it is
+ * silently truncated on assignment and later equality comparisons never match.
+ */
+static constexpr uint32_t COIN_HEIGHT_MAX = 0x3FFFFFFF;
+
 class Coin
 {
 public:
@@ -156,7 +167,7 @@ public:
 
     virtual bool GetKey(COutPoint &key) const = 0;
     virtual bool GetValue(Coin &coin) const = 0;
-    virtual unsigned int GetValueSize() const = 0;
+    virtual size_t GetValueSize() const = 0;
 
     virtual bool Valid() const = 0;
     virtual void Next() = 0;

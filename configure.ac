@@ -1,13 +1,13 @@
 dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
 AC_PREREQ([2.60])
-define(_CLIENT_VERSION_MAJOR, 2)
-define(_CLIENT_VERSION_MINOR, 3)
-define(_CLIENT_VERSION_REVISION, 0)
-define(_CLIENT_VERSION_BUILD, 0)
-define(_CLIENT_VERSION_IS_RELEASE, true)
-define(_COPYRIGHT_YEAR, 2023)
-define(_COPYRIGHT_HOLDERS,[The %s developers])
-define(_COPYRIGHT_HOLDERS_SUBSTITUTION,[[Dimecoin Core]])
+m4_define(_CLIENT_VERSION_MAJOR, 2)
+m4_define(_CLIENT_VERSION_MINOR, 4)
+m4_define(_CLIENT_VERSION_REVISION, 0)
+m4_define(_CLIENT_VERSION_BUILD, 0)
+m4_define(_CLIENT_VERSION_IS_RELEASE, true)
+m4_define(_COPYRIGHT_YEAR, 2026)
+m4_define(_COPYRIGHT_HOLDERS,[The %s developers])
+m4_define(_COPYRIGHT_HOLDERS_SUBSTITUTION,[[Dimecoin Core]])
 AC_INIT([Dimecoin Core],[_CLIENT_VERSION_MAJOR._CLIENT_VERSION_MINOR._CLIENT_VERSION_REVISION],[https://github.com/dime-coin/dimecoin/issues],[dimecoin],[https://www.dimecoinnetwork.com])
 AC_CONFIG_SRCDIR([src/validation.cpp])
 AC_CONFIG_HEADERS([src/config/bitcoin-config.h])
@@ -910,7 +910,9 @@ fi
 if test x$use_boost = xyes; then
 
 dnl Minimum required Boost version
-define(MINIMUM_REQUIRED_BOOST, 1.47.0)
+dnl The tree uses the qualified boost::placeholders:: namespace, which Boost
+dnl only provides from 1.60.0 onwards.
+define(MINIMUM_REQUIRED_BOOST, 1.60.0)
 
 dnl Check for boost libs
 AX_BOOST_BASE([MINIMUM_REQUIRED_BOOST])

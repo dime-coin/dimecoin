@@ -8,6 +8,7 @@ src/dimecoin-tx
 src/test/test_dimecoin
 src/test/test_dimecoin_fuzzy
 src/qt/test/test_dimecoin-qt
+src/bench/bench_dimecoin
 
 # autoreconf
 Makefile.in
@@ -55,6 +56,7 @@ src/qt/bitcoin-qt.includes
 .libs
 .*.swp
 *.*~*
+*~
 *.bak
 *.rej
 *.orig
@@ -62,6 +64,9 @@ src/qt/bitcoin-qt.includes
 *.o
 *.o-*
 *.patch
+# Build patches vendored in-tree are tracked deliberately
+!depends/patches/**/*.patch
+!contrib/patches/**/*.patch
 *.a
 *.pb.cc
 *.pb.h
@@ -109,6 +114,9 @@ linux-build
 win32-build
 test/config.ini
 test/cache/*
+
+# QA suite output: timestamped HTML reports are local run artifacts
+test/qa-reports/
 
 !src/leveldb*/Makefile
 

@@ -209,32 +209,77 @@ bool BCLog::Logger::OpenDebugLogHelper()
     return true;
 }
 
+void BCLog::Logger::BufferBeforeOpen(const std::string& str)
+{
+    // Bound the backlog. If the log file cannot be opened at all - a full disk
+    // being the most likely reason - an unbounded list would grow until the
+    // process is killed. Keep the most recent messages; those are the ones that
+    // explain what went wrong.
+    static constexpr size_t MAX_BUFFERED_MSGS = 10000;
+
+    m_msgs_before_open.push_back(str);
+    while (m_msgs_before_open.size() > MAX_BUFFERED_MSGS) {
+        m_msgs_before_open.pop_front();
+    }
+}
+
 void BCLog::Logger::RotateLogs()
 {
     static constexpr size_t MAX_LOG_SIZE = 1024 * 1024 * 500; // 500  MB
+
+    if (m_rotation_disabled || !m_fileout) {
+        return;
+    }
+
     boost::system::error_code ec;
     auto fileSize = fs::file_size(m_file_path, ec);
-    if(fileSize > MAX_LOG_SIZE)
-    {
-        if(m_fileout)
-        {
-            fclose(m_fileout);
-            m_fileout = nullptr;
-            auto rotatedPath = m_file_path;
-            rotatedPath += ".old";
-            if(fs::exists(rotatedPath)) // if we already have rotated log
-            {
-                fs::remove(rotatedPath, ec);
-            }
-            fs::rename(m_file_path, rotatedPath, ec);
+    if (ec || fileSize <= MAX_LOG_SIZE) {
+        return;
+    }
 
-            OpenDebugLogHelper();
+    auto rotatedPath = m_file_path;
+    rotatedPath += ".old";
+
+    if (fs::exists(rotatedPath, ec)) // if we already have rotated log
+    {
+        fs::remove(rotatedPath, ec);
+        if (ec) {
+            // Rotation cannot make progress. Leaving it enabled would retry on
+            // every single log line, turning each one into a stat/unlink/rename
+            // storm, so stand down until the next restart.
+            m_rotation_disabled = true;
+            FileWriteStr("Log rotation disabled: could not remove previous rotated log\n", m_fileout);
+            return;
         }
+    }
+
+    fclose(m_fileout);
+    m_fileout = nullptr;
+
+    fs::rename(m_file_path, rotatedPath, ec);
+
+    if (!OpenDebugLogHelper()) {
+        // m_fileout is left null here on purpose; the caller must re-check it
+        // rather than writing through it.
+        m_rotation_disabled = true;
+        return;
+    }
+
+    if (ec) {
+        // The rename failed, so the reopened file is still the oversized one and
+        // every subsequent line would attempt rotation again.
+        m_rotation_disabled = true;
+        FileWriteStr("Log rotation disabled: could not rename debug log\n", m_fileout);
     }
 }
 
 void BCLog::Logger::LogPrintStr(const std::string &str)
 {
+    // The lock covers timestamping as well: LogTimestampStr performs a
+    // read-modify-write of m_started_new_line, so concurrent callers would
+    // otherwise race and emit duplicated or missing timestamps.
+    std::lock_guard<std::mutex> scoped_lock(m_file_mutex);
+
     std::string strTimestamped = LogTimestampStr(str);
 
     if (m_print_to_console) {
@@ -243,29 +288,30 @@ void BCLog::Logger::LogPrintStr(const std::string &str)
         fflush(stdout);
     }
     if (m_print_to_file) {
-        std::lock_guard<std::mutex> scoped_lock(m_file_mutex);
-
-        // buffer if we haven't opened the log yet
-        if (m_fileout == nullptr) {
-            m_msgs_before_open.push_back(strTimestamped);
-        }
-        else
-        {
-
-            RotateLogs();
-
-            // reopen the log file, if requested
-            if (m_reopen_file) {
-                m_reopen_file = false;
+        // reopen the log file, if requested
+        if (m_reopen_file) {
+            m_reopen_file = false;
+            if (m_fileout) {
                 m_fileout = fsbridge::freopen(m_file_path, "a", m_fileout);
-                if (!m_fileout) {
-                    return;
-                }
+            } else {
+                OpenDebugLogHelper();
+            }
+            if (m_fileout) {
                 setbuf(m_fileout, nullptr); // unbuffered
             }
-
-            FileWriteStr(strTimestamped, m_fileout);
         }
+
+        RotateLogs();
+
+        // RotateLogs() closes and reopens the file, and that reopen can fail -
+        // a disk with no space left is precisely why the log grew large enough
+        // to rotate. Re-check instead of writing through a null FILE*.
+        if (m_fileout == nullptr) {
+            BufferBeforeOpen(strTimestamped);
+            return;
+        }
+
+        FileWriteStr(strTimestamped, m_fileout);
     }
 }
 
@@ -291,8 +337,14 @@ void BCLog::Logger::ShrinkDebugFile()
     {
         // Restart the file with some of the end
         std::vector<char> vch(RECENT_DEBUG_HISTORY_SIZE, 0);
-        fseek(file, -((long)vch.size()), SEEK_END);
-        int nBytes = fread(vch.data(), 1, vch.size(), file);
+        if (fseek(file, -((long)vch.size()), SEEK_END) != 0) {
+            // Without a successful seek the read below returns the OLDEST bytes
+            // of the log, and truncating the file to those would discard exactly
+            // the recent history this function exists to preserve.
+            fclose(file);
+            return;
+        }
+        size_t nBytes = fread(vch.data(), 1, vch.size(), file);
         fclose(file);
 
         file = fsbridge::fopen(m_file_path, "w");

@@ -82,6 +82,15 @@ bool CMasternodeConfig::read(std::string& strErr) {
         }
 
 
+        int nOutputIndex = 0;
+        if(!ParseInt32(outputIndex, &nOutputIndex) || nOutputIndex < 0) {
+            strErr = _("Invalid collateral output index detected in masternode.conf") + "\n" +
+                    strprintf(_("Line: %d"), linenumber) + "\n\"" + line + "\"" + "\n" +
+                    _("(must be a non-negative whole number)");
+            streamConfig.close();
+            return false;
+        }
+
         add(alias, ip, privKey, txHash, outputIndex);
     }
 

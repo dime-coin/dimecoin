@@ -21,12 +21,11 @@
 #include <rpc/server.h>
 #include <util/system.h>
 #include <util/moneystr.h>
+#include <util/strencodings.h>
 #include <consensus/validation.h>
 #ifdef ENABLE_WALLET
 #include <wallet/wallet.h>
 #endif // ENABLE_WALLET
-
-#include <boost/lexical_cast.hpp>
 
 UniValue gobject(const JSONRPCRequest& request)
 {
@@ -85,11 +84,17 @@ UniValue gobject(const JSONRPCRequest& request)
 
         std::string strHex = request.params[1].get_str();
 
+        if (!IsHex(strHex)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Governance object data must be a valid hexadecimal string");
+        }
+
         std::vector<unsigned char> v = ParseHex(strHex);
         std::string s(v.begin(), v.end());
 
         UniValue u(UniValue::VOBJ);
-        u.read(s);
+        if (!u.read(s)) {
+            throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Failed to deserialize governance object data as JSON");
+        }
 
         return u.write().c_str();
     }
@@ -150,8 +155,15 @@ UniValue gobject(const JSONRPCRequest& request)
 
         std::string strRevision = request.params[2].get_str();
         std::string strTime = request.params[3].get_str();
-        int nRevision = boost::lexical_cast<int>(strRevision);
-        int nTime = boost::lexical_cast<int>(strTime);
+        // Validate before converting: an unparsable value previously escaped as a cast
+        // exception rather than a structured RPC error. nTime is carried as 64-bit so
+        // timestamps beyond the 32-bit range survive the round trip.
+        int32_t nRevision = 0;
+        if (!ParseInt32(strRevision, &nRevision))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid revision, must be a whole number");
+        int64_t nTime = 0;
+        if (!ParseInt64(strTime, &nTime))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid time, must be a whole number");
         std::string strData = request.params[4].get_str();
 
         // CREATE A NEW COLLATERAL TRANSACTION FOR THIS SPECIFIC OBJECT
@@ -211,6 +223,9 @@ UniValue gobject(const JSONRPCRequest& request)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Correct usage is 'gobject submit <parent-hash> <revision> <time> <data-hex> <fee-txid>'");
         }
 
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+
         if(!masternodeSync.IsBlockchainSynced()) {
             throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Must wait for client to sync with masternode network. Try again in a minute or so.");
         }
@@ -240,8 +255,14 @@ UniValue gobject(const JSONRPCRequest& request)
 
         std::string strRevision = request.params[2].get_str();
         std::string strTime = request.params[3].get_str();
-        int nRevision = boost::lexical_cast<int>(strRevision);
-        int nTime = boost::lexical_cast<int>(strTime);
+        // Same validation as gobject prepare: reject unparsable input with a proper RPC
+        // error, and keep the timestamp 64-bit.
+        int32_t nRevision = 0;
+        if (!ParseInt32(strRevision, &nRevision))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid revision, must be a whole number");
+        int64_t nTime = 0;
+        if (!ParseInt64(strTime, &nTime))
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid time, must be a whole number");
         std::string strData = request.params[4].get_str();
 
         CGovernanceObject govobj(hashParent, nRevision, nTime, txidFee, strData);
@@ -315,6 +336,9 @@ UniValue gobject(const JSONRPCRequest& request)
     {
         if(request.params.size() != 4)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Correct usage is 'gobject vote-conf <governance-hash> [funding|valid|delete] [yes|no|abstain]'");
+
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
         uint256 hash;
         std::string strVote;
@@ -394,6 +418,9 @@ UniValue gobject(const JSONRPCRequest& request)
         if(request.params.size() != 4)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Correct usage is 'gobject vote-many <governance-hash> [funding|valid|delete] [yes|no|abstain]'");
 
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+
         uint256 hash;
         std::string strVote;
 
@@ -446,11 +473,15 @@ UniValue gobject(const JSONRPCRequest& request)
             nTxHash.SetHex(mne.getTxHash());
 
             int nOutputIndex = 0;
-            if(!ParseInt32(mne.getOutputIndex(), &nOutputIndex)) {
+            if(!ParseInt32(mne.getOutputIndex(), &nOutputIndex) || nOutputIndex < 0) {
+                nFailed++;
+                statusObj.push_back(Pair("result", "failed"));
+                statusObj.push_back(Pair("errorMessage", "Invalid collateral output index in masternode configuration"));
+                resultsObj.push_back(Pair(mne.getAlias(), statusObj));
                 continue;
             }
 
-            COutPoint outpoint(nTxHash, nOutputIndex);
+            COutPoint outpoint(nTxHash, (uint32_t)nOutputIndex);
 
             CMasternode mn;
             bool fMnFound = mnodeman.Get(outpoint, mn);
@@ -499,6 +530,9 @@ UniValue gobject(const JSONRPCRequest& request)
     {
         if(request.params.size() != 5)
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Correct usage is 'gobject vote-alias <governance-hash> [funding|valid|delete] [yes|no|abstain] <alias-name>'");
+
+        if(!g_connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
         uint256 hash;
         std::string strVote;
@@ -555,7 +589,7 @@ UniValue gobject(const JSONRPCRequest& request)
             if(!CMessageSigner::GetKeysFromSecret(mne.getPrivKey(), keyMasternode, pubKeyMasternode)) {
                 nFailed++;
                 statusObj.push_back(Pair("result", "failed"));
-                statusObj.push_back(Pair("errorMessage", strprintf("Invalid masternode key %s.", mne.getPrivKey())));
+                statusObj.push_back(Pair("errorMessage", "Invalid masternode key for this alias."));
                 resultsObj.push_back(Pair(mne.getAlias(), statusObj));
                 continue;
             }
@@ -566,11 +600,15 @@ UniValue gobject(const JSONRPCRequest& request)
             nTxHash.SetHex(mne.getTxHash());
 
             int nOutputIndex = 0;
-            if(!ParseInt32(mne.getOutputIndex(), &nOutputIndex)) {
+            if(!ParseInt32(mne.getOutputIndex(), &nOutputIndex) || nOutputIndex < 0) {
+                nFailed++;
+                statusObj.push_back(Pair("result", "failed"));
+                statusObj.push_back(Pair("errorMessage", "Invalid collateral output index in masternode configuration"));
+                resultsObj.push_back(Pair(mne.getAlias(), statusObj));
                 continue;
             }
 
-            COutPoint outpoint(nTxHash, nOutputIndex);
+            COutPoint outpoint(nTxHash, (uint32_t)nOutputIndex);
 
             CMasternode mn;
             bool fMnFound = mnodeman.Get(outpoint, mn);
@@ -827,7 +865,9 @@ UniValue gobject(const JSONRPCRequest& request)
         if (request.params.size() == 4) {
             uint256 txid = ParseHashV(request.params[2], "Masternode Collateral hash");
             std::string strVout = request.params[3].get_str();
-            uint32_t vout = boost::lexical_cast<uint32_t>(strVout);
+            uint32_t vout = 0;
+            if (!ParseUInt32(strVout, &vout))
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid masternode collateral output index");
             mnCollateralOutpoint = COutPoint(txid, vout);
         }
 
@@ -868,7 +908,13 @@ UniValue voteraw(const JSONRPCRequest& request)
 
     uint256 hashMnTx = ParseHashV(request.params[0], "mn tx hash");
     int nMnTxIndex = request.params[1].get_int();
-    COutPoint outpoint = COutPoint(hashMnTx, nMnTxIndex);
+    // A negative index would wrap when converted to the unsigned output index.
+    if (nMnTxIndex < 0)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Masternode transaction index must not be negative");
+    COutPoint outpoint = COutPoint(hashMnTx, (uint32_t)nMnTxIndex);
+
+    if(!g_connman)
+        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
     uint256 hashGovObj = ParseHashV(request.params[2], "Governance hash");
     std::string strVoteSignal = request.params[3].get_str();
@@ -1010,7 +1056,7 @@ static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         argNames
   //  --------------------- ------------------------  -----------------------  ----------
   { "governance",             "gobject",       &gobject,       {"command"} },
-  { "governance",             "voteraw",          &voteraw,          {} },
+  { "governance",             "voteraw",          &voteraw,          {"masternode_tx_hash","masternode_tx_index","governance_hash","vote_signal","vote_outcome","time","vote_sig"} },
   { "governance",             "getgovernanceinfo",  &getgovernanceinfo,  {} },
   { "governance",             "getsuperblockbudget",       &getsuperblockbudget,       {"index"} },
 };

@@ -208,14 +208,18 @@ static UniValue addnode(const JSONRPCRequest& request)
             "1. \"node\"     (string, required) The node (see getpeerinfo for nodes)\n"
             "2. \"command\"  (string, required) 'add' to add a node to the list, 'remove' to remove a node from the list, 'onetry' to try a connection to the node once\n"
             "\nExamples:\n"
-            + HelpExampleCli("addnode", "\"192.168.0.6:8333\" \"onetry\"")
-            + HelpExampleRpc("addnode", "\"192.168.0.6:8333\", \"onetry\"")
+            + HelpExampleCli("addnode", "\"192.168.0.6:11931\" \"onetry\"")
+            + HelpExampleRpc("addnode", "\"192.168.0.6:11931\", \"onetry\"")
         );
 
     if(!g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
     std::string strNode = request.params[0].get_str();
+
+    if (strNode.size() > MAX_ADDNODE_ADDRESS_LENGTH)
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Error: Node address too long (maximum " +
+                           std::to_string(MAX_ADDNODE_ADDRESS_LENGTH) + " characters)");
 
     if (strCommand == "onetry")
     {
@@ -226,8 +230,16 @@ static UniValue addnode(const JSONRPCRequest& request)
 
     if (strCommand == "add")
     {
-        if(!g_connman->AddNode(strNode))
-            throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: Node already added");
+        if (!g_connman->AddNode(strNode)) {
+            // AddNode() refuses duplicates and refuses to grow past the cap.
+            // Only inspect the list on failure so the common path stays cheap.
+            for (const AddedNodeInfo& info : g_connman->GetAddedNodeInfo()) {
+                if (info.strAddedNode == strNode)
+                    throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: Node already added");
+            }
+            throw JSONRPCError(RPC_CLIENT_NODE_CAPACITY_REACHED, "Error: Added node list is full (maximum " +
+                               std::to_string(MAX_ADDNODE_ENTRIES) + " entries)");
+        }
     }
     else if(strCommand == "remove")
     {
@@ -250,9 +262,9 @@ static UniValue disconnectnode(const JSONRPCRequest& request)
             "1. \"address\"     (string, optional) The IP address/port of the node\n"
             "2. \"nodeid\"      (number, optional) The node ID (see getpeerinfo for node IDs)\n"
             "\nExamples:\n"
-            + HelpExampleCli("disconnectnode", "\"192.168.0.6:8333\"")
+            + HelpExampleCli("disconnectnode", "\"192.168.0.6:11931\"")
             + HelpExampleCli("disconnectnode", "\"\" 1")
-            + HelpExampleRpc("disconnectnode", "\"192.168.0.6:8333\"")
+            + HelpExampleRpc("disconnectnode", "\"192.168.0.6:11931\"")
             + HelpExampleRpc("disconnectnode", "\"\", 1")
         );
 
@@ -297,7 +309,7 @@ static UniValue getaddednodeinfo(const JSONRPCRequest& request)
             "    \"connected\" : true|false,          (boolean) If connected\n"
             "    \"addresses\" : [                    (list of objects) Only when connected = true\n"
             "       {\n"
-            "         \"address\" : \"192.168.0.201:8333\",  (string) The bitcoin server IP and port we're connected to\n"
+            "         \"address\" : \"192.168.0.201:11931\",  (string) The Dimecoin server IP and port we're connected to\n"
             "         \"connected\" : \"outbound\"           (string) connection, inbound or outbound\n"
             "       }\n"
             "     ]\n"

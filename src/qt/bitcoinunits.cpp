@@ -43,7 +43,7 @@ QString BitcoinUnits::longName(int unit)
     {
     case DIME: return QString("DIME");
     case mDIME: return QString("mDIME");
-    case uDIME: return QString::fromUtf8("µBTC");
+    case uDIME: return QString::fromUtf8("µDIME");
     default: return QString("???");
     }
 }
@@ -99,9 +99,12 @@ QString BitcoinUnits::format(int unit, const CAmount& nIn, bool fPlus, Separator
     qint64 n = (qint64)nIn;
     qint64 coin = factor(unit);
     int num_decimals = decimals(unit);
-    qint64 n_abs = (n > 0 ? n : -n);
-    qint64 quotient = n_abs / coin;
-    qint64 remainder = n_abs % coin;
+    // Compute the magnitude in unsigned arithmetic: negating INT64_MIN is
+    // undefined behaviour in signed 64-bit.
+    quint64 n_abs = (n >= 0 ? static_cast<quint64>(n)
+                            : static_cast<quint64>(-(n + 1)) + 1);
+    quint64 quotient = n_abs / static_cast<quint64>(coin);
+    quint64 remainder = n_abs % static_cast<quint64>(coin);
     QString quotient_str = QString::number(quotient);
     QString remainder_str = QString::number(remainder).rightJustified(num_decimals, '0');
 

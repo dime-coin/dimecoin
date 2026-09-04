@@ -253,7 +253,7 @@ std::atomic_bool g_is_mempool_loaded{false};
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
 
-const std::string strMessageMagic = "Dimecoin Signed Message:\n";
+const std::string strMessageMagic = "DarkCoin Signed Message:\n";
 
 // Internal stuff
 namespace {
@@ -2277,7 +2277,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
         bool haveFoundationPayment = false;
         for (unsigned int foundationIndex = 0; foundationIndex < coinbaseTransaction->vout.size(); foundationIndex++) {
-           CAmount expectedFoundationAmount = GetFoundationPayment(pindex->nHeight, GetBlockSubsidy(pindex->nHeight, Params().GetConsensus()));
+           CAmount expectedFoundationAmount = GetFoundationPayment(pindex->nHeight, GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus()));
            CAmount actualFoundationAmount = coinbaseTransaction->vout[foundationIndex].nValue;
            bool correctAddress = coinbaseTransaction->vout[foundationIndex].scriptPubKey == GetFoundationScript();
            bool correctAmount = actualFoundationAmount >= expectedFoundationAmount;
@@ -2704,13 +2704,31 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
  * Return the tip of the chain with the most work in it, that isn't
  * known to be invalid (it's however far from certain to be valid).
  */
+/** Effective reorganization depth limit: the chain parameter unless overridden with
+ *  -maxreorgdepth. The chain parameter defaults to zero for mixed-version compatibility;
+ *  operators can explicitly enable a positive limit as a local safeguard. */
+static int GetMaxReorganizationDepth()
+{
+    static const int nDepth = gArgs.GetArg("-maxreorgdepth", Params().MaxReorganizationDepth());
+    return nDepth;
+}
+
 CBlockIndex* CChainState::FindMostWorkChain() {
+    // Candidates passed over because they would require too deep a reorganisation. They are held
+    // here rather than erased from setBlockIndexCandidates: those blocks are perfectly valid, and
+    // CheckBlockIndex() asserts that a valid block sorting at least as well as the tip is present
+    // in that set. Skipping them locally keeps the invariant intact while still refusing the reorg.
+    std::set<const CBlockIndex*> setTooDeep;
+
     do {
         CBlockIndex *pindexNew = nullptr;
 
-        // Find the best candidate header.
+        // Find the best candidate header we have not already refused.
         {
             std::set<CBlockIndex*, CBlockIndexWorkComparator>::reverse_iterator it = setBlockIndexCandidates.rbegin();
+            while (it != setBlockIndexCandidates.rend() && setTooDeep.count(*it)) {
+                ++it;
+            }
             if (it == setBlockIndexCandidates.rend())
                 return nullptr;
             pindexNew = *it;
@@ -2753,6 +2771,33 @@ CBlockIndex* CChainState::FindMostWorkChain() {
             }
             pindexTest = pindexTest->pprev;
         }
+
+        // When explicitly enabled, reject candidates that would require reorganising deeper than
+        // the configured limit. Passing over the candidate here rather than failing in
+        // ActivateBestChainStep lets the search fall through to the next-best chain, which in the
+        // worst case is the tip we are already on.
+        //
+        // Deliberately not applied during initial block download: while syncing, switching
+        // between candidate chains is routine and does not undo history this node ever treated as
+        // settled. A node returning from an outage longer than the limit is still in IBD (its tip
+        // is beyond nMaxTipAge), so it recovers normally.
+        if (!fInvalidAncestor && chainActive.Tip() && !IsInitialBlockDownload()) {
+            const int nMaxDepth = GetMaxReorganizationDepth();
+            if (nMaxDepth > 0) {
+                const CBlockIndex* pindexFork = chainActive.FindFork(pindexNew);
+                const int nDepth = pindexFork ? chainActive.Tip()->nHeight - pindexFork->nHeight
+                                              : chainActive.Tip()->nHeight + 1;
+                if (nDepth > nMaxDepth) {
+                    LogPrintf("%s: REFUSING candidate tip %s (height %d): would reorganise %d blocks, "
+                              "limit is %d. Use -maxreorgdepth=0 to disable this protection.\n",
+                              __func__, pindexNew->GetBlockHash().ToString(), pindexNew->nHeight,
+                              nDepth, nMaxDepth);
+                    setTooDeep.insert(pindexNew);
+                    continue;
+                }
+            }
+        }
+
         if (!fInvalidAncestor)
             return pindexNew;
     } while(true);
@@ -3143,7 +3188,11 @@ static void AcceptProofOfStakeBlock(const CBlock &block, CBlockIndex *pindexNew)
     pindexNew->SetStakeModifier(nStakeModifier, fGeneratedStakeModifier);
     pindexNew->nStakeModifierChecksum = GetStakeModifierChecksum(pindexNew);
     if (!IsTestnet() && !CheckStakeModifierCheckpoints(pindexNew->nHeight, pindexNew->nStakeModifierChecksum)) {
-        LogPrintf("AcceptProofOfStakeBlock() : Rejected by stake modifier checkpoint height=%d, modifier=%s \n", pindexNew->nHeight, std::to_string(nStakeModifier));
+        //! Deliberately not a rejection: the block is accepted regardless. Enforcing this
+        //  checkpoint would change a validation outcome, i.e. a consensus change. The message
+        //  used to read "Rejected by ..." and was mistaken for an actual rejection during
+        //  diagnosis, so it states plainly that nothing is enforced here.
+        LogPrintf("AcceptProofOfStakeBlock() : stake modifier checkpoint mismatch (not enforced, block accepted) height=%d, modifier=%s \n", pindexNew->nHeight, std::to_string(nStakeModifier));
     }
 
     setDirtyBlockIndex.insert(pindexNew);
@@ -3747,15 +3796,19 @@ bool ProcessNewBlockHeaders(const std::vector<CBlockHeader>& headers, CValidatio
             CBlockIndex *pindex = nullptr; // Use a temp pindex instead of ppindex to avoid a const_cast
 
             // Check for the checkpoint
-            if (header.hashPrevBlock != chainActive.Tip()->GetBlockHash())
+            const CBlockIndex* pindexTip = chainActive.Tip();
+            if (pindexTip && header.hashPrevBlock != pindexTip->GetBlockHash())
             {
                 // Extra checks to prevent "fill up memory by spamming with bogus blocks"
                 const CBlockIndex* pcheckpoint = Checkpoints::AutoSelectSyncCheckpoint();
-                int64_t deltaTime = header.GetBlockTime() - pcheckpoint->nTime;
-                if (deltaTime < 0)
+                if (pcheckpoint)
                 {
-                    return state.DoS(1, false, REJECT_INVALID, "older-than-checkpoint", false,
-                                     "ProcessNewBlockHeaders(): Block with a timestamp before last checkpoint");
+                    int64_t deltaTime = header.GetBlockTime() - pcheckpoint->nTime;
+                    if (deltaTime < 0)
+                    {
+                        return state.DoS(1, false, REJECT_INVALID, "older-than-checkpoint", false,
+                                         "ProcessNewBlockHeaders(): Block with a timestamp before last checkpoint");
+                    }
                 }
             }
 
@@ -3805,13 +3858,6 @@ bool CChainState::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CVali
 
     CBlockIndex *pindexDummy = nullptr;
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
-
-    // Get prev block index
-    CBlockIndex* pindexPrev = nullptr;
-    BlockMap::iterator mi = mapBlockIndex.find(block.hashPrevBlock);
-    if (mi == mapBlockIndex.end())
-        return state.DoS(10, error("%s: prev block not found", __func__), 0, "prev-blk-not-found");
-    pindexPrev = (*mi).second;
 
     if (!AcceptBlockHeader(block, state, chainparams, &pindex))
         return false;
@@ -4105,10 +4151,28 @@ bool static LoadBlockIndexDB(const CChainParams& chainparams)
     }
 
     // Load hashSyncCheckpoint
-    if (!pblocktree->ReadSyncCheckpoint(hashSyncCheckpoint))
+    // ReadSyncCheckpoint() leaves its out-param untouched when the key is absent, so
+    // clear it first: otherwise a value left over from an earlier load pass survives a
+    // block-database rebuild and ends up naming a CBlockIndex that no longer exists.
+    //
+    // Uncontended here (startup is single-threaded), but taken so the lock that
+    // WriteSyncCheckpoint() declares it requires is actually held on every path.
+    {
+    LOCK(cs_hashSyncCheckpoint);
+    hashSyncCheckpoint = uint256();
+    if (!pblocktree->ReadSyncCheckpoint(hashSyncCheckpoint)) {
+         hashSyncCheckpoint = uint256();
          LogPrintf("LoadBlockIndexDB(): synchronized checkpoint not read\n");
-    else
+    } else if (!hashSyncCheckpoint.IsNull() && !mapBlockIndex.count(hashSyncCheckpoint)) {
+         // Persisted checkpoint refers to a block we no longer have. Fall back to
+         // genesis so later checks cannot trip over a dangling reference.
+         LogPrintf("LoadBlockIndexDB(): synchronized checkpoint %s not found in block index, resetting to genesis\n", hashSyncCheckpoint.ToString());
+         if (!WriteSyncCheckpoint(chainparams.GetConsensus().hashGenesisBlock))
+             LogPrintf("LoadBlockIndexDB(): failed to reset synchronized checkpoint to genesis block\n");
+    } else {
          LogPrintf("LoadBlockIndexDB(): synchronized checkpoint %s\n", hashSyncCheckpoint.ToString().c_str());
+    }
+    }
 
     // Check presence of blk files
     LogPrintf("Checking all blk files are present...\n");
@@ -4489,6 +4553,11 @@ void UnloadBlockIndex()
         delete entry.second;
     }
     mapBlockIndex.clear();
+
+    // The sync-checkpoint caches hashes into mapBlockIndex; drop them alongside it or
+    // they will dangle if the index is reloaded in-process (the -reindex retry loop
+    // in AppInitMain does exactly that).
+    UnloadSyncCheckpoint();
 
     g_chainstate.UnloadBlockIndex();
 }

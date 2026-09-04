@@ -21,6 +21,27 @@
 
 #include <boost/thread.hpp>
 
+namespace {
+//! Closes a BDB cursor on every exit path, including exceptions.
+//!
+//! The scan loops below have early returns and can throw out of deserialization,
+//! and each one previously had to remember to close the cursor by hand. Leaked
+//! cursors hold BDB locker/lock-object slots for the lifetime of the environment,
+//! so a repeatedly-failing scan eventually exhausts them and the wallet stops
+//! opening entirely.
+class CursorCloser
+{
+public:
+    explicit CursorCloser(Dbc* cursor) : m_cursor(cursor) {}
+    ~CursorCloser() { if (m_cursor) m_cursor->close(); }
+    CursorCloser(const CursorCloser&) = delete;
+    CursorCloser& operator=(const CursorCloser&) = delete;
+
+private:
+    Dbc* m_cursor;
+};
+} // namespace
+
 //
 // WalletBatch
 //
@@ -83,8 +104,15 @@ bool WalletBatch::WriteCryptedKey(const CPubKey& vchPubKey,
     if (!WriteIC(std::make_pair(std::string("ckey"), vchPubKey), vchCryptedSecret, false)) {
         return false;
     }
-    EraseIC(std::make_pair(std::string("key"), vchPubKey));
-    EraseIC(std::make_pair(std::string("wkey"), vchPubKey));
+    // The results of these erases were previously discarded, so a failure left the
+    // superseded records in place while the caller was told the update had completed.
+    // Erase() treats DB_NOTFOUND as success, so an absent legacy "wkey" is not an error.
+    if (!EraseIC(std::make_pair(std::string("key"), vchPubKey))) {
+        return false;
+    }
+    if (!EraseIC(std::make_pair(std::string("wkey"), vchPubKey))) {
+        return false;
+    }
     return true;
 }
 
@@ -116,7 +144,12 @@ bool WalletBatch::EraseWatchOnly(const CScript &dest)
 
 bool WalletBatch::WriteBestBlock(const CBlockLocator& locator)
 {
-    WriteIC(std::string("bestblock"), CBlockLocator()); // Write empty block locator so versions that require a merkle branch automatically rescan
+    // Write empty block locator so versions that require a merkle branch automatically rescan.
+    // The result was previously discarded: if this write fails but the next one succeeds, an
+    // older version reading the file back sees a stale non-empty locator and skips the rescan.
+    if (!WriteIC(std::string("bestblock"), CBlockLocator())) {
+        return false;
+    }
     return WriteIC(std::string("bestblock_nomerkle"), locator);
 }
 
@@ -196,6 +229,8 @@ void WalletBatch::ListAccountCreditDebit(const std::string& strAccount, std::lis
     Dbc* pcursor = m_batch.GetCursor();
     if (!pcursor)
         throw std::runtime_error(std::string(__func__) + ": cannot create DB cursor");
+    // Closes on every exit path below, including the deserialization throws.
+    CursorCloser cursor_closer(pcursor);
     bool setRange = true;
     while (true)
     {
@@ -210,7 +245,6 @@ void WalletBatch::ListAccountCreditDebit(const std::string& strAccount, std::lis
             break;
         else if (ret != 0)
         {
-            pcursor->close();
             throw std::runtime_error(std::string(__func__) + ": error scanning DB");
         }
 
@@ -228,8 +262,6 @@ void WalletBatch::ListAccountCreditDebit(const std::string& strAccount, std::lis
         ssKey >> acentry.nEntryNo;
         entries.push_back(acentry);
     }
-
-    pcursor->close();
 }
 
 class CWalletScanState {
@@ -559,6 +591,9 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
             LogPrintf("Error getting wallet database cursor\n");
             return DBErrors::CORRUPT;
         }
+        // Closes on every exit path below, including the early CORRUPT return and any
+        // throw caught by the handlers at the end of this function.
+        CursorCloser cursor_closer(pcursor);
 
         while (true)
         {
@@ -594,7 +629,6 @@ DBErrors WalletBatch::LoadWallet(CWallet* pwallet)
             if (!strErr.empty())
                 LogPrintf("%s\n", strErr);
         }
-        pcursor->close();
     }
     catch (const boost::thread_interrupted&) {
         throw;
@@ -661,6 +695,9 @@ DBErrors WalletBatch::FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CW
             LogPrintf("Error getting wallet database cursor\n");
             return DBErrors::CORRUPT;
         }
+        // Closes on every exit path below, including the early CORRUPT return and any
+        // throw out of CWalletTx deserialization caught by the handlers below.
+        CursorCloser cursor_closer(pcursor);
 
         while (true)
         {
@@ -689,7 +726,6 @@ DBErrors WalletBatch::FindWalletTx(std::vector<uint256>& vTxHash, std::vector<CW
                 vWtx.push_back(wtx);
             }
         }
-        pcursor->close();
     }
     catch (const boost::thread_interrupted&) {
         throw;

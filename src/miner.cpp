@@ -49,7 +49,11 @@
 uint64_t nLastBlockTx = 0;
 uint64_t nLastBlockWeight = 0;
 int64_t nLastMiningActivityTime = 0;
-int64_t nLastCoinStakeSearchInterval = 0;
+std::atomic<int64_t> nLastCoinStakeSearchInterval{0};
+
+//! Search time of the previous stake round. Held at file scope because a fresh
+//! BlockAssembler is constructed for every round, so a member cannot carry it.
+static std::atomic<int64_t> nPrevCoinStakeSearchTime{0};
 
 #ifdef ENABLE_WALLET
 //! forward declaration from wallet/wallet.cpp
@@ -148,7 +152,6 @@ static BlockAssembler::Options DefaultOptions(const CChainParams& params)
 BlockAssembler::BlockAssembler(const CChainParams& params) :
     BlockAssembler(params, DefaultOptions(params))
 {
-    nLastCoinStakeSearchInterval = GetAdjustedTime();
 }
 
 void BlockAssembler::resetBlock()
@@ -222,8 +225,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
     fIncludeWitness = IsWitnessEnabled(pindexPrev, chainparams.GetConsensus()) && fMineWitnessTx;
 
     int64_t nTime1 = GetTimeMicros();
-    nLastBlockTx = nBlockTx;
-    nLastBlockWeight = nBlockWeight;
 
     // Create coinbase transaction.
     CMutableTransaction coinbaseTx;
@@ -246,9 +247,15 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
                 pblock->nTime = nTxNewTime;
                 coinbaseTx.vout[0].SetEmpty();
                 pblock->vtx.emplace_back(MakeTransactionRef(coinstakeTx));
+                pblocktemplate->vTxFees.push_back(0);
+                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx[1]));
                 fStakeFound = true;
             }
-            nLastCoinStakeSearchInterval = nSearchTime - nLastCoinStakeSearchTime;
+            const int64_t nPrevSearchTime = nPrevCoinStakeSearchTime.load();
+            if (nPrevSearchTime > 0 && nSearchTime > nPrevSearchTime) {
+                nLastCoinStakeSearchInterval = nSearchTime - nPrevSearchTime;
+            }
+            nPrevCoinStakeSearchTime = nSearchTime;
             nLastCoinStakeSearchTime = nSearchTime;
         }
         if (!fStakeFound)
@@ -265,6 +272,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(CWallet *wallet, 
         LOCK(mempool.cs);
         addPackageTxs(nPackagesSelected, nDescendantsUpdated);
     }
+
+    nLastBlockTx = nBlockTx;
+    nLastBlockWeight = nBlockWeight;
 
     coinbaseTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
     //! internal proof of work split (reward)
@@ -595,6 +605,75 @@ static bool ProcessBlockFound(const std::shared_ptr<const CBlock> &pblock, const
 }
 
 #ifdef ENABLE_WALLET
+PoSBlockGenerationResult GenerateProofOfStakeBlock(CWallet* pwallet, const CChainParams& chainparams, uint256& blockHash, std::string& error)
+{
+    std::shared_ptr<CReserveScript> coinbaseScript;
+    pwallet->GetScriptForMining(coinbaseScript);
+
+    if (!coinbaseScript || coinbaseScript->reserveScript.empty()) {
+        error = "No coinbase script available (staking requires a wallet key)";
+        return PoSBlockGenerationResult::FAILED;
+    }
+
+    CBlockIndex* pindexPrev = nullptr;
+    std::unique_ptr<CBlockTemplate> pblocktemplate;
+    try {
+        LOCK2(cs_main, pwallet->cs_wallet);
+        pindexPrev = chainActive.Tip();
+        if (!pindexPrev) {
+            error = "No active chain tip available";
+            return PoSBlockGenerationResult::FAILED;
+        }
+        pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(
+            pwallet, coinbaseScript->reserveScript, true, true);
+    } catch (const std::runtime_error& exception) {
+        error = exception.what();
+        return PoSBlockGenerationResult::FAILED;
+    }
+
+    if (!pblocktemplate) {
+        error = "No valid coinstake found at the current time";
+        return PoSBlockGenerationResult::NO_COINSTAKE;
+    }
+
+    auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
+    unsigned int nExtraNonce = 0;
+    {
+        LOCK(cs_main);
+        if (chainActive.Tip() != pindexPrev) {
+            error = "Chain tip changed while constructing proof-of-stake block";
+            return PoSBlockGenerationResult::FAILED;
+        }
+        IncrementExtraNonce(pblock.get(), pindexPrev, nExtraNonce);
+    }
+
+    if (!SignBlock(*pblock, *pwallet)) {
+        error = "Signing proof-of-stake block failed";
+        return PoSBlockGenerationResult::FAILED;
+    }
+
+    CValidationState state;
+    {
+        LOCK(cs_main);
+        if (chainActive.Tip() != pindexPrev) {
+            error = "Chain tip changed while validating proof-of-stake block";
+            return PoSBlockGenerationResult::FAILED;
+        }
+        if (!TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false)) {
+            error = strprintf("Proof-of-stake block validity check failed: %s", FormatStateMessage(state));
+            return PoSBlockGenerationResult::FAILED;
+        }
+    }
+
+    if (!ProcessBlockFound(pblock, chainparams)) {
+        error = "Proof-of-stake block was stale or was not accepted";
+        return PoSBlockGenerationResult::FAILED;
+    }
+
+    blockHash = pblock->GetHash();
+    return PoSBlockGenerationResult::BLOCK_FOUND;
+}
+
 void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWallet* pwallet, bool fProofOfStake)
 {
     LogPrintf("bitcoinminer -- started\n");
@@ -727,7 +806,7 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
                 // Check for stop or if block needs to be rebuilt
                 boost::this_thread::interruption_point();
                 // Regtest mode doesn't require peers
-                if (connman.GetNodeCount(CConnman::CONNECTIONS_ALL) == 0)
+                if (connman.GetNodeCount(CConnman::CONNECTIONS_ALL) == 0 && chainparams.MiningRequiresPeers())
                     break;
                 if (pblock->nNonce >= 0xffff0000)
                     break;
@@ -772,9 +851,16 @@ void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainpar
     if (nThreads == 0 || !fGenerate)
         return;
 
+    auto vpwalletsMine = GetWallets();
+    CWallet* const pwalletMine = vpwalletsMine.empty() ? nullptr : vpwalletsMine.front();
+    if (!pwalletMine) {
+        LogPrintf("GenerateDimecoins: no wallet loaded, not starting miner threads\n");
+        return;
+    }
+
     minerThreads = new boost::thread_group();
     for (int i = 0; i < nThreads; i++)
-        minerThreads->create_thread(boost::bind(&BitcoinMiner, boost::cref(chainparams), boost::ref(connman), GetWallets().front(), false));
+        minerThreads->create_thread(boost::bind(&BitcoinMiner, boost::cref(chainparams), boost::ref(connman), pwalletMine, false));
 }
 
 void ThreadStakeMinter(const CChainParams &chainparams, CConnman &connman, CWallet *pwallet)

@@ -1,0 +1,51 @@
+Fix build with modern mingw-w64 headers (redefinition of tagTOUCHINPUT)
+
+Qt 5.9.6 guards its fallback TOUCHINPUT declarations with
+
+    #if defined(Q_CC_MINGW) || !defined(TOUCHEVENTF_MOVE)
+
+The Q_CC_MINGW term makes the fallback unconditional for every MinGW build.
+That was correct when the comment above it was written, because mingw-w64 did
+not yet declare the Windows 7 touch API. Current mingw-w64 does declare
+tagTOUCHINPUT, TOUCHINPUT, PTOUCHINPUT and the TOUCHEVENTF_* constants in
+winuser.h, so the fallback now collides with the system header and the windows
+platform plugin fails to compile:
+
+    qwindowsmousehandler.cpp:65:16: error: redefinition of 'struct tagTOUCHINPUT'
+    /usr/share/mingw-w64/include/winuser.h:2773:18: note: previous definition
+    qwindowsmousehandler.cpp:76:3: error: conflicting declaration 'typedef int TOUCHINPUT'
+    qwindowsmousehandler.cpp:76:16: error: conflicting declaration 'typedef int* PTOUCHINPUT'
+
+Dropping the Q_CC_MINGW term restores the intended meaning of the guard:
+declare the fallback only when the toolchain headers do not already provide it.
+Older mingw-w64 versions that lack TOUCHEVENTF_MOVE still take the fallback
+branch and are unaffected, so this does not regress toolchains that build today.
+
+This is upstream's own fix rather than a local invention. Qt 5.10.0 -- the
+release immediately after 5.9.6 -- ships exactly the guard below, and Qt 5.12
+removed the fallback block altogether.
+
+Build-time only: this file is part of the Qt windows platform plugin and is not
+Dimecoin source. No consensus, wire-format, on-disk or runtime node behaviour is
+affected.
+
+--- old/qtbase/src/plugins/platforms/windows/qwindowsmousehandler.cpp
++++ new/qtbase/src/plugins/platforms/windows/qwindowsmousehandler.cpp
+@@ -60,7 +60,7 @@
+  * are present in the Windows SDK's, but not in older MSVC Express
+  * versions. */
+ 
+-#if defined(Q_CC_MINGW) || !defined(TOUCHEVENTF_MOVE)
++#if !defined(TOUCHEVENTF_MOVE)
+ 
+ typedef struct tagTOUCHINPUT {
+     LONG x;
+@@ -85,7 +85,7 @@
+ #  define TOUCHEVENTF_PALM 0x0080
+ #  define TOUCHINPUTMASKF_CONTACTAREA 0x0004
+ #  define TOUCHINPUTMASKF_EXTRAINFO 0x0002
+-#endif // if defined(Q_CC_MINGW) || !defined(TOUCHEVENTF_MOVE)
++#endif // if !defined(TOUCHEVENTF_MOVE)
+ 
+ QT_BEGIN_NAMESPACE
+ 

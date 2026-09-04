@@ -97,6 +97,32 @@ Once the source code is ready the build steps are below.
     CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/
     make
 
+### Reusing a build tree
+
+If this source tree has already been built for another target -- most commonly a
+native Linux build done first to check the code compiles -- you **must** clean it
+before cross-compiling:
+
+    make distclean
+
+Object files are not tagged with the target they were built for, and `make`
+only rebuilds a `.o` file when it is older than its source. Objects left over
+from a native build therefore survive a reconfigure and are handed to the
+Windows linker, which silently ignores them because they are the wrong binary
+format. The failure surfaces much later as undefined references, typically in
+`leveldb`:
+
+    undefined reference to `leveldb::Env::~Env()'
+
+That error points at the wrong place. It means the tree is dirty, not that
+anything is wrong with the source.
+
+`make distclean` does not touch `depends/`, so an already-built depends tree is
+preserved and does not need to be rebuilt. Alternatively, build each target in
+its own tree and keep both:
+
+    git worktree add --detach ../dimecoin-win HEAD
+
 ## Building for 32-bit Windows
 
 To build executables for Windows 32-bit, install the following dependencies:
@@ -124,6 +150,8 @@ Then build using:
     ./autogen.sh # not required when building from tarball
     CONFIG_SITE=$PWD/depends/i686-w64-mingw32/share/config.site ./configure --prefix=/
     make
+
+The [Reusing a build tree](#reusing-a-build-tree) note above applies here too.
 
 ## Depends system
 

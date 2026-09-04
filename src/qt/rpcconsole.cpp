@@ -209,7 +209,7 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
     };
 
     std::string strCommandTerminated = strCommand;
-    if (strCommandTerminated.back() != '\n')
+    if (strCommandTerminated.empty() || strCommandTerminated.back() != '\n')
         strCommandTerminated += "\n";
     for (chpos = 0; chpos < strCommandTerminated.size(); ++chpos)
     {
@@ -312,7 +312,9 @@ bool RPCConsole::RPCParseCommandLine(interfaces::Node* node, std::string &strRes
                     }
                     if ((ch == ')' || ch == '\n') && stack.size() > 0)
                     {
-                        if (fExecute) {
+                        // stack.back() is empty for whitespace-only input; there
+                        // is no method name to dispatch in that case.
+                        if (fExecute && !stack.back().empty()) {
                             // Convert argument list to JSON objects in method-dependent way,
                             // and pass it along with the method name to the dispatcher.
                             UniValue params = RPCConvertValues(stack.back()[0], std::vector<std::string>(stack.back().begin() + 1, stack.back().end()));

@@ -39,7 +39,7 @@ SplashScreen::SplashScreen(interfaces::Node& node, Qt::WindowFlags f, const Netw
     QString font = QApplication::font().toString();
 
     // define text to place
-    QString copyrightText = QChar(0xA9) + QString("2023") + QString(tr(" Dimecoin Network LLC"));
+    QString copyrightText = QChar(0xA9) + QString("2026") + QString(tr(" Dimecoin Network LLC"));
     QString titleAddText = networkStyle->getTitleAddText();
 
     // create a bitmap according to device pixelratio
@@ -98,7 +98,9 @@ SplashScreen::~SplashScreen()
 bool SplashScreen::eventFilter(QObject * obj, QEvent * ev) {
     if (ev->type() == QEvent::KeyPress) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(ev);
-        if(keyEvent->text()[0] == 'q') {
+        // text() is empty for modifier-only key presses, so indexing it
+        // directly is out of range.
+        if (keyEvent->text().startsWith(QLatin1Char('q'))) {
             m_node.startShutdown();
         }
     }

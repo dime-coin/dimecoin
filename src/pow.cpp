@@ -139,6 +139,15 @@ unsigned int GetNextWorkRequiredDual(const CBlockIndex* pindexLast, const Consen
     if(fProofOfStake)
         bnTargetLimit = UintToArith256(consensusParams.posLimit);
 
+    // Regression-test chains pin difficulty at the limit so blocks can be produced on
+    // demand. The check belongs here rather than in GetNextWorkRequired() because
+    // ContextualCheckBlockHeader() calls this function directly whenever
+    // fullSplitDiffHeight is 0; guarding only the caller would leave the miner and the
+    // validator computing different targets. fPowNoRetargeting is false on mainnet and
+    // testnet, so this branch is unreachable there.
+    if (consensusParams.fPowNoRetargeting)
+        return bnTargetLimit.GetCompact();
+
     if (pindexLast == nullptr)
         return bnTargetLimit.GetCompact();
 

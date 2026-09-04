@@ -20,7 +20,7 @@ class CNetFulfilledRequestManager
 {
 private:
     typedef std::map<std::string, int64_t> fulfilledreqmapentry_t;
-    typedef std::map<CNetAddr, fulfilledreqmapentry_t> fulfilledreqmap_t;
+    typedef std::map<CService, fulfilledreqmapentry_t> fulfilledreqmap_t;
 
     //keep track of what node has/was asked for and when
     fulfilledreqmap_t mapFulfilledRequests;

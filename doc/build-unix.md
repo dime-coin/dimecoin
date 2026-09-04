@@ -72,19 +72,38 @@ Build requirements:
 
     sudo apt-get install build-essential libtool autotools-dev automake pkg-config libssl-dev libevent-dev bsdmainutils python3 libboost-system-dev libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev
 
-BerkeleyDB is required for the wallet.
+Boost 1.60 or newer is required, because the source uses the qualified
+`boost::placeholders::` namespace which older Boost releases do not provide.
+Ubuntu 18.04 and newer satisfy this from the distribution packages. Ubuntu 16.04
+ships Boost 1.58, which is too old: either build against the `depends` tree (see
+[depends/README.md](../depends/README.md)) or install a newer Boost by hand.
 
-**For Ubuntu only:** db4.8 packages are available [here](https://launchpad.net/~bitcoin/+archive/bitcoin).
-You can add the repository and install using the following commands:
+BerkeleyDB 4.8 is required for the wallet, because it is what the distributed
+executables are built against. Newer BerkeleyDB releases break binary wallet
+compatibility.
+
+The portable way to obtain it, and the only way that works on Ubuntu 22.04 and
+newer, is to build it from source using the bundled script:
+
+    ./contrib/install_db4.sh `pwd`
+
+Then point configure at the resulting prefix:
+
+    export BDB_PREFIX="${PWD}/db4"
+    ./configure BDB_LIBS="-L${BDB_PREFIX}/lib -ldb_cxx-4.8" BDB_CFLAGS="-I${BDB_PREFIX}/include"
+
+**Legacy alternative, Ubuntu 20.04 and older only:** prebuilt db4.8 packages are
+available from the [bitcoin PPA](https://launchpad.net/~bitcoin/+archive/bitcoin).
+That PPA publishes nothing for Ubuntu 22.04 or newer, so on those releases use the
+script above instead.
 
     sudo apt-get install software-properties-common
     sudo add-apt-repository ppa:bitcoin/bitcoin
     sudo apt-get update
     sudo apt-get install libdb4.8-dev libdb4.8++-dev
 
-Ubuntu and Debian have their own libdb-dev and libdb++-dev packages, but these will install
-BerkeleyDB 5.1 or later, which break binary wallet compatibility with the distributed executables which
-are based on BerkeleyDB 4.8. If you do not care about wallet compatibility,
+Ubuntu and Debian also ship their own libdb-dev and libdb++-dev packages, but these
+install BerkeleyDB 5.1 or later. If you do not care about wallet compatibility,
 pass `--with-incompatible-bdb` to configure.
 
 See the section "Disable-wallet mode" to build Dimecoin Core without wallet.

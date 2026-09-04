@@ -30,9 +30,21 @@ class ReindexTest(BitcoinTestFramework):
         wait_until(lambda: self.nodes[0].getblockcount() == blockcount)
         self.log.info("Success")
 
+    def reindex_isolated(self):
+        self.nodes[0].generate(6)
+        best_hash = self.nodes[0].getbestblockhash()
+        best_height = self.nodes[0].getblockcount()
+        self.stop_nodes()
+        self.start_nodes([["-connect=0", "-reindex"]])
+        wait_until(lambda: self.nodes[0].getblockcount() == best_height)
+        assert self.nodes[0].getbestblockhash() == best_hash
+        assert self.nodes[0].verifychain(4, 0) is True
+        self.log.info("Isolated reindex restored best block %s at height %d", best_hash, best_height)
+
     def run_test(self):
         self.reindex(False)
         self.reindex(True)
+        self.reindex_isolated()
         self.reindex(False)
         self.reindex(True)
 
