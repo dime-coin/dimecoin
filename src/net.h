@@ -78,7 +78,7 @@ static const bool DEFAULT_UPNP = false;
 static const size_t MAPASKFOR_MAX_SZ = MAX_INV_SZ;
 /** The maximum number of entries in setAskFor (larger due to getdata latency)*/
 static const size_t SETASKFOR_MAX_SZ = 2 * MAX_INV_SZ;
-/** The maximum number of entries in mapRelayDash. The only inserters are
+/** The maximum number of entries in mapRelayDime. The only inserters are
  *  masternode-only PrivateSend collateral-fee relays (see
  *  privatesend-server.cpp), which are throttled by PrivateSend's own session
  *  and fee cadence. The map already has a 15-minute time-based sweep, but the
@@ -86,7 +86,7 @@ static const size_t SETASKFOR_MAX_SZ = 2 * MAX_INV_SZ;
  *  arbitrarily between sweeps. This cap is defence-in-depth: it bounds worst
  *  case memory to a few MB and is well above the realistic in-flight
  *  collateral working set. */
-static const size_t MAX_RELAY_DASH_ENTRIES = 5000;
+static const size_t MAX_RELAY_DIME_ENTRIES = 5000;
 /** The maximum number of peer connections to maintain. */
 static const unsigned int DEFAULT_MAX_PEER_CONNECTIONS = 125;
 /** The default for -maxuploadtarget. 0 = Unlimited */
@@ -616,9 +616,9 @@ extern bool fDiscover;
 extern bool fListen;
 extern bool fRelayTxes;
 
-extern std::map<CInv, CDataStream> mapRelayDash;
-extern std::deque<std::pair<int64_t, CInv> > vRelayExpirationDash;
-extern CCriticalSection cs_mapRelayDash;
+extern std::map<CInv, CDataStream> mapRelayDime;
+extern std::deque<std::pair<int64_t, CInv> > vRelayExpirationDime;
+extern CCriticalSection cs_mapRelayDime;
 extern limitedmap<uint256, int64_t> mapAlreadyAskedFor;
 
 /** Subversion as sent to the P2P network in `version` messages */
@@ -813,7 +813,7 @@ public:
     std::set<uint256> setAskFor;
     std::multimap<int64_t, CInv> mapAskFor;
     int64_t nNextInvSend;
-    int64_t nNextInvSendDash;
+    int64_t nNextInvSendDime;
 
     //
     // Used for headers announcements - unfiltered blocks to relay
