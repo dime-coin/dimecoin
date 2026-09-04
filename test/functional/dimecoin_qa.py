@@ -1,27 +1,36 @@
 #!/usr/bin/env python3
 """
-Dimecoin QA Suite - single-entry functional, security and performance harness.
+Dimecoin QA Suite - portable functional, security, performance and unit-test
+harness.
 
-Runs a broad battery of checks against a throwaway Dimecoin daemon and emits a
-self-contained HTML report.
+Runs a broad battery of checks against an isolated Dimecoin daemon and writes a
+self-contained HTML report. The source tree is detected from this script's
+location, so a normal run requires no checkout-specific path and can be started
+from any working directory. Use --srcdir only to test a different built source
+tree. The selected tree must contain src/dimecoind and src/dimecoin-cli.
 
 SAFETY
 ------
-This script refuses to run against mainnet. It verifies the target chain is
-regtest or testnet before every destructive operation, uses its own datadir and
-its own ports, and never touches a datadir it did not create.
+Only regtest and testnet are accepted. The suite creates a dedicated datadir,
+refuses to reuse an existing one, uses dedicated P2P and RPC ports, and aborts
+if the started node reports that it is on mainnet. The datadir is removed on
+exit unless --keep-datadir is specified.
 
 Tests are driven through dimecoin-cli rather than raw JSON-RPC on purpose: the
 CLI argument-conversion table is a real source of defects that a JSON-RPC-only
-test cannot observe.
+test cannot observe. The C++ unit-test tier is also included when its binary is
+available; use --skip-unit to omit it.
 
-Usage:
-    python3 dimecoin_qa.py --srcdir ~/dime253
-    python3 dimecoin_qa.py --srcdir ~/dime253 --categories wallet,staking
-    python3 dimecoin_qa.py --srcdir ~/dime253 --report ~/my-reports/
+Usage from the repository root:
+    python3 test/functional/dimecoin_qa.py
+    python3 test/functional/dimecoin_qa.py --categories wallet,staking
+    python3 test/functional/dimecoin_qa.py --chain testnet --keep-datadir
+    python3 test/functional/dimecoin_qa.py --report ~/my-reports/
 
-Reports are timestamped and written to <srcdir>/test/qa-reports/ by default.
-That directory is listed in .gitignore, so run artifacts are never committed.
+Use --srcdir /path/to/another/dimecoin to test a different checkout. Reports
+are timestamped and written to <srcdir>/test/qa-reports/ by default. That
+directory is listed in .gitignore; if it is not writable, the suite falls back
+to a report directory under the user's home directory.
 """
 
 import argparse
