@@ -1669,6 +1669,11 @@ static bool UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex *pindex)
     return true;
 }
 
+bool ReadBlockUndo(const CBlockIndex* pindex, CBlockUndo& blockundo)
+{
+    return UndoReadFromDisk(blockundo, pindex);
+}
+
 /** Abort with a message */
 static bool AbortNode(const std::string& strMessage, const std::string& userMessage="")
 {

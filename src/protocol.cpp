@@ -43,6 +43,12 @@ const char *CMPCTBLOCK="cmpctblock";
 const char *GETBLOCKTXN="getblocktxn";
 const char *BLOCKTXN="blocktxn";
 const char *CHECKPOINT="checkpoint";
+const char *GETCFILTERS="getcfilters";
+const char *CFILTER="cfilter";
+const char *GETCFHEADERS="getcfheaders";
+const char *CFHEADERS="cfheaders";
+const char *GETCFCHECKPT="getcfcheckpt";
+const char *CFCHECKPT="cfcheckpt";
 
 // Dimecoin message types
 const char *TXLOCKREQUEST="ix";
@@ -122,7 +128,13 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::MNGOVERNANCEOBJECT,
     NetMsgType::MNGOVERNANCEOBJECTVOTE,
     NetMsgType::MNVERIFY,
-    NetMsgType::CHECKPOINT
+    NetMsgType::CHECKPOINT,
+    NetMsgType::GETCFILTERS,
+    NetMsgType::CFILTER,
+    NetMsgType::GETCFHEADERS,
+    NetMsgType::CFHEADERS,
+    NetMsgType::GETCFCHECKPT,
+    NetMsgType::CFCHECKPT
 };
 const static std::vector<std::string> allNetMessageTypesVec(allNetMessageTypes, allNetMessageTypes+ARRAYLEN(allNetMessageTypes));
 
