@@ -940,7 +940,10 @@ void CInstantSend::SyncTransaction(const CTransactionRef &tx, const CBlockIndex 
         if(itOrphanVote->second.GetTxHash() == txHash) {
             LogPrint(BCLog::INSTANTSEND, "CInstantSend::SyncTransaction -- txid=%s nHeightNew=%d vote %s updated\n",
                     txHash.ToString(), nHeightNew, itOrphanVote->first.ToString());
-            mapTxLockVotes[itOrphanVote->first].SetConfirmedHeight(nHeightNew);
+            auto itVote = mapTxLockVotes.find(itOrphanVote->first);
+            if (itVote != mapTxLockVotes.end()) {
+                itVote->second.SetConfirmedHeight(nHeightNew);
+            }
         }
         ++itOrphanVote;
     }

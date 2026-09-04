@@ -1445,7 +1445,9 @@ void CMasternodeMan::UpdateMasternodeList(CMasternodeBroadcast mnb, CConnman& co
             masternodeSync.BumpAssetLastTime("CMasternodeMan::UpdateMasternodeList - new");
         }
     } else {
-        CMasternodeBroadcast mnbOld = mapSeenMasternodeBroadcast[CMasternodeBroadcast(*pmn).GetHash()].second;
+        uint256 hashOld = CMasternodeBroadcast(*pmn).GetHash();
+        auto itOld = mapSeenMasternodeBroadcast.find(hashOld);
+        CMasternodeBroadcast mnbOld = (itOld != mapSeenMasternodeBroadcast.end()) ? itOld->second.second : CMasternodeBroadcast();
         if(pmn->UpdateFromNewBroadcast(mnb, connman)) {
             masternodeSync.BumpAssetLastTime("CMasternodeMan::UpdateMasternodeList - seen");
             mapSeenMasternodeBroadcast.erase(mnbOld.GetHash());
@@ -1529,7 +1531,9 @@ bool CMasternodeMan::CheckMnbAndUpdateMasternodeList(CNode* pfrom, CMasternodeBr
         // search Masternode list
         CMasternode* pmn = Find(mnb.vin.prevout);
         if(pmn) {
-            CMasternodeBroadcast mnbOld = mapSeenMasternodeBroadcast[CMasternodeBroadcast(*pmn).GetHash()].second;
+            uint256 hashOld = CMasternodeBroadcast(*pmn).GetHash();
+            auto itOld = mapSeenMasternodeBroadcast.find(hashOld);
+            CMasternodeBroadcast mnbOld = (itOld != mapSeenMasternodeBroadcast.end()) ? itOld->second.second : CMasternodeBroadcast();
             if(!mnb.Update(pmn, nDos, connman)) {
                 LogPrint(BCLog::MASTERNODE, "CMasternodeMan::CheckMnbAndUpdateMasternodeList -- Update() failed, masternode=%s\n", mnb.vin.prevout.ToString());
                 return false;
