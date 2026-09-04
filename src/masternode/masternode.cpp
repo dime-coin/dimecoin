@@ -552,6 +552,7 @@ bool CMasternodeBroadcast::Update(CMasternode* pmn, int& nDos, CConnman& connman
 
 bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
 {
+    int nHeight = 0;
     // we are a masternode with the same vin (i.e. already activated) and this mnb is ours (matches our Masternode privkey)
     // so nothing to do here for us
     if(fMasterNode && vin.prevout == activeMasternode.outpoint && pubKeyMasternode == activeMasternode.pubKeyMasternode) {
@@ -572,7 +573,6 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
             return false;
         }
 
-        int nHeight;
         CollateralStatus err = CheckCollateral(vin.prevout, nHeight);
         if (err == COLLATERAL_UTXO_NOT_FOUND) {
             LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Failed to find Masternode UTXO, masternode=%s\n", vin.prevout.ToStringShort());
@@ -605,27 +605,21 @@ bool CMasternodeBroadcast::CheckOutpoint(int& nDos)
         return false;
     }
 
-    // verify that sig time is legit in past
-    // should be at least not earlier than block when masternode collateral tx got nMasternodeMinimumConfirmations
-    uint256 hashBlock = uint256();
-    CTransactionRef tx2;
-    GetTransaction(vin.prevout.hash, tx2, Params().GetConsensus(), hashBlock);
+    // Verify that sigTime is legitimate (not in the future relative to collateral maturity).
+    // The collateral height is already known from CheckCollateral() above (nHeight), so derive the
+    // confirmation block from chainActive instead of an extra txindex-dependent GetTransaction.
     {
         LOCK(cs_main);
-        BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
-        if (mi != mapBlockIndex.end() && (*mi).second) {
-            CBlockIndex* pMNIndex = (*mi).second; // block for masternode collateral tx -> 1 confirmation
-            CBlockIndex* pConfIndex = chainActive[pMNIndex->nHeight + Params().GetConsensus().nMasternodeMinimumConfirmations - 1]; // block where tx got nMasternodeMinimumConfirmations
-            if (!pConfIndex) {
-                // Not enough confirmations yet or pMNIndex sits on a stale branch; let this mnb be re-checked later.
-                LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Collateral not yet mature on active chain for masternode=%s\n", vin.prevout.ToStringShort());
-                return false;
-            }
-            if(pConfIndex->GetBlockTime() > sigTime) {
-                LogPrintf("CMasternodeBroadcast::CheckOutpoint -- Bad sigTime %d (%d conf block is at %d) for Masternode %s %s\n",
-                          sigTime, Params().GetConsensus().nMasternodeMinimumConfirmations, pConfIndex->GetBlockTime(), vin.prevout.ToStringShort(), addr.ToString());
-                return false;
-            }
+        CBlockIndex* pConfIndex = chainActive[nHeight + Params().GetConsensus().nMasternodeMinimumConfirmations - 1]; // block where tx got nMasternodeMinimumConfirmations
+        if (!pConfIndex) {
+            // Should not happen: confirmations were already verified above. Skip the sigTime
+            // check rather than rejecting, so local sync/txindex state cannot cause inconsistent
+            // masternode admission between nodes.
+            LogPrint(BCLog::MASTERNODE, "CMasternodeBroadcast::CheckOutpoint -- Collateral confirmation block unavailable for masternode=%s\n", vin.prevout.ToStringShort());
+        } else if (pConfIndex->GetBlockTime() > sigTime) {
+            LogPrintf("CMasternodeBroadcast::CheckOutpoint -- Bad sigTime %d (%d conf block is at %d) for Masternode %s %s\n",
+                      sigTime, Params().GetConsensus().nMasternodeMinimumConfirmations, pConfIndex->GetBlockTime(), vin.prevout.ToStringShort(), addr.ToString());
+            return false;
         }
     }
 
