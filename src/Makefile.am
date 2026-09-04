@@ -247,6 +247,7 @@ libdimecoin_server_a_SOURCES = \
   bloom.cpp \
   blocksigner.cpp \
   blockencodings.cpp \
+  blockfilter.cpp \
   chain.cpp \
   checkpoints.cpp \
   checkpointsync.cpp \
