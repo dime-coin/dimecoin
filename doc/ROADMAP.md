@@ -185,8 +185,8 @@ Each active roadmap item should have a focused GitHub issue or discussion that i
 
 Broad proposals should begin in GitHub Discussions. Implementable, bounded tasks should move into Issues. Consensus changes should not begin as large implementation pull requests without an agreed design and test strategy.
 
-Contributor-friendly documentation, tests, build fixes, and isolated cleanups may be marked `good first issue`. Consensus, cryptography, wallet-security, and monetary-policy changes require experienced review and should not be labelled as introductory work merely because the code change appears small.
+Contributor friendly documentation, tests, build fixes, and isolated cleanups may be marked `good first issue`. Consensus, cryptography, wallet-security, and monetary-policy changes require experienced review and should not be labelled as introductory work merely because the code change appears small.
 
 ## Roadmap maintenance
 
-This document should be reviewed after each stable Core release and whenever the maintainers accept, reject, or materially rescope a major proposal. Release milestones and linked issues are the authoritative source for work currently in progress; this roadmap provides the longer-term direction.
+This document should be reviewed after each stable Core release and whenever the maintainers accept, reject, or materially rescope a major proposal. Release milestones and linked issues are the authoritative source for work currently in progress; this roadmap provides the longer term direction and only serves as general guideline to the direction the maintainers are working. Roadmap and direction is subject to change.
